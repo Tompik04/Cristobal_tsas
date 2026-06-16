@@ -1,101 +1,45 @@
-/* ============================================================
-   APP — router, estado global y header
-   ============================================================ */
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRISTOBAL</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- Pantalla de login -->
+  <div id="login" class="login-screen">
+    <div class="login-box">
+      <div class="login-logo" id="loginLogo"></div>
+      <h1 class="login-title">CRISTOBAL</h1>
+      <p class="login-sub">Ingresá tu PIN</p>
+      <div class="pin-dots" id="pinDots">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <div class="pin-pad" id="pinPad"></div>
+      <p class="login-error" id="loginError"></p>
+    </div>
+  </div>
 
-const State = {
-  stock: [],          // todo el stock cargado
-  carrito: [],        // líneas agregadas { codigo, marca, talle, color, oferta, cantidad, precio }
-  vistaActual: "home",
-};
+  <!-- App (oculta hasta login) -->
+  <div id="app" class="app hidden">
+    <header id="appHeader" class="app-header"></header>
+    <main id="view" class="view"></main>
+    <div id="modalRoot"></div>
+  </div>
 
-const Router = {
-  vistas: {
-    home: renderHome,
-    ventas: renderVentasCategorias,
-    stock: renderStock,
-    cambios: renderCambios,
-    vouchers: renderVouchers,
-  },
-
-  ir(vista, params = {}) {
-    State.vistaActual = vista;
-    const viewEl = document.getElementById("view");
-    const headerEl = document.getElementById("appHeader");
-
-    // La home no lleva header
-    if (vista === "home") {
-      headerEl.innerHTML = "";
-      headerEl.style.display = "none";
-    } else {
-      headerEl.style.display = "flex";
-      headerEl.innerHTML = headerHTML(vista);
-      bindHeader();
-    }
-
-    const fn = this.vistas[vista];
-    viewEl.innerHTML = "";
-    if (fn) fn(viewEl, params);
-    window.scrollTo(0, 0);
-  },
-};
-
-function headerHTML(actual) {
-  const links = [
-    { id: "ventas", label: "VENTAS" },
-    { id: "stock", label: "STOCK" },
-    { id: "cambios", label: "CAMBIOS" },
-    { id: "vouchers", label: "VOUCHERS" },
-  ];
-  const nav = links
-    .map((l) =>
-      l.id === actual
-        ? `<a class="current">${l.label}</a>`
-        : `<a data-nav="${l.id}">${l.label}</a>`
-    )
-    .join("");
-  return `
-    <button class="h-home" id="hHome" aria-label="Inicio"><i class="ti ti-home"></i></button>
-    <nav class="h-nav">${nav}</nav>
-    <div class="h-logo">${LOGO_SVG}</div>
-  `;
-}
-
-function bindHeader() {
-  const home = document.getElementById("hHome");
-  if (home) home.onclick = () => Router.ir("home");
-  document.querySelectorAll("[data-nav]").forEach((a) => {
-    a.onclick = () => Router.ir(a.dataset.nav);
-  });
-}
-
-// Toast simple
-function toast(msg) {
-  const t = document.createElement("div");
-  t.className = "toast";
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2200);
-}
-
-// Cierra cualquier modal/drawer abierto
-function cerrarModal() {
-  document.getElementById("modalRoot").innerHTML = "";
-}
-
-// ---- Arranque ----
-async function iniciarApp() {
-  document.getElementById("app").classList.remove("hidden");
-  // Precarga del stock
-  const res = await API.getStock();
-  if (res.ok) State.stock = res.stock;
-  Router.ir("home");
-}
-
-window.addEventListener("DOMContentLoaded", () => {
-  if (Auth.sesionActiva()) {
-    document.getElementById("login").classList.add("hidden");
-    iniciarApp();
-  } else {
-    initLogin(iniciarApp);
-  }
-});
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/views/home.js"></script>
+  <script src="js/views/ventas.js"></script>
+  <script src="js/views/stock.js"></script>
+  <script src="js/views/cambios.js"></script>
+  <script src="js/views/vouchers.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

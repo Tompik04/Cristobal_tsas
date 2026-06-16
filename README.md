@@ -1,79 +1,45 @@
-/* ============================================================
-   API — comunicación con Google Apps Script
-   ============================================================
-   En MODO_PRUEBA devuelve datos de ejemplo en memoria.
-   Con APPS_SCRIPT_URL configurada, hace fetch real al Web App.
-   ============================================================ */
+# CRISTOBAL — Sistema de gestión
 
-// ---- Datos de ejemplo (reflejan la pestaña Stock del Excel) ----
-const STOCK_DEMO = [
-  { codigo: "FOW0101", categoria: "Remeras", marca: "Fort Worth", talle: "S", color: "Verde", precio: 18500, cantidad: 3 },
-  { codigo: "FOW0101", categoria: "Remeras", marca: "Fort Worth", talle: "M", color: "Verde", precio: 18500, cantidad: 5 },
-  { codigo: "FOW0101", categoria: "Remeras", marca: "Fort Worth", talle: "L", color: "Verde", precio: 18500, cantidad: 0 },
-  { codigo: "FOW0101", categoria: "Remeras", marca: "Fort Worth", talle: "M", color: "Negro", precio: 18500, cantidad: 2 },
-  { codigo: "FOW0101", categoria: "Remeras", marca: "Fort Worth", talle: "L", color: "Negro", precio: 18500, cantidad: 4 },
-  { codigo: "FOW0102", categoria: "Remeras", marca: "Fort Worth", talle: "M", color: "Blanco", precio: 17000, cantidad: 8 },
-  { codigo: "FOW0102", categoria: "Remeras", marca: "Fort Worth", talle: "L", color: "Blanco", precio: 17000, cantidad: 3 },
-  { codigo: "FOW0201", categoria: "Buzos", marca: "Fort Worth", talle: "M", color: "Gris", precio: 42000, cantidad: 6 },
-  { codigo: "FOW0201", categoria: "Buzos", marca: "Fort Worth", talle: "L", color: "Gris", precio: 42000, cantidad: 4 },
-  { codigo: "KEV0601", categoria: "Jeans", marca: "Kevingston", talle: "38", color: "Azul", precio: 55000, cantidad: 2 },
-  { codigo: "KEV0601", categoria: "Jeans", marca: "Kevingston", talle: "40", color: "Azul", precio: 55000, cantidad: 3 },
-];
+App de gestión interna para el local (ventas, stock, cambios, vouchers).
+SPA en JavaScript puro, pensada para GitHub Pages + Google Apps Script.
 
-const API = {
-  async _post(action, payload) {
-    if (CONFIG.MODO_PRUEBA || !CONFIG.APPS_SCRIPT_URL) {
-      return this._mock(action, payload);
-    }
-    const res = await fetch(CONFIG.APPS_SCRIPT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action, ...payload }),
-    });
-    return res.json();
-  },
+## Estructura
 
-  // Validación de PIN
-  async login(pin) {
-    if (CONFIG.MODO_PRUEBA || !CONFIG.APPS_SCRIPT_URL) {
-      return { ok: pin === CONFIG.PIN_PRUEBA };
-    }
-    return this._post("login", { pin });
-  },
+```
+index.html          → arranca la app
+css/styles.css       → paleta (Evergreen/Pale Oak), Cinzel, estilos
+js/
+  config.js          → CONFIG: pegá acá la URL del Apps Script
+  api.js             → comunicación con Sheets (+ datos de ejemplo)
+  auth.js            → login con PIN + sesión
+  app.js             → router, estado global, header
+  views/
+    home.js          → home (4 botones)
+    ventas.js        → categorías → lista → venta única / carrito
+    stock.js         → (en construcción)
+    cambios.js       → (en construcción)
+    vouchers.js      → (en construcción)
+img/                 → imágenes de prendas y categorías
+```
 
-  // Trae todo el stock
-  async getStock() {
-    return this._post("getStock", {});
-  },
+## Estado actual
 
-  // Registra una venta (o varias líneas del carrito)
-  async registrarVenta(lineas, metodoPago) {
-    return this._post("registrarVenta", { lineas, metodoPago });
-  },
+Funciona en **MODO_PRUEBA**: usa datos de ejemplo y el PIN `1234`.
+Probá: login → home → Ventas → Remeras → venta única o carrito.
 
-  // ---- MOCK en memoria ----
-  _mock(action, payload) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        if (action === "getStock") {
-          resolve({ ok: true, stock: JSON.parse(JSON.stringify(STOCK_DEMO)) });
-        } else if (action === "registrarVenta") {
-          resolve({ ok: true, idVenta: "V-DEMO-" + Date.now() });
-        } else {
-          resolve({ ok: true });
-        }
-      }, 200);
-    });
-  },
-};
+## Para conectar a Google Sheets
 
-// Helpers de dominio
-function categoriaDeCodigo(codigo) {
-  const num = codigo.substring(3, 5);
-  const cat = CATEGORIAS.find((c) => c.num === num);
-  return cat ? cat.nombre : "—";
-}
+1. En `js/config.js`, pegá la URL del Web App en `APPS_SCRIPT_URL`.
+2. Poné `MODO_PRUEBA: false`.
+3. El Apps Script debe responder a las acciones: `login`, `getStock`, `registrarVenta`.
+   (El código del Apps Script se arma en el siguiente paso.)
 
-function formatPrecio(n) {
-  return "$" + Number(n).toLocaleString("es-AR");
-}
+## Imágenes
+
+- Categorías: `img/cat_01.png` … `img/cat_10.png` (01=Remeras … 10=Mayas)
+- Prendas: `img/<codigo>.png` en minúsculas, ej. `img/fow0101.png`
+
+## Login
+
+PIN de 4 dígitos. La sesión dura hasta cerrar la pestaña o 1 día.
+La validación real del PIN la hace el Apps Script (server-side), no el navegador.
