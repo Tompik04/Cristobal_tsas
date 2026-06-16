@@ -3,8 +3,10 @@
    ============================================================ */
 
 const StockUI = { categoria: null, pendientes: [] };
+let _rowSeq = 0;
+let _pendSeq = 0;
 
-// 1) Grilla de categorías (igual que ventas, título STOCK)
+// 1) Grilla de categorías
 function renderStock(root) {
   StockUI.pendientes = [];
   const cards = CATEGORIAS.map(
@@ -25,7 +27,7 @@ function marcaDePrefijo(prefijo) {
   return m ? m.nombre : "";
 }
 
-// 2) Pantalla de carga/gestión de una categoría
+// 2) Pantalla de carga/gestión
 function renderStockCategoria(root, categoria) {
   StockUI.categoria = categoria;
   StockUI.pendientes = [];
@@ -37,10 +39,13 @@ function renderStockCategoria(root, categoria) {
     </div>
     <p class="stock-section-title">Stock existente</p>
     <div class="stock-list" id="existList"></div>
-    <button class="pending-bar" id="pendingBar" disabled><i class="ti ti-checks"></i> Agregar todo (0)</button>
+    <button class="pending-bar" id="pendingBar" disabled>
+      <span id="pendingLabel"><i class="ti ti-checks"></i> Agregar todo (0)</span>
+      <i class="ti ti-chevron-up" id="pendingChevron" style="margin-left:6px"></i>
+    </button>
   `;
   document.getElementById("newTrigger").onclick = () => agregarFilaCarga(true);
-  document.getElementById("pendingBar").onclick = confirmarPendientes;
+  document.getElementById("pendingBar").onclick = togglePendientes;
   renderExistente(categoria);
   actualizarBarraPendientes();
 }
@@ -51,6 +56,7 @@ function selectHTML(opciones, sel) {
 
 function filaCargaHTML(id, datos) {
   const d = datos || {};
+  const talles = tallesDeCategoria(StockUI.categoria);
   return `
     <div class="srow is-new" data-row="${id}">
       <div class="scell-id">
@@ -65,7 +71,7 @@ function filaCargaHTML(id, datos) {
       </div>
       <div class="sfield">
         <label>Talle</label>
-        <select data-f="talle">${selectHTML(TALLES, d.talle || "M")}</select>
+        <select data-f="talle">${selectHTML(talles, d.talle || talles[0])}</select>
         <div class="mini-acts">
           <button class="mini-btn" data-act="all-talle">+ Todos</button>
           <button class="mini-btn" data-act="dup-talle">Duplicar</button>
@@ -85,11 +91,11 @@ function filaCargaHTML(id, datos) {
       </div>
       <div class="srow-acts">
         <button class="s-add" data-act="add" title="Agregar a pendientes"><i class="ti ti-plus"></i></button>
+        <button class="s-rm" data-act="remove" title="Eliminar fila"><i class="ti ti-x"></i></button>
       </div>
     </div>`;
 }
 
-let _rowSeq = 0;
 function agregarFilaCarga(focus, datos) {
   const id = "r" + _rowSeq++;
   const list = document.getElementById("loadList");
@@ -105,7 +111,6 @@ function agregarFilaCarga(focus, datos) {
 
 function leerFila(row) {
   return {
-    id: row.dataset.row,
     codigo: row.querySelector('[data-f="codigo"]').value.trim().toUpperCase(),
     marca: row.querySelector('[data-f="marca"]').value.trim(),
     talle: row.querySelector('[data-f="talle"]').value,
@@ -118,6 +123,7 @@ function leerFila(row) {
 function bindFilaCarga(row) {
   const codInput = row.querySelector('[data-f="codigo"]');
   const marcaInput = row.querySelector('[data-f="marca"]');
+  const addBtn = row.querySelector('[data-act="add"]');
 
   codInput.oninput = () => {
     const cod = codInput.value.trim().toUpperCase();
@@ -126,6 +132,9 @@ function bindFilaCarga(row) {
       if (nombre) { marcaInput.value = nombre; marcaInput.setAttribute("readonly", ""); }
       else marcaInput.removeAttribute("readonly");
     }
+    // si cambia algo, el botón vuelve a estado normal
+    addBtn.classList.remove("confirmed");
+    addBtn.querySelector("i").className = "ti ti-plus";
   };
 
   row.querySelector('[data-act="img"]').onclick = () => {
@@ -135,8 +144,9 @@ function bindFilaCarga(row) {
 
   row.querySelector('[data-act="all-talle"]').onclick = () => {
     const base = leerFila(row);
-    TALLES.filter((t) => t !== base.talle).forEach((t) => agregarFilaCarga(false, { ...base, talle: t }));
-    toast(`Duplicado en ${TALLES.length - 1} talles`);
+    const talles = tallesDeCategoria(StockUI.categoria);
+    talles.filter((t) => t !== base.talle).forEach((t) => agregarFilaCarga(false, { ...base, talle: t }));
+    toast(`Duplicado en ${talles.length - 1} talles`);
   };
   row.querySelector('[data-act="all-color"]').onclick = () => {
     const base = leerFila(row);
@@ -146,29 +156,92 @@ function bindFilaCarga(row) {
   row.querySelector('[data-act="dup-talle"]').onclick = () => { agregarFilaCarga(false, leerFila(row)); toast("Fila duplicada"); };
   row.querySelector('[data-act="dup-color"]').onclick = () => { agregarFilaCarga(false, leerFila(row)); toast("Fila duplicada"); };
 
-  row.querySelector('[data-act="add"]').onclick = () => {
+  // agregar a pendientes — la fila NO desaparece
+  addBtn.onclick = () => {
     const d = leerFila(row);
     if (!d.codigo || d.codigo.length < 6) return toast("Código incompleto");
     if (!d.marca) return toast("Falta la marca");
+    d._pid = "p" + _pendSeq++;
     StockUI.pendientes.push(d);
-    row.remove();
+    addBtn.classList.add("confirmed");
+    addBtn.querySelector("i").className = "ti ti-check";
     actualizarBarraPendientes();
     toast(`${d.codigo} ${d.talle}/${d.color} agregado`);
   };
+
+  // eliminar fila
+  row.querySelector('[data-act="remove"]').onclick = () => row.remove();
 }
 
 function actualizarBarraPendientes() {
   const bar = document.getElementById("pendingBar");
   if (!bar) return;
   const n = StockUI.pendientes.length;
-  bar.innerHTML = `<i class="ti ti-checks"></i> Agregar todo (${n})`;
+  document.getElementById("pendingLabel").innerHTML = `<i class="ti ti-checks"></i> Agregar todo (${n})`;
   bar.disabled = n === 0;
+  // si el drawer está abierto, refrescarlo
+  if (document.getElementById("pendDrawer")) abrirPendientes(true);
+}
+
+// ---- Drawer de pendientes ----
+let _pendAbierto = false;
+function togglePendientes() {
+  if (_pendAbierto) cerrarPendientes();
+  else abrirPendientes();
+}
+function cerrarPendientes() {
+  _pendAbierto = false;
+  cerrarModal();
+  const ch = document.getElementById("pendingChevron");
+  if (ch) ch.className = "ti ti-chevron-up";
+  ch && (ch.style.marginLeft = "6px");
+}
+function abrirPendientes(soloRefrescar) {
+  _pendAbierto = true;
+  const items = StockUI.pendientes.length
+    ? StockUI.pendientes.map((p) => `
+        <div class="drawer-item">
+          <div class="di-info">
+            <strong>${p.codigo}</strong>
+            <span class="di-sub">${p.talle} · ${p.color} · x${p.cantidad}</span>
+          </div>
+          <button class="di-rm" data-prm="${p._pid}"><i class="ti ti-trash"></i></button>
+        </div>`).join("")
+    : `<p class="drawer-empty">Nada pendiente todavía.</p>`;
+
+  const totalU = StockUI.pendientes.reduce((a, p) => a + p.cantidad, 0);
+
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-overlay" id="ov"></div>
+    <aside class="drawer" id="pendDrawer">
+      <h2>Pendientes de agregar</h2>
+      <div class="drawer-items">${items}</div>
+      <div class="modal-total"><span>Total unidades</span><span>${totalU}</span></div>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="pcerrar">Seguir</button>
+        <button class="btn-primary" id="pconfirm" ${StockUI.pendientes.length ? "" : "disabled"}>Agregar todo</button>
+      </div>
+    </aside>`;
+
+  document.getElementById("ov").onclick = cerrarPendientes;
+  document.getElementById("pcerrar").onclick = cerrarPendientes;
+  document.getElementById("pconfirm").onclick = confirmarPendientes;
+  document.querySelectorAll("[data-prm]").forEach((b) => {
+    b.onclick = () => {
+      const pid = b.dataset.prm;
+      StockUI.pendientes = StockUI.pendientes.filter((p) => p._pid !== pid);
+      actualizarBarraPendientes();
+      abrirPendientes(true);
+    };
+  });
+
+  const ch = document.getElementById("pendingChevron");
+  if (ch) ch.className = "ti ti-chevron-down";
 }
 
 async function confirmarPendientes() {
-  const bar = document.getElementById("pendingBar");
-  bar.disabled = true;
-  bar.innerHTML = `<i class="ti ti-loader"></i> Guardando...`;
+  const btn = document.getElementById("pconfirm");
+  if (btn) { btn.disabled = true; btn.textContent = "Guardando..."; }
   const res = await API.agregarStock(StockUI.pendientes);
   if (res.ok) {
     StockUI.pendientes.forEach((p) => {
@@ -182,14 +255,17 @@ async function confirmarPendientes() {
       });
     });
     StockUI.pendientes = [];
+    _pendAbierto = false;
+    cerrarModal();
     toast("Stock actualizado");
     renderStockCategoria(document.getElementById("view"), StockUI.categoria);
   } else {
     toast("Error al guardar");
-    actualizarBarraPendientes();
+    if (btn) { btn.disabled = false; btn.textContent = "Agregar todo"; }
   }
 }
 
+// ---- Stock existente ----
 function renderExistente(categoria) {
   const list = document.getElementById("existList");
   const items = State.stock
@@ -226,7 +302,6 @@ function bindErow(list, it) {
   const row = list.querySelector(`.erow[data-key="${erowKey(it)}"]`);
   const qtyEl = row.querySelector(".step-qty");
   const ref = () => State.stock.find((s) => s.codigo === it.codigo && s.talle === it.talle && s.color === it.color);
-
   row.querySelector('[data-act="plus"]').onclick = async () => {
     const r = ref(); r.cantidad++; qtyEl.textContent = r.cantidad;
     await API.ajustarStock(it.codigo, it.talle, it.color, +1);

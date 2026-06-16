@@ -51,6 +51,25 @@ const MEDIOS_PAGO = ["Efectivo", "Débito", "Crédito", "Transferencia"];
 const TALLES = ["XS", "S", "M", "L", "XL", "XXL", "36", "38", "40", "42", "44"];
 const COLORES = ["Negro", "Blanco", "Gris", "Verde", "Azul", "Rojo", "Beige", "Marrón"];
 
+// Talles según categoría (provisorio, se ajusta más adelante)
+const TALLES_LETRA = ["XS", "S", "M", "L", "XL", "XXL"];
+const TALLES_NUMERO = ["36", "38", "40", "42", "44", "46"];
+const TALLES_POR_CATEGORIA = {
+  Remeras: TALLES_LETRA,
+  Buzos: TALLES_LETRA,
+  Camperas: TALLES_LETRA,
+  Camisas: TALLES_LETRA,
+  Abrigos: TALLES_LETRA,
+  Mayas: TALLES_LETRA,
+  Jeans: TALLES_NUMERO,
+  Cargos: TALLES_NUMERO,
+  Babucha: TALLES_NUMERO,
+  Shorts: TALLES_NUMERO,
+};
+function tallesDeCategoria(cat) {
+  return TALLES_POR_CATEGORIA[cat] || TALLES_LETRA;
+}
+
 // Marcas conocidas (prefijo del código → nombre)
 const MARCAS = [
   { prefijo: "FOW", nombre: "Fort Worth" },
