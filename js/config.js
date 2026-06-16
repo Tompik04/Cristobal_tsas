@@ -46,3 +46,13 @@ const CATEGORIAS = [
 
 const OFERTAS = [0, 5, 10, 15, 20];
 const MEDIOS_PAGO = ["Efectivo", "Débito", "Crédito", "Transferencia"];
+
+// Listas fijas para cargar stock
+const TALLES = ["XS", "S", "M", "L", "XL", "XXL", "36", "38", "40", "42", "44"];
+const COLORES = ["Negro", "Blanco", "Gris", "Verde", "Azul", "Rojo", "Beige", "Marrón"];
+
+// Marcas conocidas (prefijo del código → nombre)
+const MARCAS = [
+  { prefijo: "FOW", nombre: "Fort Worth" },
+  { prefijo: "KEV", nombre: "Kevingston" },
+];

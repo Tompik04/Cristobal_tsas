@@ -51,6 +51,21 @@ const API = {
     return this._post("registrarVenta", { lineas, metodoPago });
   },
 
+  // Agrega prendas nuevas / suma stock (lista de pendientes)
+  async agregarStock(items) {
+    return this._post("agregarStock", { items });
+  },
+
+  // Ajusta el stock de una combinación en +1 / -1
+  async ajustarStock(codigo, talle, color, delta) {
+    return this._post("ajustarStock", { codigo, talle, color, delta });
+  },
+
+  // Elimina por completo una combinación de stock
+  async eliminarStock(codigo, talle, color) {
+    return this._post("eliminarStock", { codigo, talle, color });
+  },
+
   // ---- MOCK en memoria ----
   _mock(action, payload) {
     return new Promise((resolve) => {
