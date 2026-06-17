@@ -268,8 +268,8 @@ button { font-family: inherit; }
 .stock-list { padding: 0 2.5% 7rem; display: flex; flex-direction: column; gap: 12px; }
 
 .srow {
-  display: grid; grid-template-columns: 190px 1.1fr 1.1fr 90px 110px auto;
-  gap: 14px; align-items: start;
+  display: grid; grid-template-columns: 180px 1fr 1fr 80px 100px 100px auto;
+  gap: 12px; align-items: start;
   background: var(--oak-08); border: 1px solid var(--oak-25); border-radius: var(--r); padding: 14px 16px;
 }
 .srow.is-new { border-style: dashed; border-color: var(--oak-35); }
@@ -308,9 +308,29 @@ button { font-family: inherit; }
 .erow { display: grid; grid-template-columns: 190px 1fr auto auto auto auto; gap: 14px; align-items: center; background: var(--oak-08); border: 1px solid var(--oak-25); border-radius: var(--r); padding: 12px 16px; }
 .erow .evar { font-size: 13px; color: var(--oak-60); }
 .erow .evar strong { color: var(--pale-oak); }
-.eprice { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--gold); white-space: nowrap; }
+.eprice { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.eprice-stack { display: flex; flex-direction: column; gap: 1px; }
+.eprice-val { font-size: 14px; color: var(--gold); }
+.eprice-cost { font-size: 10px; color: var(--oak-55); }
 .e-editprice { background: none; border: 1px solid var(--oak-25); color: var(--oak-60); border-radius: 8px; width: 32px; height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s; }
 .e-editprice:hover { background: var(--oak-20); color: var(--pale-oak); }
+.venta-fields { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--oak-20); padding-top: 1rem; }
+.cambios-list { padding: 0 2.5% 3rem; display: flex; flex-direction: column; gap: 12px; }
+.crow { display: grid; grid-template-columns: 200px 1fr auto auto auto; gap: 14px; align-items: center; background: var(--oak-08); border: 1px solid var(--oak-25); border-radius: var(--r); padding: 12px 16px; }
+.crow.expirado { opacity: 0.45; }
+.crow.pendiente-ventana { border-color: rgba(201,162,75,0.4); }
+.c-meta { display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--oak-60); }
+.c-meta .c-vars strong { color: var(--pale-oak); }
+.c-fecha { font-size: 12px; color: var(--oak-55); }
+.c-estado { font-size: 11px; letter-spacing: 0.05em; }
+.c-estado.ok { color: var(--sage); }
+.c-estado.no { color: var(--oak-55); }
+.c-estado.espera { color: var(--gold); }
+.c-precio { font-size: 14px; color: var(--gold); white-space: nowrap; }
+.c-swap { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--oak-35); background: var(--oak-08); color: var(--pale-oak); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s, border-color 0.15s; }
+.c-swap:hover:not(:disabled) { background: var(--sage); border-color: var(--sage); color: #08130c; }
+.c-swap:disabled { opacity: 0.3; cursor: not-allowed; }
+.c-swap i { font-size: 22px; }
 .stepper { display: flex; align-items: center; gap: 10px; }
 .step-btn { width: 36px; height: 36px; border-radius: 9px; border: 1px solid var(--oak-35); background: var(--oak-08); color: var(--pale-oak); cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
 .step-btn:hover { background: var(--oak-20); }
@@ -323,7 +343,7 @@ button { font-family: inherit; }
 
 /* ============ RESPONSIVE ============ */
 @media (max-width: 900px) { .cat-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 860px) { .prow { grid-template-columns: 1fr; } .pacts { justify-content: flex-end; } .srow { grid-template-columns: 1fr; } .erow { grid-template-columns: 1fr; } }
+@media (max-width: 860px) { .prow { grid-template-columns: 1fr; } .pacts { justify-content: flex-end; } .srow { grid-template-columns: 1fr; } .erow { grid-template-columns: 1fr; } .crow { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .cat-grid { grid-template-columns: repeat(2, 1fr); } }
 
 @media (prefers-reduced-motion: reduce) {

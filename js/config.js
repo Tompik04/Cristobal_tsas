@@ -22,7 +22,22 @@ const CONFIG = {
 
   // Ventana de cambios en días (inicio + N días)
   DIAS_CAMBIO: 15,
+
+  // Recargo por pago con tarjeta (débito/crédito)
+  RECARGO_TARJETA: 0.20,
+
+  // Días hacia atrás que se muestran en la sección Cambios
+  DIAS_HISTORIAL_CAMBIOS: 30,
 };
+
+// Medios de pago que aplican recargo
+const MEDIOS_CON_RECARGO = ["Débito", "Crédito"];
+
+// % de ganancia a partir de venta y costo
+function gananciaPct(venta, costo) {
+  if (!costo) return 0;
+  return Math.round(((venta - costo) / costo) * 100);
+}
 
 // Logo SVG reutilizable en toda la app
 const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 604" preserveAspectRatio="xMidYMid meet">
@@ -45,7 +60,7 @@ const CATEGORIAS = [
 ];
 
 const OFERTAS = [0, 5, 10, 15, 20];
-const MEDIOS_PAGO = ["Efectivo", "Débito", "Crédito", "Transferencia"];
+const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito"];
 
 // Listas fijas para cargar stock
 const TALLES = ["XS", "S", "M", "L", "XL", "XXL", "36", "38", "40", "42", "44"];

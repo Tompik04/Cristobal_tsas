@@ -90,9 +90,14 @@ function filaCargaHTML(id, datos) {
         <input class="qty-input" type="number" min="1" value="${d.cantidad || 1}" data-f="cantidad">
       </div>
       <div class="scell-qty">
-        <label>Precio</label>
+        <label>Precio venta</label>
         <input class="price-input" type="number" min="0" placeholder="$" value="${d.precio || ""}" data-f="precio">
         <span class="price-hint" data-f="precioHint"></span>
+      </div>
+      <div class="scell-qty">
+        <label>Precio costo</label>
+        <input class="price-input" type="number" min="0" placeholder="$" value="${d.costo || ""}" data-f="costo">
+        <span class="price-hint" data-f="gananciaHint"></span>
       </div>
       <div class="srow-acts">
         <button class="s-add" data-act="add" title="Agregar a pendientes"><i class="ti ti-plus"></i></button>
@@ -122,11 +127,12 @@ function leerFila(row) {
     color: row.querySelector('[data-f="color"]').value,
     cantidad: Number(row.querySelector('[data-f="cantidad"]').value) || 1,
     precio: Number(row.querySelector('[data-f="precio"]').value) || 0,
+    costo: Number(row.querySelector('[data-f="costo"]').value) || 0,
     imagen: row.querySelector(".simg").getAttribute("src") || "",
   };
 }
 
-// busca el precio ya conocido de un código (en stock o en pendientes)
+// busca el precio de venta ya conocido de un código
 function precioConocido(codigo) {
   const enStock = State.stock.find((s) => s.codigo === codigo && s.precio > 0);
   if (enStock) return enStock.precio;
@@ -134,27 +140,48 @@ function precioConocido(codigo) {
   if (enPend) return enPend.precio;
   return null;
 }
+// busca el costo ya conocido de un código
+function costoConocido(codigo) {
+  const enStock = State.stock.find((s) => s.codigo === codigo && s.costo > 0);
+  if (enStock) return enStock.costo;
+  const enPend = StockUI.pendientes.find((p) => p.codigo === codigo && p.costo > 0);
+  if (enPend) return enPend.costo;
+  return null;
+}
 
 function bindFilaCarga(row) {
   const codInput = row.querySelector('[data-f="codigo"]');
   const marcaInput = row.querySelector('[data-f="marca"]');
   const precioInput = row.querySelector('[data-f="precio"]');
+  const costoInput = row.querySelector('[data-f="costo"]');
   const precioHint = row.querySelector('[data-f="precioHint"]');
+  const gananciaHint = row.querySelector('[data-f="gananciaHint"]');
   const addBtn = row.querySelector('[data-act="add"]');
+
+  function refrescarGanancia() {
+    const v = Number(precioInput.value) || 0;
+    const c = Number(costoInput.value) || 0;
+    if (v > 0 && c > 0) gananciaHint.textContent = `+${gananciaPct(v, c)}% ganancia`;
+    else gananciaHint.textContent = "";
+  }
 
   function refrescarPrecio() {
     const cod = codInput.value.trim().toUpperCase();
     if (cod.length >= 6) {
-      const conocido = precioConocido(cod);
-      if (conocido != null) {
-        precioInput.value = conocido;
-        precioInput.disabled = true;
+      const pConocido = precioConocido(cod);
+      const cConocido = costoConocido(cod);
+      if (pConocido != null) {
+        precioInput.value = pConocido; precioInput.disabled = true;
         precioHint.textContent = "Precio del código";
-        return;
-      }
+      } else { precioInput.disabled = false; precioHint.textContent = ""; }
+      if (cConocido != null) {
+        costoInput.value = cConocido; costoInput.disabled = true;
+      } else { costoInput.disabled = false; }
+    } else {
+      precioInput.disabled = false; precioHint.textContent = "";
+      costoInput.disabled = false;
     }
-    precioInput.disabled = false;
-    precioHint.textContent = "";
+    refrescarGanancia();
   }
 
   codInput.oninput = () => {
@@ -168,8 +195,9 @@ function bindFilaCarga(row) {
     addBtn.classList.remove("confirmed");
     addBtn.querySelector("i").className = "ti ti-plus";
   };
+  precioInput.oninput = refrescarGanancia;
+  costoInput.oninput = refrescarGanancia;
 
-  // estado inicial del precio (por si la fila se creó duplicando)
   refrescarPrecio();
 
   row.querySelector('[data-act="img"]').onclick = () => {
@@ -196,17 +224,21 @@ function bindFilaCarga(row) {
     const d = leerFila(row);
     if (!d.codigo || d.codigo.length < 6) return toast("Código incompleto");
     if (!d.marca) return toast("Falta la marca");
-    // si el precio está vacío, intentar heredarlo del código conocido
     if (!d.precio) {
-      const conocido = precioConocido(d.codigo);
-      if (conocido != null) d.precio = conocido;
+      const p = precioConocido(d.codigo);
+      if (p != null) d.precio = p;
     }
-    if (!d.precio) return toast("Falta el precio");
+    if (!d.costo) {
+      const c = costoConocido(d.codigo);
+      if (c != null) d.costo = c;
+    }
+    if (!d.precio) return toast("Falta el precio de venta");
+    if (!d.costo) return toast("Falta el precio de costo");
     d._pid = "p" + _pendSeq++;
     StockUI.pendientes.push(d);
     addBtn.classList.add("confirmed");
     addBtn.querySelector("i").className = "ti ti-check";
-    refrescarPrecio(); // por si este código recién definió su precio
+    refrescarPrecio();
     actualizarBarraPendientes();
     toast(`${d.codigo} ${d.talle}/${d.color} agregado`);
   };
@@ -290,10 +322,10 @@ async function confirmarPendientes() {
       const existente = State.stock.find(
         (s) => s.codigo === p.codigo && s.talle === p.talle && s.color === p.color
       );
-      if (existente) existente.cantidad += p.cantidad;
+      if (existente) { existente.cantidad += p.cantidad; }
       else State.stock.push({
         codigo: p.codigo, categoria: StockUI.categoria, marca: p.marca,
-        talle: p.talle, color: p.color, precio: p.precio || 0, cantidad: p.cantidad,
+        talle: p.talle, color: p.color, precio: p.precio || 0, costo: p.costo || 0, cantidad: p.cantidad,
       });
     });
     StockUI.pendientes = [];
@@ -324,6 +356,7 @@ function renderExistente(categoria) {
 function erowKey(it) { return `${it.codigo}__${it.talle}__${it.color}`; }
 
 function erowHTML(it) {
+  const pct = gananciaPct(it.precio, it.costo);
   return `
     <div class="erow" data-key="${erowKey(it)}">
       <div class="pcell">
@@ -332,8 +365,11 @@ function erowHTML(it) {
       </div>
       <div class="evar">Talle <strong>${it.talle}</strong> · Color <strong>${it.color}</strong></div>
       <div class="eprice">
-        <span class="eprice-val">${formatPrecio(it.precio)}</span>
-        <button class="e-editprice" data-act="editprice" title="Editar precio del código"><i class="ti ti-pencil"></i></button>
+        <div class="eprice-stack">
+          <span class="eprice-val">${formatPrecio(it.precio)}</span>
+          <span class="eprice-cost">Costo ${formatPrecio(it.costo)} · +${pct}%</span>
+        </div>
+        <button class="e-editprice" data-act="editprice" title="Editar precios del código"><i class="ti ti-pencil"></i></button>
       </div>
       <div class="stepper">
         <button class="step-btn" data-act="minus">&minus;</button>
@@ -367,30 +403,46 @@ function bindErow(list, it) {
   row.querySelector('[data-act="editprice"]').onclick = () => abrirEditarPrecio(it.codigo);
 }
 
-// Editar precio a nivel código (afecta todas las variantes)
+// Editar precio y costo a nivel código (afecta todas las variantes)
 function abrirEditarPrecio(codigo) {
-  const actual = precioConocido(codigo) || 0;
+  const precioAct = precioConocido(codigo) || 0;
+  const costoAct = costoConocido(codigo) || 0;
   document.getElementById("modalRoot").innerHTML = `
     <div class="modal-overlay" id="ov"></div>
     <div class="modal">
-      <h2>Editar precio</h2>
+      <h2>Editar precios</h2>
       <p class="modal-line"><span>Código</span><strong>${codigo}</strong></p>
       <p class="login-sub" style="text-align:center">Se aplica a todas las variantes de este código</p>
-      <input class="price-input" id="newPrice" type="number" min="0" value="${actual}" style="font-size:18px;text-align:center">
+      <div class="field">
+        <label>Precio de venta</label>
+        <input class="price-input" id="newPrice" type="number" min="0" value="${precioAct}" style="font-size:16px">
+      </div>
+      <div class="field">
+        <label>Precio de costo</label>
+        <input class="price-input" id="newCost" type="number" min="0" value="${costoAct}" style="font-size:16px">
+      </div>
+      <p class="modal-line"><span>Ganancia</span><strong id="gananciaPreview">+${gananciaPct(precioAct, costoAct)}%</strong></p>
       <div class="modal-actions">
         <button class="btn-ghost" id="cancelP">Cancelar</button>
         <button class="btn-primary" id="saveP">Guardar</button>
       </div>
     </div>`;
+  const pIn = document.getElementById("newPrice");
+  const cIn = document.getElementById("newCost");
+  const prev = document.getElementById("gananciaPreview");
+  const upd = () => { prev.textContent = `+${gananciaPct(Number(pIn.value) || 0, Number(cIn.value) || 0)}%`; };
+  pIn.oninput = upd; cIn.oninput = upd;
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("cancelP").onclick = cerrarModal;
   document.getElementById("saveP").onclick = async () => {
-    const nuevo = Number(document.getElementById("newPrice").value) || 0;
-    if (nuevo <= 0) return toast("Precio inválido");
-    State.stock.forEach((s) => { if (s.codigo === codigo) s.precio = nuevo; });
-    await API.actualizarPrecio(codigo, nuevo);
+    const nuevoP = Number(pIn.value) || 0;
+    const nuevoC = Number(cIn.value) || 0;
+    if (nuevoP <= 0) return toast("Precio de venta inválido");
+    if (nuevoC <= 0) return toast("Precio de costo inválido");
+    State.stock.forEach((s) => { if (s.codigo === codigo) { s.precio = nuevoP; s.costo = nuevoC; } });
+    await API.actualizarPrecio(codigo, nuevoP, nuevoC);
     cerrarModal();
-    toast(`Precio de ${codigo} actualizado`);
+    toast(`Precios de ${codigo} actualizados`);
     renderStockCategoria(document.getElementById("view"), StockUI.categoria);
   };
 }

@@ -228,9 +228,22 @@ function precioLinea(l) {
   return l.precio * l.cantidad * (1 - l.oferta / 100);
 }
 
+// fecha/hora local en formato para input datetime-local
+function ahoraLocalInput() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+}
+// fecha de hoy (yyyy-mm-dd) para input date
+function hoyInput() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+}
+
 function abrirPopupVenta(lineas) {
   let metodo = null;
-  const total = lineas.reduce((a, l) => a + precioLinea(l), 0);
+  const base = lineas.reduce((a, l) => a + precioLinea(l), 0);
 
   const detalle = lineas
     .map(
@@ -247,7 +260,23 @@ function abrirPopupVenta(lineas) {
     <div class="modal">
       <h2>Confirmar venta</h2>
       <div>${detalle}</div>
-      <div class="modal-total"><span>Total</span><span>${formatPrecio(total)}</span></div>
+
+      <div class="modal-line" id="recargoLine" style="display:none">
+        <span>Recargo tarjeta (20%)</span><strong id="recargoVal">$0</strong>
+      </div>
+      <div class="modal-total"><span>Total</span><span id="totalVal">${formatPrecio(base)}</span></div>
+
+      <div class="venta-fields">
+        <div class="field">
+          <label>Fecha y hora de venta</label>
+          <input type="datetime-local" id="fechaVenta" value="${ahoraLocalInput()}">
+        </div>
+        <div class="field">
+          <label>Inicio del período de cambio</label>
+          <input type="date" id="fechaInicioCambio" value="${hoyInput()}">
+        </div>
+      </div>
+
       <p class="login-sub" style="text-align:center">Método de pago</p>
       <div class="pay-grid">${pagos}</div>
       <div class="modal-actions">
@@ -256,10 +285,24 @@ function abrirPopupVenta(lineas) {
       </div>
     </div>`;
 
-  const overlay = document.getElementById("ov");
   const btnConf = document.getElementById("confirmar");
-  overlay.onclick = cerrarModal;
+  const recargoLine = document.getElementById("recargoLine");
+  const recargoVal = document.getElementById("recargoVal");
+  const totalVal = document.getElementById("totalVal");
+  document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("cancelar").onclick = cerrarModal;
+
+  function recalcular() {
+    const conRecargo = MEDIOS_CON_RECARGO.includes(metodo);
+    const recargo = conRecargo ? base * CONFIG.RECARGO_TARJETA : 0;
+    if (conRecargo) {
+      recargoLine.style.display = "flex";
+      recargoVal.textContent = formatPrecio(recargo);
+    } else {
+      recargoLine.style.display = "none";
+    }
+    totalVal.textContent = formatPrecio(base + recargo);
+  }
 
   document.querySelectorAll("[data-pago]").forEach((b) => {
     b.onclick = () => {
@@ -267,29 +310,39 @@ function abrirPopupVenta(lineas) {
       b.classList.add("selected");
       metodo = b.dataset.pago;
       btnConf.disabled = false;
+      recalcular();
     };
   });
 
   btnConf.onclick = async () => {
     btnConf.disabled = true;
     btnConf.textContent = "Procesando...";
-    const res = await API.registrarVenta(lineas, metodo);
+
+    const conRecargo = MEDIOS_CON_RECARGO.includes(metodo);
+    const precioFinal = conRecargo ? base * (1 + CONFIG.RECARGO_TARJETA) : base;
+    const fechaVenta = document.getElementById("fechaVenta").value;
+    const inicioCambio = document.getElementById("fechaInicioCambio").value;
+
+    const res = await API.registrarVenta(lineas, metodo, {
+      precioBase: base,
+      precioFinal: precioFinal,
+      fechaVenta,
+      inicioCambio,
+    });
+
     if (res.ok) {
-      // descontar stock en memoria
       lineas.forEach((l) => {
         const v = State.stock.find(
           (x) => x.codigo === l.codigo && x.talle === l.talle && x.color === l.color
         );
         if (v) v.cantidad -= l.cantidad;
       });
-      // si era el carrito, vaciarlo
       if (lineas === State.carrito || lineas.length === State.carrito.length) {
         State.carrito = [];
       }
       cerrarModal();
       actualizarBadge();
       toast("Venta registrada");
-      // refrescar la vista actual de ventas
       renderVentasCategorias(document.getElementById("view"));
     } else {
       toast("Error al registrar la venta");
