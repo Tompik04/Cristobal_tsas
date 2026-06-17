@@ -89,6 +89,11 @@ function filaCargaHTML(id, datos) {
         <label>Cantidad</label>
         <input class="qty-input" type="number" min="1" value="${d.cantidad || 1}" data-f="cantidad">
       </div>
+      <div class="scell-qty">
+        <label>Precio</label>
+        <input class="price-input" type="number" min="0" placeholder="$" value="${d.precio || ""}" data-f="precio">
+        <span class="price-hint" data-f="precioHint"></span>
+      </div>
       <div class="srow-acts">
         <button class="s-add" data-act="add" title="Agregar a pendientes"><i class="ti ti-plus"></i></button>
         <button class="s-rm" data-act="remove" title="Eliminar fila"><i class="ti ti-x"></i></button>
@@ -116,14 +121,41 @@ function leerFila(row) {
     talle: row.querySelector('[data-f="talle"]').value,
     color: row.querySelector('[data-f="color"]').value,
     cantidad: Number(row.querySelector('[data-f="cantidad"]').value) || 1,
+    precio: Number(row.querySelector('[data-f="precio"]').value) || 0,
     imagen: row.querySelector(".simg").getAttribute("src") || "",
   };
+}
+
+// busca el precio ya conocido de un código (en stock o en pendientes)
+function precioConocido(codigo) {
+  const enStock = State.stock.find((s) => s.codigo === codigo && s.precio > 0);
+  if (enStock) return enStock.precio;
+  const enPend = StockUI.pendientes.find((p) => p.codigo === codigo && p.precio > 0);
+  if (enPend) return enPend.precio;
+  return null;
 }
 
 function bindFilaCarga(row) {
   const codInput = row.querySelector('[data-f="codigo"]');
   const marcaInput = row.querySelector('[data-f="marca"]');
+  const precioInput = row.querySelector('[data-f="precio"]');
+  const precioHint = row.querySelector('[data-f="precioHint"]');
   const addBtn = row.querySelector('[data-act="add"]');
+
+  function refrescarPrecio() {
+    const cod = codInput.value.trim().toUpperCase();
+    if (cod.length >= 6) {
+      const conocido = precioConocido(cod);
+      if (conocido != null) {
+        precioInput.value = conocido;
+        precioInput.disabled = true;
+        precioHint.textContent = "Precio del código";
+        return;
+      }
+    }
+    precioInput.disabled = false;
+    precioHint.textContent = "";
+  }
 
   codInput.oninput = () => {
     const cod = codInput.value.trim().toUpperCase();
@@ -132,10 +164,13 @@ function bindFilaCarga(row) {
       if (nombre) { marcaInput.value = nombre; marcaInput.setAttribute("readonly", ""); }
       else marcaInput.removeAttribute("readonly");
     }
-    // si cambia algo, el botón vuelve a estado normal
+    refrescarPrecio();
     addBtn.classList.remove("confirmed");
     addBtn.querySelector("i").className = "ti ti-plus";
   };
+
+  // estado inicial del precio (por si la fila se creó duplicando)
+  refrescarPrecio();
 
   row.querySelector('[data-act="img"]').onclick = () => {
     const cod = codInput.value.trim().toLowerCase();
@@ -161,10 +196,17 @@ function bindFilaCarga(row) {
     const d = leerFila(row);
     if (!d.codigo || d.codigo.length < 6) return toast("Código incompleto");
     if (!d.marca) return toast("Falta la marca");
+    // si el precio está vacío, intentar heredarlo del código conocido
+    if (!d.precio) {
+      const conocido = precioConocido(d.codigo);
+      if (conocido != null) d.precio = conocido;
+    }
+    if (!d.precio) return toast("Falta el precio");
     d._pid = "p" + _pendSeq++;
     StockUI.pendientes.push(d);
     addBtn.classList.add("confirmed");
     addBtn.querySelector("i").className = "ti ti-check";
+    refrescarPrecio(); // por si este código recién definió su precio
     actualizarBarraPendientes();
     toast(`${d.codigo} ${d.talle}/${d.color} agregado`);
   };
@@ -289,6 +331,10 @@ function erowHTML(it) {
         <div class="pinfo"><span class="pmarca">${it.marca}</span><span class="pcod">${it.codigo}</span></div>
       </div>
       <div class="evar">Talle <strong>${it.talle}</strong> · Color <strong>${it.color}</strong></div>
+      <div class="eprice">
+        <span class="eprice-val">${formatPrecio(it.precio)}</span>
+        <button class="e-editprice" data-act="editprice" title="Editar precio del código"><i class="ti ti-pencil"></i></button>
+      </div>
       <div class="stepper">
         <button class="step-btn" data-act="minus">&minus;</button>
         <span class="step-qty">${it.cantidad}</span>
@@ -317,5 +363,34 @@ function bindErow(list, it) {
     await API.eliminarStock(it.codigo, it.talle, it.color);
     row.remove();
     toast(`${it.codigo} ${it.talle}/${it.color} eliminado`);
+  };
+  row.querySelector('[data-act="editprice"]').onclick = () => abrirEditarPrecio(it.codigo);
+}
+
+// Editar precio a nivel código (afecta todas las variantes)
+function abrirEditarPrecio(codigo) {
+  const actual = precioConocido(codigo) || 0;
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-overlay" id="ov"></div>
+    <div class="modal">
+      <h2>Editar precio</h2>
+      <p class="modal-line"><span>Código</span><strong>${codigo}</strong></p>
+      <p class="login-sub" style="text-align:center">Se aplica a todas las variantes de este código</p>
+      <input class="price-input" id="newPrice" type="number" min="0" value="${actual}" style="font-size:18px;text-align:center">
+      <div class="modal-actions">
+        <button class="btn-ghost" id="cancelP">Cancelar</button>
+        <button class="btn-primary" id="saveP">Guardar</button>
+      </div>
+    </div>`;
+  document.getElementById("ov").onclick = cerrarModal;
+  document.getElementById("cancelP").onclick = cerrarModal;
+  document.getElementById("saveP").onclick = async () => {
+    const nuevo = Number(document.getElementById("newPrice").value) || 0;
+    if (nuevo <= 0) return toast("Precio inválido");
+    State.stock.forEach((s) => { if (s.codigo === codigo) s.precio = nuevo; });
+    await API.actualizarPrecio(codigo, nuevo);
+    cerrarModal();
+    toast(`Precio de ${codigo} actualizado`);
+    renderStockCategoria(document.getElementById("view"), StockUI.categoria);
   };
 }

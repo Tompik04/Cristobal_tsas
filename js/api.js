@@ -66,6 +66,11 @@ const API = {
     return this._post("eliminarStock", { codigo, talle, color });
   },
 
+  // Actualiza el precio de todas las variantes de un código
+  async actualizarPrecio(codigo, precio) {
+    return this._post("actualizarPrecio", { codigo, precio });
+  },
+
   // ---- MOCK en memoria ----
   _mock(action, payload) {
     return new Promise((resolve) => {
