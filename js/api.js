@@ -81,6 +81,19 @@ const API = {
     return this._post("anularVenta", { id });
   },
 
+  // Registra un intercambio completo
+  async registrarIntercambio(payload) {
+    return this._post("registrarIntercambio", payload);
+  },
+
+  // Vouchers
+  async getVouchers() {
+    return this._post("getVouchers", {});
+  },
+  async crearVoucher(voucher) {
+    return this._post("crearVoucher", { voucher });
+  },
+
   // ---- MOCK en memoria ----
   _mock(action, payload) {
     return new Promise((resolve) => {
@@ -110,6 +123,19 @@ const API = {
         } else if (action === "anularVenta") {
           VENTAS_DEMO = VENTAS_DEMO.filter((v) => v.id !== payload.id);
           resolve({ ok: true });
+        } else if (action === "getVouchers") {
+          resolve({ ok: true, vouchers: JSON.parse(JSON.stringify(VOUCHERS_DEMO)) });
+        } else if (action === "crearVoucher") {
+          VOUCHERS_DEMO.unshift(payload.voucher);
+          resolve({ ok: true });
+        } else if (action === "registrarIntercambio") {
+          // quitar la venta devuelta del historial de cambios
+          if (payload.ventaDevuelta) {
+            VENTAS_DEMO = VENTAS_DEMO.filter((v) => v.id !== payload.ventaDevuelta.id);
+          }
+          // si generó voucher, guardarlo
+          if (payload.voucher) VOUCHERS_DEMO.unshift(payload.voucher);
+          resolve({ ok: true, idIntercambio: "I-" + Date.now() });
         } else {
           resolve({ ok: true });
         }
@@ -152,6 +178,8 @@ let VENTAS_DEMO = [
     oferta: 0, cantidad: 1, precioBase: 42000, metodoPago: "Débito",
     inicioCambio: _fechaRelDate(10), limiteCambio: _fechaRelDate(25) },
 ];
+
+let VOUCHERS_DEMO = [];
 
 // Helpers de dominio
 function categoriaDeCodigo(codigo) {

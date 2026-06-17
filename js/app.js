@@ -6,7 +6,17 @@ const State = {
   stock: [],          // todo el stock cargado
   carrito: [],        // líneas agregadas { codigo, marca, talle, color, oferta, cantidad, precio }
   vistaActual: "home",
+  dentroCategoria: false, // true cuando estás dentro de una categoría (Ventas/Stock)
 };
+
+// refresca solo el header (para reflejar si la sección actual es "volver")
+function refrescarHeader() {
+  const headerEl = document.getElementById("appHeader");
+  if (headerEl && State.vistaActual !== "home") {
+    headerEl.innerHTML = headerHTML(State.vistaActual);
+    bindHeader();
+  }
+}
 
 const Router = {
   vistas: {
@@ -19,6 +29,7 @@ const Router = {
 
   ir(vista, params = {}) {
     State.vistaActual = vista;
+    State.dentroCategoria = false;
     const viewEl = document.getElementById("view");
     const headerEl = document.getElementById("appHeader");
 
@@ -47,11 +58,16 @@ function headerHTML(actual) {
     { id: "vouchers", label: "VOUCHERS" },
   ];
   const nav = links
-    .map((l) =>
-      l.id === actual
-        ? `<a class="current">${l.label}</a>`
-        : `<a data-nav="${l.id}">${l.label}</a>`
-    )
+    .map((l) => {
+      if (l.id === actual) {
+        // si estamos dentro de una categoría, la sección actual vuelve a la grilla
+        if (State.dentroCategoria && (actual === "ventas" || actual === "stock")) {
+          return `<a data-reset="${l.id}" class="current-back">${l.label}</a>`;
+        }
+        return `<a class="current">${l.label}</a>`;
+      }
+      return `<a data-nav="${l.id}">${l.label}</a>`;
+    })
     .join("");
   return `
     <button class="h-home" id="hHome" aria-label="Inicio"><i class="ti ti-home"></i></button>
@@ -65,6 +81,9 @@ function bindHeader() {
   if (home) home.onclick = () => Router.ir("home");
   document.querySelectorAll("[data-nav]").forEach((a) => {
     a.onclick = () => Router.ir(a.dataset.nav);
+  });
+  document.querySelectorAll("[data-reset]").forEach((a) => {
+    a.onclick = () => Router.ir(a.dataset.reset);
   });
 }
 

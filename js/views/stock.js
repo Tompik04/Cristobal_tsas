@@ -9,6 +9,8 @@ let _pendSeq = 0;
 // 1) Grilla de categorías
 function renderStock(root) {
   StockUI.pendientes = [];
+  State.dentroCategoria = false;
+  refrescarHeader();
   const cards = CATEGORIAS.map(
     (c) => `
     <div class="cat" data-cat="${c.nombre}">
@@ -31,6 +33,8 @@ function marcaDePrefijo(prefijo) {
 function renderStockCategoria(root, categoria) {
   StockUI.categoria = categoria;
   StockUI.pendientes = [];
+  State.dentroCategoria = true;
+  refrescarHeader();
   root.innerHTML = `
     <p class="view-title">${categoria.toUpperCase()} — STOCK</p>
     <p class="stock-section-title">Cargar prendas</p>
@@ -90,13 +94,13 @@ function filaCargaHTML(id, datos) {
         <input class="qty-input" type="number" min="1" value="${d.cantidad || 1}" data-f="cantidad">
       </div>
       <div class="scell-qty">
-        <label>Precio venta</label>
-        <input class="price-input" type="number" min="0" placeholder="$" value="${d.precio || ""}" data-f="precio">
+        <label>Precio costo</label>
+        <input class="price-input" type="number" min="0" placeholder="$" value="${d.costo || ""}" data-f="costo">
         <span class="price-hint" data-f="precioHint"></span>
       </div>
       <div class="scell-qty">
-        <label>Precio costo</label>
-        <input class="price-input" type="number" min="0" placeholder="$" value="${d.costo || ""}" data-f="costo">
+        <label>Precio venta</label>
+        <input class="price-input" type="number" min="0" placeholder="$" value="${d.precio || ""}" data-f="precio">
         <span class="price-hint" data-f="gananciaHint"></span>
       </div>
       <div class="srow-acts">
@@ -161,8 +165,20 @@ function bindFilaCarga(row) {
   function refrescarGanancia() {
     const v = Number(precioInput.value) || 0;
     const c = Number(costoInput.value) || 0;
-    if (v > 0 && c > 0) gananciaHint.textContent = `+${gananciaPct(v, c)}% ganancia`;
-    else gananciaHint.textContent = "";
+    if (v > 0 && c > 0) {
+      if (c > v) {
+        gananciaHint.textContent = "Costo > venta";
+        gananciaHint.style.color = "var(--danger)";
+        precioInput.style.borderColor = "var(--danger)";
+      } else {
+        gananciaHint.textContent = `+${gananciaPct(v, c)}% ganancia`;
+        gananciaHint.style.color = "var(--gold)";
+        precioInput.style.borderColor = "";
+      }
+    } else {
+      gananciaHint.textContent = "";
+      precioInput.style.borderColor = "";
+    }
   }
 
   function refrescarPrecio() {
@@ -170,13 +186,13 @@ function bindFilaCarga(row) {
     if (cod.length >= 6) {
       const pConocido = precioConocido(cod);
       const cConocido = costoConocido(cod);
-      if (pConocido != null) {
-        precioInput.value = pConocido; precioInput.disabled = true;
-        precioHint.textContent = "Precio del código";
-      } else { precioInput.disabled = false; precioHint.textContent = ""; }
       if (cConocido != null) {
         costoInput.value = cConocido; costoInput.disabled = true;
-      } else { costoInput.disabled = false; }
+        precioHint.textContent = "Costo del código";
+      } else { costoInput.disabled = false; precioHint.textContent = ""; }
+      if (pConocido != null) {
+        precioInput.value = pConocido; precioInput.disabled = true;
+      } else { precioInput.disabled = false; }
     } else {
       precioInput.disabled = false; precioHint.textContent = "";
       costoInput.disabled = false;
@@ -234,6 +250,7 @@ function bindFilaCarga(row) {
     }
     if (!d.precio) return toast("Falta el precio de venta");
     if (!d.costo) return toast("Falta el precio de costo");
+    if (d.costo > d.precio) return toast("El costo no puede ser mayor a la venta");
     d._pid = "p" + _pendSeq++;
     StockUI.pendientes.push(d);
     addBtn.classList.add("confirmed");
@@ -414,12 +431,12 @@ function abrirEditarPrecio(codigo) {
       <p class="modal-line"><span>Código</span><strong>${codigo}</strong></p>
       <p class="login-sub" style="text-align:center">Se aplica a todas las variantes de este código</p>
       <div class="field">
-        <label>Precio de venta</label>
-        <input class="price-input" id="newPrice" type="number" min="0" value="${precioAct}" style="font-size:16px">
-      </div>
-      <div class="field">
         <label>Precio de costo</label>
         <input class="price-input" id="newCost" type="number" min="0" value="${costoAct}" style="font-size:16px">
+      </div>
+      <div class="field">
+        <label>Precio de venta</label>
+        <input class="price-input" id="newPrice" type="number" min="0" value="${precioAct}" style="font-size:16px">
       </div>
       <p class="modal-line"><span>Ganancia</span><strong id="gananciaPreview">+${gananciaPct(precioAct, costoAct)}%</strong></p>
       <div class="modal-actions">
@@ -430,7 +447,12 @@ function abrirEditarPrecio(codigo) {
   const pIn = document.getElementById("newPrice");
   const cIn = document.getElementById("newCost");
   const prev = document.getElementById("gananciaPreview");
-  const upd = () => { prev.textContent = `+${gananciaPct(Number(pIn.value) || 0, Number(cIn.value) || 0)}%`; };
+  const upd = () => {
+    const p = Number(pIn.value) || 0;
+    const c = Number(cIn.value) || 0;
+    if (c > p && p > 0) { prev.textContent = "Costo > venta"; prev.style.color = "var(--danger)"; }
+    else { prev.textContent = `+${gananciaPct(p, c)}%`; prev.style.color = ""; }
+  };
   pIn.oninput = upd; cIn.oninput = upd;
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("cancelP").onclick = cerrarModal;
@@ -439,6 +461,7 @@ function abrirEditarPrecio(codigo) {
     const nuevoC = Number(cIn.value) || 0;
     if (nuevoP <= 0) return toast("Precio de venta inválido");
     if (nuevoC <= 0) return toast("Precio de costo inválido");
+    if (nuevoC > nuevoP) return toast("El costo no puede ser mayor a la venta");
     State.stock.forEach((s) => { if (s.codigo === codigo) { s.precio = nuevoP; s.costo = nuevoC; } });
     await API.actualizarPrecio(codigo, nuevoP, nuevoC);
     cerrarModal();

@@ -4,6 +4,8 @@
 
 // 1) Grilla de categorías
 function renderVentasCategorias(root) {
+  State.dentroCategoria = false;
+  refrescarHeader();
   const cards = CATEGORIAS.map(
     (c) => `
     <div class="cat" data-cat="${c.nombre}">
@@ -23,6 +25,8 @@ function renderVentasCategorias(root) {
 
 // 2) Lista de productos de una categoría
 function renderListaProductos(root, categoria) {
+  State.dentroCategoria = true;
+  refrescarHeader();
   // agrupar stock por código dentro de la categoría
   const items = State.stock.filter((s) => s.categoria === categoria);
   const porCodigo = {};
@@ -62,8 +66,10 @@ function filaProductoHTML(p) {
     .join("");
 
   const ofertasOpt = OFERTAS.map(
-    (o) => `<option value="${o}"${o === 0 ? " selected" : ""}>${o}%</option>`
-  ).join("");
+    (o) => `<option value="pct:${o}"${o === 0 ? " selected" : ""}>${o}%</option>`
+  ).join("") +
+  `<option value="costo">Precio costo</option>` +
+  `<option value="regalo">100% (regalo)</option>`;
 
   return `
     <div class="prow" data-cod="${p.codigo}">
@@ -134,15 +140,27 @@ function bindFila(root, p) {
   if (primer) selTalle.value = primer.value;
   refrescarColores();
 
+  function costoActual() {
+    const v = p.variantes.find((x) => x.talle === selTalle.value && x.color === selColor.value);
+    return v ? (v.costo || 0) : 0;
+  }
+
   function lineaActual() {
+    const ofVal = selOferta.value; // "pct:15" | "costo" | "regalo"
+    let tipoOferta = "pct", ofertaPct = 0;
+    if (ofVal === "costo") tipoOferta = "costo";
+    else if (ofVal === "regalo") tipoOferta = "regalo";
+    else ofertaPct = Number(ofVal.split(":")[1]) || 0;
     return {
       codigo: p.codigo,
       marca: p.marca,
       talle: selTalle.value,
       color: selColor.value,
-      oferta: Number(selOferta.value),
+      tipoOferta,
+      oferta: ofertaPct,
       cantidad: Number(selCant.value),
       precio: p.precio,
+      costo: costoActual(),
     };
   }
 
@@ -185,7 +203,7 @@ function abrirCarrito() {
         <div class="drawer-item">
           <div class="di-info">
             <strong>${l.codigo}</strong>
-            <span class="di-sub">${l.talle} · ${l.color} · x${l.cantidad}${l.oferta ? " · " + l.oferta + "% off" : ""}</span>
+            <span class="di-sub">${l.talle} · ${l.color} · x${l.cantidad}${ofertaLabel(l) ? " · " + ofertaLabel(l) : ""}</span>
           </div>
           <span>${formatPrecio(precioLinea(l))}</span>
           <button class="di-rm" data-rm="${i}"><i class="ti ti-trash"></i></button>
@@ -225,7 +243,16 @@ function abrirCarrito() {
 
 // ---- Popup de venta (único o carrito) ----
 function precioLinea(l) {
+  if (l.tipoOferta === "regalo") return 0;
+  if (l.tipoOferta === "costo") return (l.costo || 0) * l.cantidad;
   return l.precio * l.cantidad * (1 - l.oferta / 100);
+}
+
+// etiqueta legible de la oferta aplicada
+function ofertaLabel(l) {
+  if (l.tipoOferta === "regalo") return "Regalo";
+  if (l.tipoOferta === "costo") return "A costo";
+  return l.oferta ? `${l.oferta}% off` : "";
 }
 
 // fecha/hora local en formato para input datetime-local

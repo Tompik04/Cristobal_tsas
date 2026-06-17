@@ -79,6 +79,160 @@ function bindCrow(list, v) {
   const row = list.querySelector(`.crow[data-id="${v.id}"]`);
   const swap = row.querySelector('[data-act="swap"]');
   if (swap && !swap.disabled) {
-    swap.onclick = () => toast("El flujo de cambio se define en el próximo paso");
+    swap.onclick = () => abrirIntercambio(v);
+  }
+}
+
+// ---- Popup de intercambio ----
+function abrirIntercambio(venta) {
+  if (!State.carrito.length) {
+    return toast("Primero agregá las prendas nuevas al carrito (en Ventas)");
+  }
+
+  const totalNuevas = State.carrito.reduce((a, l) => a + precioLinea(l), 0);
+  const valorDevuelto = venta.precioBase; // precio base sin recargo
+  const diferencia = totalNuevas - valorDevuelto; // + cliente paga / - voucher
+
+  const cardDevuelta = `
+    <div class="swap-card">
+      <img src="img/${venta.codigo.toLowerCase()}.png" onerror="this.style.opacity=0.3">
+      <div class="sc-info">
+        <strong>${venta.marca}</strong>
+        <span class="sc-cod">${venta.codigo} · ${venta.talle}/${venta.color}</span>
+        <span class="sc-price">${formatPrecio(valorDevuelto)}</span>
+      </div>
+    </div>`;
+
+  const cardsNuevas = State.carrito.map((l) => `
+    <div class="swap-card">
+      <img src="img/${l.codigo.toLowerCase()}.png" onerror="this.style.opacity=0.3">
+      <div class="sc-info">
+        <strong>${l.marca}</strong>
+        <span class="sc-cod">${l.codigo} · ${l.talle}/${l.color} · x${l.cantidad}</span>
+        <span class="sc-price">${formatPrecio(precioLinea(l))}</span>
+      </div>
+    </div>`).join("");
+
+  let diffHTML;
+  if (diferencia > 0) {
+    diffHTML = `<div class="modal-total"><span>El cliente paga</span><span class="pay">${formatPrecio(diferencia)}</span></div>
+      <p class="swap-note">Se pedirá método de pago al confirmar.</p>`;
+  } else if (diferencia < 0) {
+    diffHTML = `<div class="modal-total"><span>Saldo a favor (voucher)</span><span class="credit">${formatPrecio(-diferencia)}</span></div>
+      <p class="swap-note">Se generará un voucher por la diferencia.</p>`;
+  } else {
+    diffHTML = `<div class="modal-total"><span>Diferencia</span><span>$0</span></div>
+      <p class="swap-note">El cambio es exacto.</p>`;
+  }
+
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-overlay" id="ov"></div>
+    <div class="modal swap-modal">
+      <h2>Intercambio</h2>
+      <div class="swap-cols">
+        <div class="swap-side">
+          <h3>Devuelve</h3>
+          ${cardDevuelta}
+        </div>
+        <div class="swap-arrow"><i class="ti ti-arrows-exchange"></i></div>
+        <div class="swap-side">
+          <h3>Se lleva (${State.carrito.length})</h3>
+          <div class="swap-list">${cardsNuevas || '<p class="swap-empty">Carrito vacío</p>'}</div>
+        </div>
+      </div>
+      <div class="swap-diff">${diffHTML}</div>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="swapCancel">Cancelar</button>
+        <button class="btn-primary" id="swapNext">${diferencia > 0 ? "Continuar al pago" : "Confirmar cambio"}</button>
+      </div>
+    </div>`;
+
+  document.getElementById("ov").onclick = cerrarModal;
+  document.getElementById("swapCancel").onclick = cerrarModal;
+  document.getElementById("swapNext").onclick = () => {
+    if (diferencia > 0) {
+      abrirPagoDiferencia(venta, diferencia);
+    } else {
+      confirmarIntercambio(venta, { diferencia, voucher: diferencia < 0 ? -diferencia : 0, metodoPago: null });
+    }
+  };
+}
+
+// si el cliente debe pagar, pedir método de pago
+function abrirPagoDiferencia(venta, diferencia) {
+  let metodo = null;
+  const pagos = MEDIOS_PAGO.map((m) => `<button class="pay-opt" data-pago="${m}">${m}</button>`).join("");
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-overlay" id="ov"></div>
+    <div class="modal">
+      <h2>Pago de diferencia</h2>
+      <div class="modal-total"><span>A pagar</span><span id="difTotal">${formatPrecio(diferencia)}</span></div>
+      <div class="modal-line" id="recLine" style="display:none"><span>Recargo tarjeta (20%)</span><strong id="recVal">$0</strong></div>
+      <p class="login-sub" style="text-align:center">Método de pago</p>
+      <div class="pay-grid">${pagos}</div>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="payCancel">Volver</button>
+        <button class="btn-primary" id="payConfirm" disabled>Confirmar cambio</button>
+      </div>
+    </div>`;
+  const btn = document.getElementById("payConfirm");
+  const recLine = document.getElementById("recLine");
+  const recVal = document.getElementById("recVal");
+  const difTotal = document.getElementById("difTotal");
+  document.getElementById("ov").onclick = cerrarModal;
+  document.getElementById("payCancel").onclick = () => abrirIntercambio(venta);
+  document.querySelectorAll("[data-pago]").forEach((b) => {
+    b.onclick = () => {
+      document.querySelectorAll(".pay-opt").forEach((x) => x.classList.remove("selected"));
+      b.classList.add("selected");
+      metodo = b.dataset.pago;
+      const rec = MEDIOS_CON_RECARGO.includes(metodo) ? diferencia * CONFIG.RECARGO_TARJETA : 0;
+      if (rec > 0) { recLine.style.display = "flex"; recVal.textContent = formatPrecio(rec); }
+      else recLine.style.display = "none";
+      difTotal.textContent = formatPrecio(diferencia + rec);
+      btn.disabled = false;
+    };
+  });
+  btn.onclick = () => confirmarIntercambio(venta, { diferencia, voucher: 0, metodoPago: metodo });
+}
+
+async function confirmarIntercambio(venta, info) {
+  // construir voucher si corresponde
+  let voucher = null;
+  if (info.voucher > 0) {
+    voucher = {
+      id: "VCH-" + Date.now(),
+      fecha: new Date().toISOString(),
+      monto: info.voucher,
+      origen: `Cambio de ${venta.codigo}`,
+      usado: false,
+    };
+  }
+
+  const res = await API.registrarIntercambio({
+    ventaDevuelta: venta,
+    lineasNuevas: State.carrito.slice(),
+    diferencia: info.diferencia,
+    metodoPago: info.metodoPago,
+    voucher,
+  });
+
+  if (res.ok) {
+    // descontar stock de las prendas nuevas
+    State.carrito.forEach((l) => {
+      const v = State.stock.find((s) => s.codigo === l.codigo && s.talle === l.talle && s.color === l.color);
+      if (v) v.cantidad -= l.cantidad;
+    });
+    // reponer stock de la prenda devuelta
+    const dev = State.stock.find((s) => s.codigo === venta.codigo && s.talle === venta.talle && s.color === venta.color);
+    if (dev) dev.cantidad += venta.cantidad;
+    // vaciar carrito
+    State.carrito = [];
+    cerrarModal();
+    if (voucher) toast(`Cambio hecho · Voucher de ${formatPrecio(voucher.monto)}`);
+    else toast("Cambio realizado");
+    cargarCambios();
+  } else {
+    toast("Error al registrar el cambio");
   }
 }

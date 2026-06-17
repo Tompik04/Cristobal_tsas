@@ -95,6 +95,8 @@ button { font-family: inherit; }
 }
 .h-nav a:hover { border-bottom-color: var(--pale-oak); }
 .h-nav a.current { color: var(--oak-35); cursor: default; pointer-events: none; }
+.h-nav a.current-back { color: var(--gold); cursor: pointer; position: relative; }
+.h-nav a.current-back:hover { border-bottom-color: var(--gold); }
 .h-logo { width: 42px; height: 42px; flex-shrink: 0; }
 .h-logo svg { width: 100%; height: 100%; }
 
@@ -331,6 +333,29 @@ button { font-family: inherit; }
 .c-swap:hover:not(:disabled) { background: var(--sage); border-color: var(--sage); color: #08130c; }
 .c-swap:disabled { opacity: 0.3; cursor: not-allowed; }
 .c-swap i { font-size: 22px; }
+
+/* popup de intercambio */
+.swap-modal { max-width: 720px; }
+.swap-cols { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: stretch; }
+.swap-side { display: flex; flex-direction: column; gap: 10px; }
+.swap-side h3 { font-size: 13px; letter-spacing: 0.12em; color: var(--oak-60); text-transform: uppercase; text-align: center; }
+.swap-arrow { display: flex; align-items: center; justify-content: center; color: var(--gold); font-size: 34px; }
+.swap-card { display: flex; gap: 10px; align-items: center; background: var(--oak-08); border: 1px solid var(--oak-25); border-radius: 12px; padding: 10px; }
+.swap-card img { width: 48px; height: 48px; border-radius: 8px; object-fit: contain; background: var(--oak-10); flex-shrink: 0; }
+.swap-card .sc-info { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.swap-card .sc-cod { color: var(--oak-55); font-size: 10px; letter-spacing: 0.06em; }
+.swap-card .sc-price { color: var(--gold); font-size: 13px; }
+.swap-list { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+.swap-empty { color: var(--oak-55); font-size: 12px; text-align: center; padding: 1rem; }
+.swap-diff { border-top: 1px solid var(--oak-20); padding-top: 1rem; display: flex; flex-direction: column; gap: 8px; }
+.swap-diff .modal-total span:last-child.pay { color: var(--terracotta); }
+.swap-diff .modal-total span:last-child.credit { color: var(--sage); }
+.swap-note { font-size: 12px; color: var(--oak-60); text-align: center; }
+
+@media (max-width: 640px) {
+  .swap-cols { grid-template-columns: 1fr; }
+  .swap-arrow { transform: rotate(90deg); }
+}
 .stepper { display: flex; align-items: center; gap: 10px; }
 .step-btn { width: 36px; height: 36px; border-radius: 9px; border: 1px solid var(--oak-35); background: var(--oak-08); color: var(--pale-oak); cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
 .step-btn:hover { background: var(--oak-20); }
