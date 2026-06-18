@@ -42,7 +42,6 @@ function renderListaProductos(root, categoria) {
     <p class="view-title">${categoria.toUpperCase()} — VENTAS</p>
     <div id="ventasFiltros"></div>
     <div class="prod-list" id="ventasProdList"></div>
-    ${cartFabHTML()}
   `;
 
   // talles/colores disponibles en esta categoría para los selects de filtro
@@ -54,14 +53,13 @@ function renderListaProductos(root, categoria) {
     campos: [
       { id: "talle", label: "Talle", tipo: "select", opciones: tallesDisp },
       { id: "color", label: "Color", tipo: "select", opciones: coloresDisp },
-      { id: "soloStock", label: "Con stock", tipo: "select", opciones: ["Sí"] },
+      { id: "minCant", label: "Cant. mín.", tipo: "number" },
     ],
     onChange: (f) => pintarProductosVentas(root, productos, f),
   });
   document.getElementById("ventasFiltros").appendChild(barra);
 
   pintarProductosVentas(root, productos, {});
-  bindCartFab(root);
   actualizarBadge();
 }
 
@@ -72,7 +70,10 @@ function pintarProductosVentas(root, productos, f) {
   if (f.q) lista = lista.filter((p) => coincideTexto({ marca: p.marca, codigo: p.codigo }, f.q, ["marca", "codigo"]));
   if (f.talle) lista = lista.filter((p) => p.variantes.some((v) => v.talle === f.talle));
   if (f.color) lista = lista.filter((p) => p.variantes.some((v) => v.color === f.color));
-  if (f.soloStock) lista = lista.filter((p) => p.variantes.some((v) => v.cantidad > 0));
+  if (f.minCant) {
+    const min = Number(f.minCant);
+    lista = lista.filter((p) => p.variantes.reduce((a, v) => a + v.cantidad, 0) >= min);
+  }
 
   if (!lista.length) {
     cont.innerHTML = `<div class="soon"><i class="ti ti-search-off"></i><p>Sin resultados.</p></div>`;
@@ -206,22 +207,7 @@ function bindFila(root, p) {
   };
 }
 
-// ---- Carrito ----
-function cartFabHTML() {
-  return `
-    <button class="cart-fab" id="cartFab" title="Ver carrito">
-      <i class="ti ti-shopping-cart"></i>
-      <span class="cart-badge" id="cartBadge">0</span>
-    </button>`;
-}
-function bindCartFab(root) {
-  const fab = root.querySelector("#cartFab");
-  if (fab) fab.onclick = abrirCarrito;
-}
-function actualizarBadge() {
-  const b = document.getElementById("cartBadge");
-  if (b) b.textContent = State.carrito.reduce((a, l) => a + l.cantidad, 0);
-}
+// ---- Carrito ---- (el FAB y el badge ahora son globales en app.js)
 
 function abrirCarrito() {
   const items = State.carrito.length
@@ -264,7 +250,8 @@ function abrirCarrito() {
     b.onclick = () => {
       State.carrito.splice(Number(b.dataset.rm), 1);
       actualizarBadge();
-      abrirCarrito();
+      if (State.carrito.length) abrirCarrito();
+      else cerrarModal();
     };
   });
 }

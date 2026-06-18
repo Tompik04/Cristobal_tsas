@@ -46,9 +46,29 @@ const Router = {
     const fn = this.vistas[vista];
     viewEl.innerHTML = "";
     if (fn) fn(viewEl, params);
+    renderCartFab();
     window.scrollTo(0, 0);
   },
 };
+
+// Carrito flotante global (visible en todas las secciones si hay items)
+function renderCartFab() {
+  const root = document.getElementById("cartRoot");
+  if (!root) return;
+  const unidades = State.carrito.reduce((a, l) => a + l.cantidad, 0);
+  if (!State.carrito.length) { root.innerHTML = ""; return; }
+  root.innerHTML = `
+    <button class="cart-fab" id="cartFab" title="Ver carrito">
+      <i class="ti ti-shopping-cart"></i>
+      <span class="cart-badge" id="cartBadge">${unidades}</span>
+    </button>`;
+  document.getElementById("cartFab").onclick = abrirCarrito;
+}
+
+// actualiza el badge / visibilidad del carrito global
+function actualizarBadge() {
+  renderCartFab();
+}
 
 function headerHTML(actual) {
   const links = [

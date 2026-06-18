@@ -49,7 +49,7 @@ function pintarCambios(f) {
   if (f.q) lista = lista.filter((v) => coincideTexto(v, f.q, ["marca", "codigo"]));
   if (f.talle) lista = lista.filter((v) => v.talle === f.talle);
   if (f.color) lista = lista.filter((v) => v.color === f.color);
-  if (f.fecha) lista = lista.filter((v) => v.fechaHora.slice(0, 10) === f.fecha);
+  if (f.fecha) lista = lista.filter((v) => fechaLocalISO(v.fechaHora) === f.fecha);
 
   if (!lista.length) {
     list.innerHTML = `<div class="soon"><i class="ti ti-receipt-off"></i><p>Sin ventas que coincidan.</p></div>`;
@@ -74,6 +74,12 @@ function fmtFecha(iso) {
   if (!iso) return "—";
   const d = new Date(iso.length <= 10 ? iso + "T00:00:00" : iso);
   return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+}
+// fecha local en formato yyyy-mm-dd (respeta la zona horaria del navegador)
+function fechaLocalISO(iso) {
+  const d = new Date(iso);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
 }
 function fmtFechaHora(iso) {
   const d = new Date(iso);
