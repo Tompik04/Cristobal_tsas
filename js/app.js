@@ -92,9 +92,11 @@ function headerHTML(actual) {
     })
     .join("");
   return `
-    <button class="h-home" id="hHome" aria-label="Inicio"><i class="ti ti-home"></i></button>
+    <div class="h-left">
+      <button class="h-home" id="hHome" aria-label="Inicio"><i class="ti ti-home"></i></button>
+      <button class="h-hist" id="hHist" aria-label="Historial" title="Historial de ventas"><i class="ti ti-clock-hour-4"></i></button>
+    </div>
     <nav class="h-nav">${nav}</nav>
-    <button class="h-hist" id="hHist" aria-label="Historial" title="Historial de ventas"><i class="ti ti-clock-hour-4"></i></button>
     <div class="h-logo">${LOGO_SVG}</div>
   `;
 }
@@ -121,11 +123,10 @@ async function actualizarCampanitaVouchers() {
     const res = await API.getVouchers();
     if (!res.ok) return;
     const hayRoja = res.vouchers.some((v) => estadoAlarmaVoucher(v) === "roja");
-    const hayAmarilla = res.vouchers.some((v) => estadoAlarmaVoucher(v) === "amarilla");
-    if (hayRoja || hayAmarilla) {
+    if (hayRoja) {
       bell.classList.remove("hidden");
-      bell.classList.toggle("bell-red", hayRoja);
-      bell.classList.toggle("bell-yellow", !hayRoja && hayAmarilla);
+      bell.classList.add("bell-red");
+      bell.classList.remove("bell-yellow");
       bell.innerHTML = `<i class="ti ti-bell-filled"></i>`;
     } else {
       bell.classList.add("hidden");
