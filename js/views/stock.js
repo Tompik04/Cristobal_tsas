@@ -366,8 +366,45 @@ function renderExistente(categoria) {
     list.innerHTML = `<div class="soon"><i class="ti ti-package-off"></i><p>Todavía no hay stock en ${categoria}.</p></div>`;
     return;
   }
-  list.innerHTML = items.map(erowHTML).join("");
-  items.forEach((it) => bindErow(list, it));
+
+  // barra de filtros encima de la lista
+  const tallesDisp = [...new Set(items.map((s) => s.talle))];
+  const coloresDisp = [...new Set(items.map((s) => s.color))];
+
+  const barra = crearBarraFiltros({
+    placeholder: "Buscar por marca o código...",
+    campos: [
+      { id: "talle", label: "Talle", tipo: "select", opciones: tallesDisp },
+      { id: "color", label: "Color", tipo: "select", opciones: coloresDisp },
+      { id: "minCant", label: "Cant. mín.", tipo: "number" },
+    ],
+    onChange: (f) => pintarStockExistente(items, f),
+  });
+  list.innerHTML = "";
+  list.appendChild(barra);
+  const cont = document.createElement("div");
+  cont.id = "existCont";
+  cont.className = "stock-list";
+  cont.style.padding = "0";
+  list.appendChild(cont);
+
+  pintarStockExistente(items, {});
+}
+
+function pintarStockExistente(items, f) {
+  const cont = document.getElementById("existCont");
+  let lista = items.slice();
+  if (f.q) lista = lista.filter((s) => coincideTexto(s, f.q, ["marca", "codigo"]));
+  if (f.talle) lista = lista.filter((s) => s.talle === f.talle);
+  if (f.color) lista = lista.filter((s) => s.color === f.color);
+  if (f.minCant) lista = lista.filter((s) => s.cantidad >= Number(f.minCant));
+
+  if (!lista.length) {
+    cont.innerHTML = `<div class="soon"><i class="ti ti-search-off"></i><p>Sin resultados.</p></div>`;
+    return;
+  }
+  cont.innerHTML = lista.map(erowHTML).join("");
+  lista.forEach((it) => bindErow(cont, it));
 }
 
 function erowKey(it) { return `${it.codigo}__${it.talle}__${it.color}`; }

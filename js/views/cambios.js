@@ -3,31 +3,60 @@
    ============================================================ */
 
 function renderCambios(root) {
-  root.innerHTML = `<p class="view-title">CAMBIOS</p><div class="cambios-list" id="cambiosList"><div class="soon"><i class="ti ti-loader"></i><p>Cargando ventas...</p></div></div>`;
+  root.innerHTML = `
+    <p class="view-title">CAMBIOS</p>
+    <div id="cambiosFiltros"></div>
+    <div class="cambios-list" id="cambiosList"><div class="soon"><i class="ti ti-loader"></i><p>Cargando ventas...</p></div></div>`;
   cargarCambios();
 }
+
+let _ventasCambios = [];
 
 async function cargarCambios() {
   const list = document.getElementById("cambiosList");
   const res = await API.getVentas();
   if (!res.ok) { list.innerHTML = `<div class="soon"><i class="ti ti-alert-triangle"></i><p>No se pudieron cargar las ventas.</p></div>`; return; }
 
-  // filtrar últimos N días
   const limiteDias = CONFIG.DIAS_HISTORIAL_CAMBIOS;
-  const ahora = new Date();
   const desde = new Date(); desde.setDate(desde.getDate() - limiteDias);
 
-  const ventas = res.ventas
+  _ventasCambios = res.ventas
     .filter((v) => new Date(v.fechaHora) >= desde)
     .sort((a, b) => new Date(b.fechaHora) - new Date(a.fechaHora));
 
-  if (!ventas.length) {
-    list.innerHTML = `<div class="soon"><i class="ti ti-receipt-off"></i><p>No hay ventas en los últimos ${limiteDias} días.</p></div>`;
+  // barra de filtros
+  const fcont = document.getElementById("cambiosFiltros");
+  fcont.innerHTML = "";
+  const tallesDisp = [...new Set(_ventasCambios.map((v) => v.talle))];
+  const coloresDisp = [...new Set(_ventasCambios.map((v) => v.color))];
+  const barra = crearBarraFiltros({
+    placeholder: "Buscar por marca o código...",
+    campos: [
+      { id: "talle", label: "Talle", tipo: "select", opciones: tallesDisp },
+      { id: "color", label: "Color", tipo: "select", opciones: coloresDisp },
+      { id: "fecha", label: "Fecha de compra", tipo: "date" },
+    ],
+    onChange: (f) => pintarCambios(f),
+  });
+  fcont.appendChild(barra);
+
+  pintarCambios({});
+}
+
+function pintarCambios(f) {
+  const list = document.getElementById("cambiosList");
+  let lista = _ventasCambios.slice();
+  if (f.q) lista = lista.filter((v) => coincideTexto(v, f.q, ["marca", "codigo"]));
+  if (f.talle) lista = lista.filter((v) => v.talle === f.talle);
+  if (f.color) lista = lista.filter((v) => v.color === f.color);
+  if (f.fecha) lista = lista.filter((v) => v.fechaHora.slice(0, 10) === f.fecha);
+
+  if (!lista.length) {
+    list.innerHTML = `<div class="soon"><i class="ti ti-receipt-off"></i><p>Sin ventas que coincidan.</p></div>`;
     return;
   }
-
-  list.innerHTML = ventas.map(crowHTML).join("");
-  ventas.forEach((v) => bindCrow(list, v));
+  list.innerHTML = lista.map(crowHTML).join("");
+  lista.forEach((v) => bindCrow(list, v));
 }
 
 // estado de la ventana de cambio de una venta
@@ -37,7 +66,7 @@ function estadoCambio(v) {
   const limite = v.limiteCambio ? new Date(v.limiteCambio + "T00:00:00") : null;
   if (!inicio || !limite) return { tipo: "no", label: "Sin datos de cambio" };
   if (hoy < inicio) return { tipo: "espera", label: `Cambio desde ${fmtFecha(v.inicioCambio)}` };
-  if (hoy > limite) return { tipo: "no", label: "Fuera de período" };
+  if (hoy > limite) return { tipo: "vencido", label: "Vencido" };
   return { tipo: "ok", label: `Cambio hasta ${fmtFecha(v.limiteCambio)}` };
 }
 
@@ -54,8 +83,9 @@ function fmtFechaHora(iso) {
 
 function crowHTML(v) {
   const est = estadoCambio(v);
-  const cambiable = est.tipo === "ok";
-  const claseFila = est.tipo === "no" ? "expirado" : (est.tipo === "espera" ? "pendiente-ventana" : "");
+  // ahora el intercambio se habilita SIEMPRE
+  const claseFila = est.tipo === "vencido" ? "expirado" : (est.tipo === "espera" ? "pendiente-ventana" : "");
+  const claseEstado = est.tipo === "vencido" ? "vencido" : est.tipo;
   const ofertaTxt = v.oferta ? ` · ${v.oferta}% off` : "";
   return `
     <div class="crow ${claseFila}" data-id="${v.id}">
@@ -66,10 +96,10 @@ function crowHTML(v) {
       <div class="c-meta">
         <span class="c-vars">Talle <strong>${v.talle}</strong> · Color <strong>${v.color}</strong> · x${v.cantidad}${ofertaTxt}</span>
         <span class="c-fecha">${fmtFechaHora(v.fechaHora)}</span>
-        <span class="c-estado ${est.tipo}">${est.label}</span>
+        <span class="c-estado ${claseEstado}">${est.label}</span>
       </div>
       <div class="c-precio">${formatPrecio(v.precioBase)}</div>
-      <button class="c-swap" data-act="swap" ${cambiable ? "" : "disabled"} title="${cambiable ? "Realizar cambio" : "No disponible para cambio"}">
+      <button class="c-swap" data-act="swap" title="Realizar cambio">
         <i class="ti ti-arrows-exchange"></i>
       </button>
     </div>`;
@@ -78,9 +108,7 @@ function crowHTML(v) {
 function bindCrow(list, v) {
   const row = list.querySelector(`.crow[data-id="${v.id}"]`);
   const swap = row.querySelector('[data-act="swap"]');
-  if (swap && !swap.disabled) {
-    swap.onclick = () => abrirIntercambio(v);
-  }
+  if (swap) swap.onclick = () => abrirIntercambio(v);
 }
 
 // ---- Popup de intercambio ----
@@ -152,9 +180,40 @@ function abrirIntercambio(venta) {
   document.getElementById("swapNext").onclick = () => {
     if (diferencia > 0) {
       abrirPagoDiferencia(venta, diferencia);
+    } else if (diferencia < 0) {
+      abrirDatosVoucher(venta, -diferencia);
     } else {
-      confirmarIntercambio(venta, { diferencia, voucher: diferencia < 0 ? -diferencia : 0, metodoPago: null });
+      confirmarIntercambio(venta, { diferencia, voucher: 0, metodoPago: null, datosVoucher: null });
     }
+  };
+}
+
+// pedir nombre + teléfono para el voucher del saldo a favor
+function abrirDatosVoucher(venta, monto) {
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-overlay" id="ov"></div>
+    <div class="modal">
+      <h2>Voucher por saldo a favor</h2>
+      <div class="modal-total"><span>Saldo a favor</span><span class="credit">${formatPrecio(monto)}</span></div>
+      <p class="login-sub" style="text-align:center">Datos del cliente para el voucher</p>
+      <div class="field"><label>Nombre</label><input class="sinput" id="vName" placeholder="Nombre y apellido"></div>
+      <div class="field"><label>Teléfono</label><input class="sinput" id="vPhone" placeholder="Ej. 2915551234" inputmode="numeric"></div>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="vCancel">Volver</button>
+        <button class="btn-primary" id="vConfirm">Generar y confirmar</button>
+      </div>
+    </div>`;
+  document.getElementById("ov").onclick = cerrarModal;
+  document.getElementById("vCancel").onclick = () => abrirIntercambio(venta);
+  document.getElementById("vConfirm").onclick = () => {
+    const nombre = document.getElementById("vName").value.trim();
+    const telefono = document.getElementById("vPhone").value.trim();
+    if (!nombre) return toast("Falta el nombre");
+    if (!telefono) return toast("Falta el teléfono");
+    confirmarIntercambio(venta, {
+      diferencia: -monto, voucher: monto, metodoPago: null,
+      datosVoucher: { nombre, telefono },
+    });
   };
 }
 
@@ -200,11 +259,18 @@ async function confirmarIntercambio(venta, info) {
   // construir voucher si corresponde
   let voucher = null;
   if (info.voucher > 0) {
+    const dv = info.datosVoucher || {};
+    const vence = new Date(); vence.setDate(vence.getDate() + CONFIG.DIAS_VENCIMIENTO_VOUCHER);
     voucher = {
       id: "VCH-" + Date.now(),
+      tipo: "monto",
       fecha: new Date().toISOString(),
+      vencimiento: vence.toISOString().slice(0, 10),
       monto: info.voucher,
+      nombre: dv.nombre || "",
+      telefono: dv.telefono || "",
       origen: `Cambio de ${venta.codigo}`,
+      avisado: false,
       usado: false,
     };
   }

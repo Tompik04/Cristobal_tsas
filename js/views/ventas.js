@@ -38,20 +38,48 @@ function renderListaProductos(root, categoria) {
   });
   const productos = Object.values(porCodigo);
 
-  const filas = productos.length
-    ? productos.map(filaProductoHTML).join("")
-    : `<div class="soon"><i class="ti ti-package-off"></i><p>No hay stock cargado en ${categoria}.</p></div>`;
-
   root.innerHTML = `
     <p class="view-title">${categoria.toUpperCase()} — VENTAS</p>
-    <div class="prod-list">${filas}</div>
+    <div id="ventasFiltros"></div>
+    <div class="prod-list" id="ventasProdList"></div>
     ${cartFabHTML()}
   `;
 
-  // binds por fila
-  productos.forEach((p) => bindFila(root, p));
+  // talles/colores disponibles en esta categoría para los selects de filtro
+  const tallesDisp = [...new Set(items.map((s) => s.talle))];
+  const coloresDisp = [...new Set(items.map((s) => s.color))];
+
+  const barra = crearBarraFiltros({
+    placeholder: "Buscar por marca o código...",
+    campos: [
+      { id: "talle", label: "Talle", tipo: "select", opciones: tallesDisp },
+      { id: "color", label: "Color", tipo: "select", opciones: coloresDisp },
+      { id: "soloStock", label: "Con stock", tipo: "select", opciones: ["Sí"] },
+    ],
+    onChange: (f) => pintarProductosVentas(root, productos, f),
+  });
+  document.getElementById("ventasFiltros").appendChild(barra);
+
+  pintarProductosVentas(root, productos, {});
   bindCartFab(root);
   actualizarBadge();
+}
+
+function pintarProductosVentas(root, productos, f) {
+  const cont = document.getElementById("ventasProdList");
+  let lista = productos.slice();
+
+  if (f.q) lista = lista.filter((p) => coincideTexto({ marca: p.marca, codigo: p.codigo }, f.q, ["marca", "codigo"]));
+  if (f.talle) lista = lista.filter((p) => p.variantes.some((v) => v.talle === f.talle));
+  if (f.color) lista = lista.filter((p) => p.variantes.some((v) => v.color === f.color));
+  if (f.soloStock) lista = lista.filter((p) => p.variantes.some((v) => v.cantidad > 0));
+
+  if (!lista.length) {
+    cont.innerHTML = `<div class="soon"><i class="ti ti-search-off"></i><p>Sin resultados.</p></div>`;
+    return;
+  }
+  cont.innerHTML = lista.map(filaProductoHTML).join("");
+  lista.forEach((p) => bindFila(root, p));
 }
 
 function filaProductoHTML(p) {
@@ -269,29 +297,25 @@ function hoyInput() {
 }
 
 function abrirPopupVenta(lineas) {
-  let metodo = null;
+  // estado de pago: simple o dividido
+  let modoDividido = false;
+  let metodo1 = null, metodo2 = null;
+  let montoTarjetaManual = null; // cuánto va en el método con tarjeta (modo dividido)
+
   const base = lineas.reduce((a, l) => a + precioLinea(l), 0);
 
   const detalle = lineas
-    .map(
-      (l) => `<div class="modal-line"><span>${l.codigo} · ${l.talle}/${l.color} · x${l.cantidad}</span><strong>${formatPrecio(precioLinea(l))}</strong></div>`
-    )
+    .map((l) => `<div class="modal-line"><span>${l.codigo} · ${l.talle}/${l.color} · x${l.cantidad}</span><strong>${formatPrecio(precioLinea(l))}</strong></div>`)
     .join("");
 
-  const pagos = MEDIOS_PAGO.map(
-    (m) => `<button class="pay-opt" data-pago="${m}">${m}</button>`
-  ).join("");
+  const pagos1 = MEDIOS_PAGO.map((m) => `<button class="pay-opt" data-m1="${m}">${m}</button>`).join("");
 
   document.getElementById("modalRoot").innerHTML = `
     <div class="modal-overlay" id="ov"></div>
     <div class="modal">
       <h2>Confirmar venta</h2>
       <div>${detalle}</div>
-
-      <div class="modal-line" id="recargoLine" style="display:none">
-        <span>Recargo tarjeta (20%)</span><strong id="recargoVal">$0</strong>
-      </div>
-      <div class="modal-total"><span>Total</span><span id="totalVal">${formatPrecio(base)}</span></div>
+      <div class="modal-line"><span>Subtotal</span><strong>${formatPrecio(base)}</strong></div>
 
       <div class="venta-fields">
         <div class="field">
@@ -304,8 +328,44 @@ function abrirPopupVenta(lineas) {
         </div>
       </div>
 
-      <p class="login-sub" style="text-align:center">Método de pago</p>
-      <div class="pay-grid">${pagos}</div>
+      <div class="pay-mode">
+        <button class="pay-mode-btn selected" id="modoSimple">Pago simple</button>
+        <button class="pay-mode-btn" id="modoDiv">Pago dividido</button>
+      </div>
+
+      <div id="paySimple">
+        <p class="login-sub" style="text-align:center">Método de pago</p>
+        <div class="pay-grid">${pagos1}</div>
+      </div>
+
+      <div id="payDividido" style="display:none">
+        <div class="split-row">
+          <div class="field">
+            <label>Método 1</label>
+            <select id="selM1">${MEDIOS_PAGO.map((m) => `<option value="${m}">${m}</option>`).join("")}</select>
+          </div>
+          <div class="field">
+            <label>Monto en método 1</label>
+            <input type="number" id="montoM1" min="0" placeholder="$" value="">
+          </div>
+        </div>
+        <div class="split-row">
+          <div class="field">
+            <label>Método 2 (resto)</label>
+            <select id="selM2">${MEDIOS_PAGO.map((m, i) => `<option value="${m}"${i === 1 ? " selected" : ""}>${m}</option>`).join("")}</select>
+          </div>
+          <div class="field">
+            <label>Monto en método 2</label>
+            <input type="text" id="montoM2" disabled value="—">
+          </div>
+        </div>
+      </div>
+
+      <div class="swap-diff" style="border-top:1px solid var(--oak-20);padding-top:1rem">
+        <div class="modal-line" id="recargoLine" style="display:none"><span>Recargo tarjeta (20%)</span><strong id="recargoVal">$0</strong></div>
+        <div class="modal-total"><span>Total a cobrar</span><span id="totalVal">${formatPrecio(base)}</span></div>
+      </div>
+
       <div class="modal-actions">
         <button class="btn-ghost" id="cancelar">Cancelar</button>
         <button class="btn-primary" id="confirmar" disabled>Confirmar</button>
@@ -316,52 +376,101 @@ function abrirPopupVenta(lineas) {
   const recargoLine = document.getElementById("recargoLine");
   const recargoVal = document.getElementById("recargoVal");
   const totalVal = document.getElementById("totalVal");
+  const paySimple = document.getElementById("paySimple");
+  const payDividido = document.getElementById("payDividido");
+  const selM1 = document.getElementById("selM1");
+  const selM2 = document.getElementById("selM2");
+  const montoM1 = document.getElementById("montoM1");
+  const montoM2 = document.getElementById("montoM2");
+
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("cancelar").onclick = cerrarModal;
 
-  function recalcular() {
-    const conRecargo = MEDIOS_CON_RECARGO.includes(metodo);
-    const recargo = conRecargo ? base * CONFIG.RECARGO_TARJETA : 0;
-    if (conRecargo) {
-      recargoLine.style.display = "flex";
-      recargoVal.textContent = formatPrecio(recargo);
-    } else {
-      recargoLine.style.display = "none";
-    }
-    totalVal.textContent = formatPrecio(base + recargo);
+  // recargo: solo sobre la parte que va en débito/crédito
+  function recargoDe(monto, met) {
+    return MEDIOS_CON_RECARGO.includes(met) ? monto * CONFIG.RECARGO_TARJETA : 0;
   }
 
-  document.querySelectorAll("[data-pago]").forEach((b) => {
+  function recalcular() {
+    let recargo = 0, valido = false;
+
+    if (!modoDividido) {
+      if (metodo1) {
+        recargo = recargoDe(base, metodo1);
+        valido = true;
+      }
+    } else {
+      const m1 = selM1.value, m2 = selM2.value;
+      const monto1 = Number(montoM1.value) || 0;
+      const monto2 = base - monto1;
+      montoM2.value = monto2 >= 0 ? formatPrecio(monto2) : "—";
+      if (monto1 > 0 && monto1 < base && m1 !== m2) {
+        recargo = recargoDe(monto1, m1) + recargoDe(monto2, m2);
+        valido = true;
+      }
+    }
+
+    if (recargo > 0) { recargoLine.style.display = "flex"; recargoVal.textContent = formatPrecio(recargo); }
+    else recargoLine.style.display = "none";
+    totalVal.textContent = formatPrecio(base + recargo);
+    btnConf.disabled = !valido;
+    return recargo;
+  }
+
+  // toggle modos
+  document.getElementById("modoSimple").onclick = () => {
+    modoDividido = false;
+    document.getElementById("modoSimple").classList.add("selected");
+    document.getElementById("modoDiv").classList.remove("selected");
+    paySimple.style.display = ""; payDividido.style.display = "none";
+    recalcular();
+  };
+  document.getElementById("modoDiv").onclick = () => {
+    modoDividido = true;
+    document.getElementById("modoDiv").classList.add("selected");
+    document.getElementById("modoSimple").classList.remove("selected");
+    paySimple.style.display = "none"; payDividido.style.display = "";
+    recalcular();
+  };
+
+  document.querySelectorAll("[data-m1]").forEach((b) => {
     b.onclick = () => {
       document.querySelectorAll(".pay-opt").forEach((x) => x.classList.remove("selected"));
       b.classList.add("selected");
-      metodo = b.dataset.pago;
-      btnConf.disabled = false;
+      metodo1 = b.dataset.m1;
       recalcular();
     };
   });
+  [selM1, selM2, montoM1].forEach((el) => el.addEventListener("input", recalcular));
+  [selM1, selM2].forEach((el) => el.addEventListener("change", recalcular));
 
   btnConf.onclick = async () => {
     btnConf.disabled = true;
     btnConf.textContent = "Procesando...";
 
-    const conRecargo = MEDIOS_CON_RECARGO.includes(metodo);
-    const precioFinal = conRecargo ? base * (1 + CONFIG.RECARGO_TARJETA) : base;
+    const recargo = recalcular();
+    const precioFinal = base + recargo;
     const fechaVenta = document.getElementById("fechaVenta").value;
     const inicioCambio = document.getElementById("fechaInicioCambio").value;
 
-    const res = await API.registrarVenta(lineas, metodo, {
-      precioBase: base,
-      precioFinal: precioFinal,
-      fechaVenta,
-      inicioCambio,
+    let pago;
+    if (!modoDividido) {
+      pago = { tipo: "simple", metodo: metodo1 };
+    } else {
+      const monto1 = Number(montoM1.value) || 0;
+      pago = { tipo: "dividido", partes: [
+        { metodo: selM1.value, monto: monto1 },
+        { metodo: selM2.value, monto: base - monto1 },
+      ] };
+    }
+
+    const res = await API.registrarVenta(lineas, pago, {
+      precioBase: base, precioFinal, fechaVenta, inicioCambio,
     });
 
     if (res.ok) {
       lineas.forEach((l) => {
-        const v = State.stock.find(
-          (x) => x.codigo === l.codigo && x.talle === l.talle && x.color === l.color
-        );
+        const v = State.stock.find((x) => x.codigo === l.codigo && x.talle === l.talle && x.color === l.color);
         if (v) v.cantidad -= l.cantidad;
       });
       if (lineas === State.carrito || lineas.length === State.carrito.length) {
@@ -377,4 +486,6 @@ function abrirPopupVenta(lineas) {
       btnConf.textContent = "Confirmar";
     }
   };
+
+  recalcular();
 }

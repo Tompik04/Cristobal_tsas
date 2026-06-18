@@ -26,8 +26,14 @@ const CONFIG = {
   // Recargo por pago con tarjeta (débito/crédito)
   RECARGO_TARJETA: 0.20,
 
-  // Días hacia atrás que se muestran en la sección Cambios
-  DIAS_HISTORIAL_CAMBIOS: 30,
+  // Días hacia atrás que se muestran en la sección Cambios (2 meses)
+  DIAS_HISTORIAL_CAMBIOS: 60,
+
+  // Vencimiento por defecto de un voucher (días)
+  DIAS_VENCIMIENTO_VOUCHER: 35,
+
+  // Días antes del vencimiento en que se dispara la alarma del voucher
+  DIAS_ALARMA_VOUCHER: 7,
 };
 
 // Medios de pago que aplican recargo
