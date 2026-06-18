@@ -99,6 +99,14 @@ button { font-family: inherit; }
 .h-nav a.current-back:hover { border-bottom-color: var(--gold); }
 .h-logo { width: 42px; height: 42px; flex-shrink: 0; }
 .h-logo svg { width: 100%; height: 100%; }
+.h-hist { background: none; border: none; color: var(--pale-oak); cursor: pointer; display: flex; padding: 8px; border-radius: 10px; transition: background 0.15s; flex-shrink: 0; }
+.h-hist:hover { background: var(--oak-10); }
+.h-hist i { font-size: 24px; }
+.nav-link-wrap { position: relative; }
+.nav-bell { position: absolute; top: -8px; right: -16px; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.nav-bell i { font-size: 11px; }
+.nav-bell.bell-red { background: var(--danger); color: #1a0a07; }
+.nav-bell.bell-yellow { background: var(--gold); color: #1a1206; }
 
 /* ============ HOME ============ */
 .home {
@@ -320,6 +328,8 @@ button { font-family: inherit; }
 .v-icon i { font-size: 18px; }
 .v-icon.danger { border-color: rgba(201,122,109,0.4); color: var(--danger); }
 .v-icon.danger:hover { background: rgba(201,122,109,0.2); }
+.v-icon.ok { border-color: rgba(126,155,122,0.45); color: var(--sage); }
+.v-icon.ok:hover { background: rgba(126,155,122,0.2); }
 .v-badge { font-size: 11px; padding: 2px 8px; border-radius: 6px; width: fit-content; letter-spacing: 0.03em; }
 .v-badge.red { background: rgba(201,122,109,0.2); color: var(--danger); }
 .v-badge.yellow { background: rgba(201,162,75,0.18); color: var(--gold); }
@@ -365,6 +375,13 @@ button { font-family: inherit; }
   padding: 12px; font-size: 14px; letter-spacing: 0.1em; cursor: pointer;
 }
 .btn-ghost:hover { background: var(--oak-10); }
+.btn-danger {
+  flex: 1; background: var(--danger); color: #1a0a07; border: none; border-radius: 10px;
+  padding: 12px; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; cursor: pointer;
+}
+.btn-danger:hover { filter: brightness(1.1); }
+.dc-msg { text-align: center; font-size: 14px; color: var(--oak-60); line-height: 1.5; }
+.dc-warn { color: var(--danger); }
 
 /* drawer carrito */
 .drawer {

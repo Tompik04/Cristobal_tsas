@@ -123,7 +123,9 @@ function voucherHTML(v) {
       <div class="v-actions">
         ${checkHTML}
         <button class="v-icon" data-act="share" title="Compartir imagen"><i class="ti ti-share"></i></button>
-        ${!v.usado ? `<button class="v-icon danger" data-act="disable" title="Deshabilitar"><i class="ti ti-ban"></i></button>` : ""}
+        ${v.usado
+          ? `<button class="v-icon ok" data-act="enable" title="Rehabilitar"><i class="ti ti-rotate"></i></button>`
+          : `<button class="v-icon danger" data-act="disable" title="Deshabilitar"><i class="ti ti-ban"></i></button>`}
       </div>
     </div>`;
 }
@@ -136,18 +138,43 @@ function bindVoucher(list, v) {
       v.avisado = chk.checked;
       await API.actualizarVoucher(v.id, { avisado: chk.checked });
       pintarAlarmas();
-      // re-pintar para que cambie el color de la alarma (roja↔amarilla)
+      actualizarCampanitaVouchers();
       pintarVouchers(filtrosActuales());
     };
   }
   row.querySelector('[data-act="share"]').onclick = () => compartirVoucher(v);
+
   const dis = row.querySelector('[data-act="disable"]');
   if (dis) dis.onclick = () => {
-    confirmarSimple(`¿Deshabilitar el voucher de ${v.nombre || v.id}?`, async () => {
-      v.usado = true;
-      await API.actualizarVoucher(v.id, { usado: true });
-      toast("Voucher deshabilitado");
-      cargarVouchers();
+    dobleConfirmacion({
+      titulo: "Deshabilitar voucher",
+      mensaje1: `Vas a deshabilitar el voucher de ${v.nombre || v.id} por ${valorVoucher(v)}.`,
+      mensaje2: "El voucher quedará como usado y no se podrá aplicar. ¿Confirmás?",
+      textoBoton: "Deshabilitar",
+      onOk: async () => {
+        v.usado = true;
+        await API.actualizarVoucher(v.id, { usado: true });
+        toast("Voucher deshabilitado");
+        cargarVouchers();
+        actualizarCampanitaVouchers();
+      },
+    });
+  };
+
+  const en = row.querySelector('[data-act="enable"]');
+  if (en) en.onclick = () => {
+    dobleConfirmacion({
+      titulo: "Rehabilitar voucher",
+      mensaje1: `Vas a rehabilitar el voucher de ${v.nombre || v.id} por ${valorVoucher(v)}.`,
+      mensaje2: "Es una acción excepcional: el voucher volverá a estar disponible para usar. ¿Confirmás?",
+      textoBoton: "Rehabilitar",
+      onOk: async () => {
+        v.usado = false;
+        await API.actualizarVoucher(v.id, { usado: false });
+        toast("Voucher rehabilitado");
+        cargarVouchers();
+        actualizarCampanitaVouchers();
+      },
     });
   };
 }
@@ -289,21 +316,4 @@ function compartirVoucher(v) {
     URL.revokeObjectURL(url);
     toast("Imagen del voucher descargada");
   }, "image/png");
-}
-
-// confirm simple reutilizable
-function confirmarSimple(mensaje, onOk) {
-  document.getElementById("modalRoot").innerHTML = `
-    <div class="modal-overlay" id="ov"></div>
-    <div class="modal">
-      <h2>Confirmar</h2>
-      <p class="modal-line" style="justify-content:center;text-align:center">${mensaje}</p>
-      <div class="modal-actions">
-        <button class="btn-ghost" id="cNo">Cancelar</button>
-        <button class="btn-primary" id="cYes">Confirmar</button>
-      </div>
-    </div>`;
-  document.getElementById("ov").onclick = cerrarModal;
-  document.getElementById("cNo").onclick = cerrarModal;
-  document.getElementById("cYes").onclick = () => { cerrarModal(); onOk(); };
 }

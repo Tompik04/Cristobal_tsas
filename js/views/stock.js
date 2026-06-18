@@ -447,12 +447,20 @@ function bindErow(list, it) {
     r.cantidad--; qtyEl.textContent = r.cantidad;
     await API.ajustarStock(it.codigo, it.talle, it.color, -1);
   };
-  row.querySelector('[data-act="del"]').onclick = async () => {
-    const r = ref(); const idx = State.stock.indexOf(r);
-    if (idx >= 0) State.stock.splice(idx, 1);
-    await API.eliminarStock(it.codigo, it.talle, it.color);
-    row.remove();
-    toast(`${it.codigo} ${it.talle}/${it.color} eliminado`);
+  row.querySelector('[data-act="del"]').onclick = () => {
+    dobleConfirmacion({
+      titulo: "Eliminar stock",
+      mensaje1: `Vas a eliminar todo el stock de ${it.codigo} (talle ${it.talle}, color ${it.color}).`,
+      mensaje2: "Se borra la combinación completa del inventario. ¿Confirmás?",
+      textoBoton: "Eliminar",
+      onOk: async () => {
+        const r = ref(); const idx = State.stock.indexOf(r);
+        if (idx >= 0) State.stock.splice(idx, 1);
+        await API.eliminarStock(it.codigo, it.talle, it.color);
+        row.remove();
+        toast(`${it.codigo} ${it.talle}/${it.color} eliminado`);
+      },
+    });
   };
   row.querySelector('[data-act="editprice"]').onclick = () => abrirEditarPrecio(it.codigo);
 }

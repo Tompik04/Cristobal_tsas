@@ -25,6 +25,7 @@ const Router = {
     stock: renderStock,
     cambios: renderCambios,
     vouchers: renderVouchers,
+    historial: renderHistorial,
   },
 
   ir(vista, params = {}) {
@@ -79,19 +80,21 @@ function headerHTML(actual) {
   ];
   const nav = links
     .map((l) => {
+      const bell = l.id === "vouchers" ? `<span class="nav-bell hidden" id="navBell"></span>` : "";
       if (l.id === actual) {
         // si estamos dentro de una categoría, la sección actual vuelve a la grilla
         if (State.dentroCategoria && (actual === "ventas" || actual === "stock")) {
-          return `<a data-reset="${l.id}" class="current-back">${l.label}</a>`;
+          return `<a data-reset="${l.id}" class="current-back nav-link-wrap">${l.label}${bell}</a>`;
         }
-        return `<a class="current">${l.label}</a>`;
+        return `<a class="current nav-link-wrap">${l.label}${bell}</a>`;
       }
-      return `<a data-nav="${l.id}">${l.label}</a>`;
+      return `<a data-nav="${l.id}" class="nav-link-wrap">${l.label}${bell}</a>`;
     })
     .join("");
   return `
     <button class="h-home" id="hHome" aria-label="Inicio"><i class="ti ti-home"></i></button>
     <nav class="h-nav">${nav}</nav>
+    <button class="h-hist" id="hHist" aria-label="Historial" title="Historial de ventas"><i class="ti ti-clock-hour-4"></i></button>
     <div class="h-logo">${LOGO_SVG}</div>
   `;
 }
@@ -99,12 +102,35 @@ function headerHTML(actual) {
 function bindHeader() {
   const home = document.getElementById("hHome");
   if (home) home.onclick = () => Router.ir("home");
+  const hist = document.getElementById("hHist");
+  if (hist) hist.onclick = () => Router.ir("historial");
   document.querySelectorAll("[data-nav]").forEach((a) => {
     a.onclick = () => Router.ir(a.dataset.nav);
   });
   document.querySelectorAll("[data-reset]").forEach((a) => {
     a.onclick = () => Router.ir(a.dataset.reset);
   });
+  actualizarCampanitaVouchers();
+}
+
+// consulta vouchers y muestra/oculta la campanita roja en el header
+async function actualizarCampanitaVouchers() {
+  const bell = document.getElementById("navBell");
+  if (!bell) return;
+  try {
+    const res = await API.getVouchers();
+    if (!res.ok) return;
+    const hayRoja = res.vouchers.some((v) => estadoAlarmaVoucher(v) === "roja");
+    const hayAmarilla = res.vouchers.some((v) => estadoAlarmaVoucher(v) === "amarilla");
+    if (hayRoja || hayAmarilla) {
+      bell.classList.remove("hidden");
+      bell.classList.toggle("bell-red", hayRoja);
+      bell.classList.toggle("bell-yellow", !hayRoja && hayAmarilla);
+      bell.innerHTML = `<i class="ti ti-bell-filled"></i>`;
+    } else {
+      bell.classList.add("hidden");
+    }
+  } catch (e) { /* sin red, no muestra */ }
 }
 
 // Toast simple
@@ -119,6 +145,44 @@ function toast(msg) {
 // Cierra cualquier modal/drawer abierto
 function cerrarModal() {
   document.getElementById("modalRoot").innerHTML = "";
+}
+
+// Popup de DOBLE confirmación para acciones excepcionales/peligrosas.
+// Pide confirmar dos veces (segundo paso con texto distinto) antes de ejecutar onOk.
+function dobleConfirmacion(opts) {
+  // opts: { titulo, mensaje1, mensaje2, textoBoton, onOk }
+  const root = document.getElementById("modalRoot");
+  function paso1() {
+    root.innerHTML = `
+      <div class="modal-overlay" id="dcOv"></div>
+      <div class="modal">
+        <h2>${opts.titulo || "Confirmar"}</h2>
+        <p class="dc-msg">${opts.mensaje1}</p>
+        <div class="modal-actions">
+          <button class="btn-ghost" id="dcNo">Cancelar</button>
+          <button class="btn-primary" id="dcYes">Continuar</button>
+        </div>
+      </div>`;
+    document.getElementById("dcOv").onclick = cerrarModal;
+    document.getElementById("dcNo").onclick = cerrarModal;
+    document.getElementById("dcYes").onclick = paso2;
+  }
+  function paso2() {
+    root.innerHTML = `
+      <div class="modal-overlay" id="dcOv2"></div>
+      <div class="modal">
+        <h2>¿Estás seguro?</h2>
+        <p class="dc-msg dc-warn">${opts.mensaje2 || "Esta acción es excepcional y no se puede deshacer fácilmente."}</p>
+        <div class="modal-actions">
+          <button class="btn-ghost" id="dcNo2">No, volver</button>
+          <button class="btn-danger" id="dcYes2">${opts.textoBoton || "Sí, confirmar"}</button>
+        </div>
+      </div>`;
+    document.getElementById("dcOv2").onclick = cerrarModal;
+    document.getElementById("dcNo2").onclick = cerrarModal;
+    document.getElementById("dcYes2").onclick = () => { cerrarModal(); opts.onOk(); };
+  }
+  paso1();
 }
 
 // ---- Arranque ----

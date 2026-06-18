@@ -114,7 +114,20 @@ function crowHTML(v) {
 function bindCrow(list, v) {
   const row = list.querySelector(`.crow[data-id="${v.id}"]`);
   const swap = row.querySelector('[data-act="swap"]');
-  if (swap) swap.onclick = () => abrirIntercambio(v);
+  if (swap) swap.onclick = () => {
+    const est = estadoCambio(v);
+    if (est.tipo === "vencido") {
+      dobleConfirmacion({
+        titulo: "Cambio fuera de fecha",
+        mensaje1: `La venta de ${v.codigo} está fuera del período de cambio (vencido).`,
+        mensaje2: "Vas a hacer un cambio de forma excepcional sobre una venta vencida. ¿Confirmás?",
+        textoBoton: "Hacer cambio igual",
+        onOk: () => abrirIntercambio(v),
+      });
+    } else {
+      abrirIntercambio(v);
+    }
+  };
 }
 
 // ---- Popup de intercambio ----

@@ -56,6 +56,11 @@ const API = {
     return this._post("getVentas", {});
   },
 
+  // Restaura (anula) una venta: repone stock, marca restaurada, anula vouchers usados
+  async restaurarVenta(id) {
+    return this._post("restaurarVenta", { id });
+  },
+
   // Agrega prendas nuevas / suma stock (lista de pendientes)
   async agregarStock(items) {
     return this._post("agregarStock", { items });
@@ -115,6 +120,10 @@ const API = {
           resolve({ ok: true, stock: JSON.parse(JSON.stringify(STOCK_DEMO)) });
         } else if (action === "getVentas") {
           resolve({ ok: true, ventas: JSON.parse(JSON.stringify(VENTAS_DEMO)) });
+        } else if (action === "restaurarVenta") {
+          const v = VENTAS_DEMO.find((x) => x.id === payload.id);
+          if (v) v.restaurada = true;
+          resolve({ ok: true });
         } else if (action === "registrarVenta") {
           const id = "V-DEMO-" + Date.now();
           const det = payload.detalles || {};
