@@ -93,6 +93,19 @@ const API = {
   async crearVoucher(voucher) {
     return this._post("crearVoucher", { voucher });
   },
+  // marca avisado / usado / deshabilitado
+  async actualizarVoucher(id, cambios) {
+    return this._post("actualizarVoucher", { id, cambios });
+  },
+  async toggleAvisoVoucher(id, avisado) {
+    return this._post("toggleAvisoVoucher", { id, avisado });
+  },
+  async deshabilitarVoucher(id) {
+    return this._post("deshabilitarVoucher", { id });
+  },
+  async usarVoucher(id) {
+    return this._post("usarVoucher", { id });
+  },
 
   // ---- MOCK en memoria ----
   _mock(action, payload) {
@@ -130,6 +143,22 @@ const API = {
           resolve({ ok: true, vouchers: JSON.parse(JSON.stringify(VOUCHERS_DEMO)) });
         } else if (action === "crearVoucher") {
           VOUCHERS_DEMO.unshift(payload.voucher);
+          resolve({ ok: true });
+        } else if (action === "actualizarVoucher") {
+          const v = VOUCHERS_DEMO.find((x) => x.id === payload.id);
+          if (v) Object.assign(v, payload.cambios);
+          resolve({ ok: true });
+        } else if (action === "toggleAvisoVoucher") {
+          const v = VOUCHERS_DEMO.find((x) => x.id === payload.id);
+          if (v) v.avisado = payload.avisado;
+          resolve({ ok: true });
+        } else if (action === "deshabilitarVoucher") {
+          const v = VOUCHERS_DEMO.find((x) => x.id === payload.id);
+          if (v) v.usado = true;
+          resolve({ ok: true });
+        } else if (action === "usarVoucher") {
+          const v = VOUCHERS_DEMO.find((x) => x.id === payload.id);
+          if (v) v.usado = true;
           resolve({ ok: true });
         } else if (action === "registrarIntercambio") {
           // quitar la venta devuelta del historial de cambios

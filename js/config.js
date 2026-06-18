@@ -45,6 +45,41 @@ function gananciaPct(venta, costo) {
   return Math.round(((venta - costo) / costo) * 100);
 }
 
+// días que faltan para que venza un voucher (puede ser negativo si ya venció)
+function diasParaVencer(vencimientoISO) {
+  if (!vencimientoISO) return Infinity;
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const v = new Date(vencimientoISO + "T00:00:00");
+  return Math.round((v - hoy) / (1000 * 60 * 60 * 24));
+}
+
+// estado de alarma de un voucher: "roja" | "amarilla" | "ninguna" | "vencido" | "usado"
+function estadoAlarmaVoucher(v) {
+  if (v.usado) return "usado";
+  const dias = diasParaVencer(v.vencimiento);
+  if (dias < 0) return "vencido";
+  if (dias <= CONFIG.DIAS_ALARMA_VOUCHER) return v.avisado ? "amarilla" : "roja";
+  return "ninguna";
+}
+
+// días que faltan para que venza un voucher (yyyy-mm-dd)
+function diasParaVencer(vencimiento) {
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const v = new Date(vencimiento + "T00:00:00");
+  return Math.ceil((v - hoy) / (1000 * 60 * 60 * 24));
+}
+
+// estado de alarma de un voucher: "roja" | "amarilla" | null
+function estadoAlarmaVoucher(v) {
+  if (v.usado) return null;
+  const dias = diasParaVencer(v.vencimiento);
+  if (dias < 0) return null; // ya vencido
+  if (dias <= CONFIG.DIAS_ALARMA_VOUCHER) {
+    return v.avisado ? "amarilla" : "roja";
+  }
+  return null;
+}
+
 // Logo SVG reutilizable en toda la app
 const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 604" preserveAspectRatio="xMidYMid meet">
 <g transform="translate(0,604) scale(0.1,-0.1)" fill="#DCCAAC" stroke="none">

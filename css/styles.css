@@ -226,6 +226,106 @@ button { font-family: inherit; }
 }
 .filter-clear:hover { background: var(--oak-20); color: var(--pale-oak); }
 
+/* ============ VOUCHERS ============ */
+.vouchers-wrap { padding: 0 2.5% 3rem; }
+.voucher-alarma {
+  margin: 0 2.5% 1rem; padding: 12px 18px; border-radius: 12px;
+  display: flex; align-items: center; gap: 10px; font-size: 14px; letter-spacing: 0.03em;
+}
+.voucher-alarma.roja { background: rgba(201,122,109,0.18); border: 1px solid var(--danger); color: #eab3a9; }
+.voucher-alarma.amarilla { background: rgba(201,162,75,0.16); border: 1px solid var(--gold); color: #e3c987; }
+.voucher-alarma i { font-size: 20px; }
+
+.voucher-add-bar {
+  display: flex; justify-content: center; padding: 0 2.5% 1rem;
+}
+.voucher-add-btn {
+  display: flex; align-items: center; gap: 10px; background: var(--oak-08);
+  border: 1px dashed var(--oak-35); border-radius: 12px; padding: 14px 24px; cursor: pointer;
+  color: var(--oak-60); font-family: 'Cinzel', serif; font-size: 14px; letter-spacing: 0.1em;
+  text-transform: uppercase; transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.voucher-add-btn:hover { background: var(--oak-20); color: var(--pale-oak); border-color: var(--oak-55); }
+.voucher-add-btn i { font-size: 22px; }
+
+.voucher-list { display: flex; flex-direction: column; gap: 12px; padding: 0 2.5% 3rem; }
+.vcard {
+  display: grid; grid-template-columns: auto 1fr auto auto auto; gap: 16px; align-items: center;
+  background: var(--oak-08); border: 1px solid var(--oak-25); border-radius: var(--r); padding: 14px 18px;
+}
+.vcard.usado { opacity: 0.45; }
+.vcard.alarma-roja { border-color: var(--danger); }
+.vcard.alarma-amarilla { border-color: var(--gold); }
+.vcard-icon { width: 46px; height: 46px; border-radius: 10px; background: var(--oak-10); display: flex; align-items: center; justify-content: center; color: var(--gold); }
+.vcard-icon i { font-size: 24px; }
+.vcard-info { display: flex; flex-direction: column; gap: 2px; }
+.vcard-info .vc-nombre { font-size: 15px; font-weight: 600; color: var(--pale-oak); }
+.vcard-info .vc-sub { font-size: 12px; color: var(--oak-55); }
+.vcard-info .vc-venc { font-size: 11px; }
+.vcard-info .vc-venc.roja { color: var(--danger); }
+.vcard-info .vc-venc.amarilla { color: var(--gold); }
+.vcard-info .vc-venc.ok { color: var(--oak-55); }
+.vcard-monto { font-size: 18px; color: var(--gold); white-space: nowrap; }
+.vcard-monto.desc { color: var(--sage); }
+.vcard-aviso { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10px; color: var(--oak-55); text-transform: uppercase; letter-spacing: 0.05em; }
+.vcard-aviso input { width: 18px; height: 18px; accent-color: var(--gold); cursor: pointer; }
+.vcard-acts { display: flex; gap: 8px; }
+.vc-btn { width: 40px; height: 40px; border-radius: 9px; border: 1px solid var(--oak-25); background: var(--oak-08); color: var(--oak-60); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s; }
+.vc-btn:hover { background: var(--oak-20); color: var(--pale-oak); }
+.vc-btn.danger:hover { background: rgba(201,122,109,0.2); color: var(--danger); border-color: var(--danger); }
+.vc-btn i { font-size: 19px; }
+
+/* voucher para compartir como imagen */
+.voucher-share {
+  width: 380px; background: linear-gradient(150deg, #06302d, #041F1E);
+  border: 1px solid var(--oak-35); border-radius: 18px; padding: 28px; color: var(--pale-oak);
+  font-family: 'Cinzel', serif; position: relative; overflow: hidden;
+}
+.voucher-share .vs-brand { font-size: 22px; letter-spacing: 0.3em; text-align: center; margin-bottom: 18px; }
+.voucher-share .vs-monto { font-size: 40px; text-align: center; color: var(--gold); margin: 10px 0; }
+.voucher-share .vs-tipo { text-align: center; font-size: 13px; letter-spacing: 0.15em; color: var(--oak-60); text-transform: uppercase; }
+.voucher-share .vs-data { margin-top: 20px; border-top: 1px solid var(--oak-25); padding-top: 14px; font-size: 13px; display: flex; flex-direction: column; gap: 5px; }
+.voucher-share .vs-data span { color: var(--oak-60); }
+.voucher-share .vs-data strong { color: var(--pale-oak); }
+.voucher-share .vs-id { text-align: center; font-size: 11px; color: var(--oak-55); margin-top: 14px; letter-spacing: 0.1em; }
+
+/* selector de voucher en el popup de venta */
+.voucher-select-row { border-top: 1px solid var(--oak-20); padding-top: 1rem; }
+.voucher-select-row select { width: 100%; background: rgba(4,31,30,0.6); border: 1px solid var(--oak-35); color: var(--pale-oak); font-family: 'Cinzel', serif; font-size: 13px; padding: 9px; border-radius: 8px; }
+.voucher-select-row select option { background: var(--evergreen); }
+.descuento-line span:last-child { color: var(--sage); }
+
+@media (max-width: 860px) { .vcard { grid-template-columns: 1fr; } }
+
+/* ============ VOUCHERS ============ */
+.vouchers-top { padding: 0.5rem 2.5% 0.5rem; display: flex; justify-content: flex-end; }
+.v-new-btn { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 10px 18px; }
+.v-new-btn i { font-size: 18px; }
+.alarm-bar {
+  margin: 0 2.5% 0.5rem; padding: 12px 18px; border-radius: 10px;
+  display: flex; align-items: center; gap: 10px; font-size: 14px; letter-spacing: 0.04em;
+}
+.alarm-bar i { font-size: 20px; }
+.alarm-red { background: rgba(201,122,109,0.18); border: 1px solid var(--danger); color: var(--danger); }
+.alarm-yellow { background: rgba(201,162,75,0.15); border: 1px solid var(--gold); color: var(--gold); }
+.voucher-row { grid-template-columns: 1fr auto auto; }
+.alarm-row-red { border-color: rgba(201,122,109,0.5); }
+.alarm-row-yellow { border-color: rgba(201,162,75,0.4); }
+.v-value { font-size: 18px; color: var(--gold); font-weight: 600; white-space: nowrap; }
+.v-actions { display: flex; align-items: center; gap: 10px; }
+.v-check { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--oak-60); cursor: pointer; white-space: nowrap; }
+.v-check input { accent-color: var(--gold); cursor: pointer; }
+.v-icon { width: 38px; height: 38px; border-radius: 9px; border: 1px solid var(--oak-35); background: var(--oak-08); color: var(--pale-oak); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+.v-icon:hover { background: var(--oak-20); }
+.v-icon i { font-size: 18px; }
+.v-icon.danger { border-color: rgba(201,122,109,0.4); color: var(--danger); }
+.v-icon.danger:hover { background: rgba(201,122,109,0.2); }
+.v-badge { font-size: 11px; padding: 2px 8px; border-radius: 6px; width: fit-content; letter-spacing: 0.03em; }
+.v-badge.red { background: rgba(201,122,109,0.2); color: var(--danger); }
+.v-badge.yellow { background: rgba(201,162,75,0.18); color: var(--gold); }
+.v-badge.gray { background: var(--oak-10); color: var(--oak-55); }
+.v-badge.ok { background: rgba(126,155,122,0.15); color: var(--sage); }
+
 /* ============ MODAL / POPUP ============ */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 50;
@@ -285,11 +385,12 @@ button { font-family: inherit; }
 .drawer-item .di-rm { background: none; border: none; color: #e8a0a0; cursor: pointer; font-size: 18px; }
 .drawer-empty { color: var(--oak-55); text-align: center; margin-top: 2rem; font-size: 14px; }
 
-/* notificaciones (arriba, para no tapar footers) */
+/* notificaciones (debajo del header, dejan navegar) */
 .toast {
-  position: fixed; top: 24px; left: 50%; transform: translateX(-50%); z-index: 60;
+  position: fixed; top: 84px; left: 50%; transform: translateX(-50%); z-index: 45;
   background: var(--gold); color: var(--coffee); padding: 12px 22px; border-radius: 10px;
   font-size: 14px; letter-spacing: 0.05em; box-shadow: 0 6px 20px rgba(0,0,0,0.4); animation: toastIn 0.2s ease;
+  pointer-events: none;
 }
 @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translate(-50%, 0); } }
 

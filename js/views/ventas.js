@@ -287,7 +287,8 @@ function abrirPopupVenta(lineas) {
   // estado de pago: simple o dividido
   let modoDividido = false;
   let metodo1 = null, metodo2 = null;
-  let montoTarjetaManual = null; // cuánto va en el método con tarjeta (modo dividido)
+  let montoTarjetaManual = null;
+  let voucherSel = null; // voucher aplicado
 
   const base = lineas.reduce((a, l) => a + precioLinea(l), 0);
 
@@ -303,6 +304,13 @@ function abrirPopupVenta(lineas) {
       <h2>Confirmar venta</h2>
       <div>${detalle}</div>
       <div class="modal-line"><span>Subtotal</span><strong>${formatPrecio(base)}</strong></div>
+
+      <div class="voucher-select-row">
+        <div class="field">
+          <label>Voucher (opcional)</label>
+          <select id="selVoucher"><option value="">Sin voucher</option></select>
+        </div>
+      </div>
 
       <div class="venta-fields">
         <div class="field">
@@ -349,6 +357,7 @@ function abrirPopupVenta(lineas) {
       </div>
 
       <div class="swap-diff" style="border-top:1px solid var(--oak-20);padding-top:1rem">
+        <div class="modal-line descuento-line" id="descLine" style="display:none"><span id="descLabel">Voucher</span><strong id="descVal">$0</strong></div>
         <div class="modal-line" id="recargoLine" style="display:none"><span>Recargo tarjeta (20%)</span><strong id="recargoVal">$0</strong></div>
         <div class="modal-total"><span>Total a cobrar</span><span id="totalVal">${formatPrecio(base)}</span></div>
       </div>
@@ -362,6 +371,9 @@ function abrirPopupVenta(lineas) {
   const btnConf = document.getElementById("confirmar");
   const recargoLine = document.getElementById("recargoLine");
   const recargoVal = document.getElementById("recargoVal");
+  const descLine = document.getElementById("descLine");
+  const descVal = document.getElementById("descVal");
+  const descLabel = document.getElementById("descLabel");
   const totalVal = document.getElementById("totalVal");
   const paySimple = document.getElementById("paySimple");
   const payDividido = document.getElementById("payDividido");
@@ -369,29 +381,61 @@ function abrirPopupVenta(lineas) {
   const selM2 = document.getElementById("selM2");
   const montoM1 = document.getElementById("montoM1");
   const montoM2 = document.getElementById("montoM2");
+  const selVoucher = document.getElementById("selVoucher");
 
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("cancelar").onclick = cerrarModal;
 
-  // recargo: solo sobre la parte que va en débito/crédito
+  // cargar vouchers disponibles en el selector
+  let vouchersDisp = [];
+  API.getVouchers().then((res) => {
+    if (res.ok) {
+      vouchersDisp = res.vouchers.filter((v) => !v.usado && diasParaVencer(v.vencimiento) >= 0);
+      vouchersDisp.forEach((v) => {
+        const txt = v.tipo === "monto" ? formatPrecio(v.monto) : `${v.descuento}%`;
+        const opt = document.createElement("option");
+        opt.value = v.id;
+        opt.textContent = `${v.nombre} · ${txt}`;
+        selVoucher.appendChild(opt);
+      });
+    }
+  });
+
+  selVoucher.onchange = () => {
+    voucherSel = vouchersDisp.find((v) => v.id === selVoucher.value) || null;
+    recalcular();
+  };
+
+  // descuento del voucher sobre la base
+  function descuentoVoucher() {
+    if (!voucherSel) return 0;
+    if (voucherSel.tipo === "descuento") return base * (voucherSel.descuento / 100);
+    return Math.min(voucherSel.monto, base); // monto, tope = base
+  }
+
   function recargoDe(monto, met) {
     return MEDIOS_CON_RECARGO.includes(met) ? monto * CONFIG.RECARGO_TARJETA : 0;
   }
 
   function recalcular() {
+    const desc = descuentoVoucher();
+    const baseConDesc = base - desc; // voucher primero
     let recargo = 0, valido = false;
 
+    if (desc > 0) {
+      descLine.style.display = "flex";
+      descLabel.textContent = voucherSel.tipo === "descuento" ? `Voucher (${voucherSel.descuento}%)` : "Voucher";
+      descVal.textContent = "−" + formatPrecio(desc);
+    } else descLine.style.display = "none";
+
     if (!modoDividido) {
-      if (metodo1) {
-        recargo = recargoDe(base, metodo1);
-        valido = true;
-      }
+      if (metodo1) { recargo = recargoDe(baseConDesc, metodo1); valido = true; }
     } else {
       const m1 = selM1.value, m2 = selM2.value;
       const monto1 = Number(montoM1.value) || 0;
-      const monto2 = base - monto1;
+      const monto2 = baseConDesc - monto1;
       montoM2.value = monto2 >= 0 ? formatPrecio(monto2) : "—";
-      if (monto1 > 0 && monto1 < base && m1 !== m2) {
+      if (monto1 > 0 && monto1 < baseConDesc && m1 !== m2) {
         recargo = recargoDe(monto1, m1) + recargoDe(monto2, m2);
         valido = true;
       }
@@ -399,12 +443,11 @@ function abrirPopupVenta(lineas) {
 
     if (recargo > 0) { recargoLine.style.display = "flex"; recargoVal.textContent = formatPrecio(recargo); }
     else recargoLine.style.display = "none";
-    totalVal.textContent = formatPrecio(base + recargo);
+    totalVal.textContent = formatPrecio(baseConDesc + recargo);
     btnConf.disabled = !valido;
-    return recargo;
+    return { desc, baseConDesc, recargo };
   }
 
-  // toggle modos
   document.getElementById("modoSimple").onclick = () => {
     modoDividido = false;
     document.getElementById("modoSimple").classList.add("selected");
@@ -435,8 +478,8 @@ function abrirPopupVenta(lineas) {
     btnConf.disabled = true;
     btnConf.textContent = "Procesando...";
 
-    const recargo = recalcular();
-    const precioFinal = base + recargo;
+    const { desc, baseConDesc, recargo } = recalcular();
+    const precioFinal = baseConDesc + recargo;
     const fechaVenta = document.getElementById("fechaVenta").value;
     const inicioCambio = document.getElementById("fechaInicioCambio").value;
 
@@ -447,15 +490,30 @@ function abrirPopupVenta(lineas) {
       const monto1 = Number(montoM1.value) || 0;
       pago = { tipo: "dividido", partes: [
         { metodo: selM1.value, monto: monto1 },
-        { metodo: selM2.value, monto: base - monto1 },
+        { metodo: selM2.value, monto: baseConDesc - monto1 },
       ] };
     }
 
     const res = await API.registrarVenta(lineas, pago, {
-      precioBase: base, precioFinal, fechaVenta, inicioCambio,
+      precioBase: baseConDesc, precioFinal, fechaVenta, inicioCambio,
+      voucherId: voucherSel ? voucherSel.id : null, descuento: desc,
     });
 
     if (res.ok) {
+      // marcar voucher usado y generar sobrante si corresponde
+      if (voucherSel) {
+        await API.usarVoucher(voucherSel.id);
+        if (voucherSel.tipo === "monto" && voucherSel.monto > base) {
+          const sobra = voucherSel.monto - base;
+          const vence = new Date(); vence.setDate(vence.getDate() + CONFIG.DIAS_VENCIMIENTO_VOUCHER);
+          await API.crearVoucher({
+            id: "VCH-" + Date.now(), tipo: "monto", fecha: new Date().toISOString(),
+            vencimiento: vence.toISOString().slice(0, 10), monto: sobra,
+            nombre: voucherSel.nombre || "", telefono: voucherSel.telefono || "",
+            origen: `Saldo de ${voucherSel.id}`, avisado: false, usado: false,
+          });
+        }
+      }
       lineas.forEach((l) => {
         const v = State.stock.find((x) => x.codigo === l.codigo && x.talle === l.talle && x.color === l.color);
         if (v) v.cantidad -= l.cantidad;
@@ -465,7 +523,10 @@ function abrirPopupVenta(lineas) {
       }
       cerrarModal();
       actualizarBadge();
-      toast("Venta registrada");
+      const msg = voucherSel
+        ? (voucherSel.tipo === "monto" && voucherSel.monto > base ? "Venta registrada · Voucher aplicado (queda saldo)" : "Venta registrada · Voucher aplicado")
+        : "Venta registrada";
+      toast(msg);
       renderVentasCategorias(document.getElementById("view"));
     } else {
       toast("Error al registrar la venta");
