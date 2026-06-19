@@ -191,8 +191,23 @@ async function iniciarApp() {
   document.getElementById("app").classList.remove("hidden");
   // Precarga del stock
   const res = await API.getStock();
-  if (res.ok) State.stock = res.stock;
+  if (res.ok) State.stock = consolidarStock(res.stock);
   Router.ir("home");
+}
+
+// Unifica filas repetidas de la misma combinación código+talle+color
+// (suma cantidades). Evita que duplicados en la planilla rompan la UI.
+function consolidarStock(stock) {
+  const mapa = {};
+  stock.forEach((s) => {
+    const k = s.codigo + "|" + s.talle + "|" + s.color;
+    if (mapa[k]) {
+      mapa[k].cantidad += s.cantidad;
+    } else {
+      mapa[k] = Object.assign({}, s);
+    }
+  });
+  return Object.values(mapa);
 }
 
 window.addEventListener("DOMContentLoaded", () => {
