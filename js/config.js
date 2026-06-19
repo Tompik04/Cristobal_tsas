@@ -8,11 +8,11 @@
 
 const CONFIG = {
   // 1) Pegá tu URL del Apps Script acá ↓
-  APPS_SCRIPT_URL: "",
+  APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbxjrr4Dj0XwR8gd0ag4wRIsPs5ItErpgjIqEJiqfGMe9ki1DBUx_APiRUBEA21s7frwIQ/exec",
 
   // 2) Mientras no haya URL, usa datos de ejemplo y un PIN local.
   //    Cuando pegues la URL arriba, poné MODO_PRUEBA en false.
-  MODO_PRUEBA: true,
+  MODO_PRUEBA: false,
 
   // PIN solo para MODO_PRUEBA (en producción lo valida el Apps Script)
   PIN_PRUEBA: "1234",
