@@ -122,6 +122,7 @@ function voucherHTML(v) {
       <div class="v-value">${valorVoucher(v)}</div>
       <div class="v-actions">
         ${checkHTML}
+        <button class="v-icon" data-act="editvenc" title="Editar vencimiento"><i class="ti ti-calendar"></i></button>
         <button class="v-icon" data-act="share" title="Compartir imagen"><i class="ti ti-share"></i></button>
         ${v.usado
           ? `<button class="v-icon ok" data-act="enable" title="Rehabilitar"><i class="ti ti-rotate"></i></button>`
@@ -143,6 +144,34 @@ function bindVoucher(list, v) {
     };
   }
   row.querySelector('[data-act="share"]').onclick = () => compartirVoucher(v);
+
+  row.querySelector('[data-act="editvenc"]').onclick = () => {
+    document.getElementById("modalRoot").innerHTML = `
+      <div class="modal-overlay" id="ov"></div>
+      <div class="modal">
+        <h2>Editar vencimiento</h2>
+        <p class="modal-line"><span>Voucher</span><strong>${v.nombre || v.id}</strong></p>
+        <p class="modal-line"><span>Valor</span><strong>${valorVoucher(v)}</strong></p>
+        <div class="field"><label>Nueva fecha de vencimiento</label>
+          <input class="sinput" type="date" id="newVenc" value="${v.vencimiento || ""}"></div>
+        <div class="modal-actions">
+          <button class="btn-ghost" id="vencCancel">Cancelar</button>
+          <button class="btn-primary" id="vencSave">Guardar</button>
+        </div>
+      </div>`;
+    document.getElementById("ov").onclick = cerrarModal;
+    document.getElementById("vencCancel").onclick = cerrarModal;
+    document.getElementById("vencSave").onclick = async () => {
+      const nueva = document.getElementById("newVenc").value;
+      if (!nueva) return toast("Falta la fecha");
+      v.vencimiento = nueva;
+      await API.actualizarVoucher(v.id, { vencimiento: nueva });
+      cerrarModal();
+      toast("Vencimiento actualizado");
+      cargarVouchers();
+      actualizarCampanitaVouchers();
+    };
+  };
 
   const dis = row.querySelector('[data-act="disable"]');
   if (dis) dis.onclick = () => {
