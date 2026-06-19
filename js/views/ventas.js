@@ -67,6 +67,9 @@ function pintarProductosVentas(root, productos, f) {
   const cont = document.getElementById("ventasProdList");
   let lista = productos.slice();
 
+  // ocultar productos sin stock en ninguna variante (no hay nada que vender)
+  lista = lista.filter((p) => p.variantes.some((v) => v.cantidad > 0));
+
   if (f.q) lista = lista.filter((p) => coincideTexto({ marca: p.marca, codigo: p.codigo }, f.q, ["marca", "codigo"]));
   if (f.talle) lista = lista.filter((p) => p.variantes.some((v) => v.talle === f.talle));
   if (f.color) lista = lista.filter((p) => p.variantes.some((v) => v.color === f.color));
@@ -432,11 +435,16 @@ function abrirPopupVenta(lineas) {
       if (metodo1) { recargo = recargoDe(baseConDesc, metodo1); valido = true; }
     } else {
       const m1 = selM1.value, m2 = selM2.value;
-      const monto1 = Number(montoM1.value) || 0;
-      const monto2 = baseConDesc - monto1;
-      montoM2.value = monto2 >= 0 ? formatPrecio(monto2) : "—";
-      if (monto1 > 0 && monto1 < baseConDesc && m1 !== m2) {
-        recargo = recargoDe(monto1, m1) + recargoDe(monto2, m2);
+      // En modo dividido, el monto1 que escribe la empleada es LO QUE SE COBRA en el método 1
+      // (ya con recargo si es tarjeta). Calculamos hacia atrás la parte del producto que cubre.
+      const cobra1 = Number(montoM1.value) || 0;
+      const factor1 = MEDIOS_CON_RECARGO.includes(m1) ? (1 + CONFIG.RECARGO_TARJETA) : 1;
+      const productoM1 = cobra1 / factor1; // parte del producto cubierta por el método 1
+      const productoM2 = baseConDesc - productoM1; // parte del producto que cubre el método 2
+      const cobra2 = productoM2 + recargoDe(productoM2, m2); // lo que se cobra en el método 2
+      montoM2.value = productoM2 >= 0 ? formatPrecio(cobra2) : "—";
+      if (productoM1 > 0 && productoM1 < baseConDesc && m1 !== m2) {
+        recargo = recargoDe(productoM1, m1) + recargoDe(productoM2, m2);
         valido = true;
       }
     }
