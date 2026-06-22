@@ -26,6 +26,7 @@ const Router = {
     cambios: renderCambios,
     vouchers: renderVouchers,
     historial: renderHistorial,
+    gastos: renderGastos,
   },
 
   ir(vista, params = {}) {
@@ -95,6 +96,7 @@ function headerHTML(actual) {
     <div class="h-left">
       <button class="h-home" id="hHome" aria-label="Inicio"><i class="ti ti-home"></i></button>
       <button class="h-hist" id="hHist" aria-label="Historial" title="Historial de ventas"><i class="ti ti-clock-hour-4"></i></button>
+      <button class="h-hist" id="hGastos" aria-label="Gastos" title="Gastos del local"><i class="ti ti-receipt-2"></i></button>
     </div>
     <nav class="h-nav">${nav}</nav>
     <div class="h-logo">${LOGO_SVG}</div>
@@ -106,6 +108,8 @@ function bindHeader() {
   if (home) home.onclick = () => Router.ir("home");
   const hist = document.getElementById("hHist");
   if (hist) hist.onclick = () => Router.ir("historial");
+  const gastos = document.getElementById("hGastos");
+  if (gastos) gastos.onclick = () => Router.ir("gastos");
   document.querySelectorAll("[data-nav]").forEach((a) => {
     a.onclick = () => Router.ir(a.dataset.nav);
   });

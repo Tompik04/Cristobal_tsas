@@ -337,6 +337,25 @@ button { font-family: inherit; }
 .v-badge.gray { background: var(--oak-10); color: var(--oak-55); }
 .v-badge.ok { background: rgba(126,155,122,0.15); color: var(--sage); }
 
+/* ============ GASTOS ============ */
+.gastos-top { padding: 0.5rem 2.5% 0.5rem; display: flex; justify-content: flex-end; }
+.resumen-mes { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 0.5rem 2.5% 1rem; }
+.mes-nav { background: var(--oak-08); border: 1px solid var(--oak-25); color: var(--pale-oak); border-radius: 9px; width: 38px; height: 38px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+.mes-nav:hover { background: var(--oak-20); }
+.mes-label { font-size: 18px; letter-spacing: 0.06em; color: var(--pale-oak); min-width: 180px; text-align: center; }
+.resumen-cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; padding: 0 2.5% 1.5rem; }
+.rcard { background: var(--oak-08); border: 1px solid var(--oak-25); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.rcard.rc-net { border-color: var(--oak-55); background: var(--oak-10); }
+.rc-label { font-size: 12px; letter-spacing: 0.08em; color: var(--oak-55); text-transform: uppercase; }
+.rc-val { font-size: 22px; font-weight: 600; }
+.rc-val.pos { color: var(--sage); }
+.rc-val.neg { color: var(--danger); }
+.gasto-row { grid-template-columns: 1fr auto auto; }
+.g-rec { color: var(--gold); font-size: 11px; }
+.g-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--oak-60); cursor: pointer; margin: 4px 0; }
+.g-check input { accent-color: var(--gold); cursor: pointer; }
+@media (max-width: 640px) { .resumen-cards { grid-template-columns: 1fr; } .gasto-row { grid-template-columns: 1fr; } }
+
 /* ============ MODAL / POPUP ============ */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 50;

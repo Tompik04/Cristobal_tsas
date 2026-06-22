@@ -106,6 +106,12 @@ function voucherDeDB(r) {
     avisado: !!r.avisado, usado: !!r.usado,
   };
 }
+function gastoDeDB(r) {
+  return {
+    id: r.id, concepto: r.concepto, monto: Number(r.monto) || 0,
+    fecha: r.fecha, categoria: r.categoria, recurrente: !!r.recurrente,
+  };
+}
 
 const API = {
   // ---------- LOGIN ----------
@@ -305,6 +311,35 @@ const API = {
   async usarVoucher(id) { return this.actualizarVoucher(id, { usado: true }); },
   async deshabilitarVoucher(id) { return this.actualizarVoucher(id, { usado: true }); },
   async toggleAvisoVoucher(id, avisado) { return this.actualizarVoucher(id, { avisado: avisado }); },
+
+  // ---------- GASTOS ----------
+  async getGastos() {
+    if (CONFIG.MODO_PRUEBA) return { ok: true, gastos: [] };
+    try {
+      const rows = await SB.select("gastos", "select=*&order=fecha.desc");
+      return { ok: true, gastos: rows.map(gastoDeDB) };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+  async crearGasto(g) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try {
+      await SB.insert("gastos", [{
+        id: g.id, concepto: g.concepto, monto: g.monto,
+        fecha: g.fecha, categoria: g.categoria || "", recurrente: !!g.recurrente,
+      }]);
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+  async actualizarGasto(id, cambios) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try { await SB.update("gastos", "id=eq." + enc(id), cambios); return { ok: true }; }
+    catch (e) { return { ok: false, error: String(e) }; }
+  },
+  async eliminarGasto(id) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try { await SB.remove("gastos", "id=eq." + enc(id)); return { ok: true }; }
+    catch (e) { return { ok: false, error: String(e) }; }
+  },
 
   // ---------- MOCK (datos de ejemplo si MODO_PRUEBA) ----------
   _mock(action, payload) {

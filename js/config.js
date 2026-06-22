@@ -106,6 +106,9 @@ const CATEGORIAS = [
 const OFERTAS = [0, 5, 10, 15, 20];
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito"];
 
+// Categorías de gastos del local
+const CATEGORIAS_GASTO = ["Alquiler", "Luz", "Agua", "Gas", "Internet", "Monotributo", "Sueldos", "Mercadería", "Mantenimiento", "Impuestos", "Otros"];
+
 // Listas fijas para cargar stock
 const TALLES = ["XS", "S", "M", "L", "XL", "XXL", "36", "38", "40", "42", "44"];
 const COLORES = ["Negro", "Blanco", "Gris", "Verde", "Azul", "Rojo", "Beige", "Marrón"];
