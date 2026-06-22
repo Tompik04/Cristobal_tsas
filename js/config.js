@@ -7,11 +7,14 @@
    ============================================================ */
 
 const CONFIG = {
-  // 1) Pegá tu URL del Apps Script acá ↓
-  APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbxjrr4Dj0XwR8gd0ag4wRIsPs5ItErpgjIqEJiqfGMe9ki1DBUx_APiRUBEA21s7frwIQ/exec",
+  // ===== SUPABASE =====
+  SUPABASE_URL: "https://gsqvjfxybiyozgvfhdbn.supabase.co",
+  SUPABASE_KEY: "sb_publishable_7XQzlfzQq4MLmnKekugNyg_veY8RXxV",
 
-  // 2) Mientras no haya URL, usa datos de ejemplo y un PIN local.
-  //    Cuando pegues la URL arriba, poné MODO_PRUEBA en false.
+  // 1) (legado Apps Script — ya no se usa con Supabase)
+  APPS_SCRIPT_URL: "",
+
+  // 2) Con Supabase configurado, poné MODO_PRUEBA en false.
   MODO_PRUEBA: false,
 
   // PIN solo para MODO_PRUEBA (en producción lo valida el Apps Script)

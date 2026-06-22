@@ -1,250 +1,351 @@
 /* ============================================================
-   API — comunicación con Google Apps Script
+   API — CRISTOBAL (Supabase)
    ============================================================
-   En MODO_PRUEBA devuelve datos de ejemplo en memoria.
-   Con APPS_SCRIPT_URL configurada, hace fetch real al Web App.
+   Capa de datos. Habla con Supabase vía su API REST.
+   Mantiene los mismos métodos que usaba la app con Apps Script,
+   así el resto del código no cambia.
+
+   Si MODO_PRUEBA = true, usa datos de ejemplo en memoria (mock).
    ============================================================ */
 
-// ---- Datos de ejemplo (reflejan la pestaña Stock del Excel) ----
-const STOCK_DEMO = [
-  { codigo: "FOW0101", categoria: "Remeras", marca: "Fort Worth", talle: "S", color: "Verde", precio: 18500, costo: 9250, cantidad: 3 },
-  { codigo: "FOW0101", categoria: "Remeras", marca: "Fort Worth", talle: "M", color: "Verde", precio: 18500, costo: 9250, cantidad: 5 },
-  { codigo: "FOW0101", categoria: "Remeras", marca: "Fort Worth", talle: "L", color: "Verde", precio: 18500, costo: 9250, cantidad: 0 },
-  { codigo: "FOW0101", categoria: "Remeras", marca: "Fort Worth", talle: "M", color: "Negro", precio: 18500, costo: 9250, cantidad: 2 },
-  { codigo: "FOW0101", categoria: "Remeras", marca: "Fort Worth", talle: "L", color: "Negro", precio: 18500, costo: 9250, cantidad: 4 },
-  { codigo: "FOW0102", categoria: "Remeras", marca: "Fort Worth", talle: "M", color: "Blanco", precio: 17000, costo: 8500, cantidad: 8 },
-  { codigo: "FOW0102", categoria: "Remeras", marca: "Fort Worth", talle: "L", color: "Blanco", precio: 17000, costo: 8500, cantidad: 3 },
-  { codigo: "FOW0201", categoria: "Buzos", marca: "Fort Worth", talle: "M", color: "Gris", precio: 42000, costo: 21000, cantidad: 6 },
-  { codigo: "FOW0201", categoria: "Buzos", marca: "Fort Worth", talle: "L", color: "Gris", precio: 42000, costo: 21000, cantidad: 4 },
-  { codigo: "KEV0601", categoria: "Jeans", marca: "Kevingston", talle: "38", color: "Azul", precio: 55000, costo: 27500, cantidad: 2 },
-  { codigo: "KEV0601", categoria: "Jeans", marca: "Kevingston", talle: "40", color: "Azul", precio: 55000, costo: 27500, cantidad: 3 },
-];
+const SB = {
+  url: () => CONFIG.SUPABASE_URL + "/rest/v1",
+  headers: () => ({
+    "apikey": CONFIG.SUPABASE_KEY,
+    "Authorization": "Bearer " + CONFIG.SUPABASE_KEY,
+    "Content-Type": "application/json",
+  }),
 
-const API = {
-  async _post(action, payload) {
-    if (CONFIG.MODO_PRUEBA || !CONFIG.APPS_SCRIPT_URL) {
-      return this._mock(action, payload);
-    }
-    const res = await fetch(CONFIG.APPS_SCRIPT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action, ...payload }),
-    });
+  // GET con filtros (querystring tipo PostgREST)
+  async select(tabla, query) {
+    const q = query ? "?" + query : "";
+    const res = await fetch(this.url() + "/" + tabla + q, { headers: this.headers() });
+    if (!res.ok) throw new Error("select " + tabla + ": " + res.status);
     return res.json();
   },
+  // INSERT
+  async insert(tabla, filas) {
+    const res = await fetch(this.url() + "/" + tabla, {
+      method: "POST",
+      headers: Object.assign(this.headers(), { "Prefer": "return=representation" }),
+      body: JSON.stringify(filas),
+    });
+    if (!res.ok) throw new Error("insert " + tabla + ": " + res.status + " " + (await res.text()));
+    return res.json();
+  },
+  // UPDATE con filtro
+  async update(tabla, query, cambios) {
+    const res = await fetch(this.url() + "/" + tabla + "?" + query, {
+      method: "PATCH",
+      headers: Object.assign(this.headers(), { "Prefer": "return=representation" }),
+      body: JSON.stringify(cambios),
+    });
+    if (!res.ok) throw new Error("update " + tabla + ": " + res.status + " " + (await res.text()));
+    return res.json();
+  },
+  // DELETE con filtro
+  async remove(tabla, query) {
+    const res = await fetch(this.url() + "/" + tabla + "?" + query, {
+      method: "DELETE",
+      headers: this.headers(),
+    });
+    if (!res.ok) throw new Error("delete " + tabla + ": " + res.status);
+    return true;
+  },
+  // UPSERT (insertar o actualizar si existe la clave única)
+  async upsert(tabla, filas, onConflict) {
+    const oc = onConflict ? "?on_conflict=" + onConflict : "";
+    const res = await fetch(this.url() + "/" + tabla + oc, {
+      method: "POST",
+      headers: Object.assign(this.headers(), { "Prefer": "resolution=merge-duplicates,return=representation" }),
+      body: JSON.stringify(filas),
+    });
+    if (!res.ok) throw new Error("upsert " + tabla + ": " + res.status + " " + (await res.text()));
+    return res.json();
+  },
+};
 
-  // Validación de PIN
+/* ---------- Mapeo entre columnas de la DB y campos de la app ----------
+   La DB usa snake_case (precio_venta). La app usa camelCase (precio).
+   Estas funciones traducen en ambos sentidos.                          */
+
+function stockDeDB(r) {
+  return {
+    codigo: r.codigo, categoria: r.categoria, marca: r.marca,
+    talle: String(r.talle), color: r.color,
+    precio: Number(r.precio_venta) || 0, costo: Number(r.precio_costo) || 0,
+    cantidad: Number(r.cantidad) || 0,
+  };
+}
+function ventaDeDB(r) {
+  return {
+    id: r.id, fechaHora: r.fecha_hora, codigo: r.codigo, marca: r.marca,
+    talle: String(r.talle), color: r.color, cantidad: Number(r.cantidad) || 0,
+    oferta: Number(r.oferta) || 0,
+    precioBase: Number(r.precio_base) || 0, precioFinal: Number(r.precio_final) || 0,
+    metodoPago: r.metodo_pago, voucherId: r.voucher_id,
+    inicioCambio: r.inicio_cambio, limiteCambio: r.limite_cambio,
+    restaurada: !!r.restaurada,
+  };
+}
+function voucherDeDB(r) {
+  return {
+    id: r.id, tipo: r.tipo, monto: Number(r.monto) || 0, descuento: Number(r.descuento) || 0,
+    nombre: r.nombre, telefono: String(r.telefono || ""),
+    fecha: r.fecha, vencimiento: r.vencimiento, origen: r.origen,
+    avisado: !!r.avisado, usado: !!r.usado,
+  };
+}
+
+const API = {
+  // ---------- LOGIN ----------
   async login(pin) {
-    if (CONFIG.MODO_PRUEBA || !CONFIG.APPS_SCRIPT_URL) {
-      return { ok: pin === CONFIG.PIN_PRUEBA };
+    if (CONFIG.MODO_PRUEBA) return { ok: pin === CONFIG.PIN_PRUEBA };
+    try {
+      const rows = await SB.select("config", "clave=eq.PIN&select=valor");
+      const real = rows.length ? String(rows[0].valor) : "1234";
+      return { ok: String(pin) === real };
+    } catch (e) {
+      return { ok: false, error: String(e) };
     }
-    return this._post("login", { pin });
   },
 
-  // Trae todo el stock
+  // ---------- STOCK ----------
   async getStock() {
-    return this._post("getStock", {});
+    if (CONFIG.MODO_PRUEBA) return this._mock("getStock", {});
+    try {
+      const rows = await SB.select("stock", "select=*&order=codigo");
+      return { ok: true, stock: rows.map(stockDeDB) };
+    } catch (e) { return { ok: false, error: String(e) }; }
   },
 
-  // Registra una venta (o varias líneas del carrito)
-  async registrarVenta(lineas, metodoPago, detalles) {
-    return this._post("registrarVenta", { lineas, metodoPago, detalles });
-  },
-
-  // Trae el historial de ventas de los últimos N días
-  async getVentas() {
-    return this._post("getVentas", {});
-  },
-
-  // Restaura (anula) una venta: repone stock, marca restaurada, anula vouchers usados
-  async restaurarVenta(id) {
-    return this._post("restaurarVenta", { id });
-  },
-
-  // Agrega prendas nuevas / suma stock (lista de pendientes)
   async agregarStock(items) {
-    return this._post("agregarStock", { items });
+    if (CONFIG.MODO_PRUEBA) return this._mock("agregarStock", { items });
+    try {
+      // traer stock actual para sumar cantidades a lo existente
+      const actual = await SB.select("stock", "select=*");
+      for (const it of items) {
+        const ex = actual.find((r) =>
+          r.codigo === it.codigo && String(r.talle) === String(it.talle) && r.color === it.color);
+        if (ex) {
+          await SB.update("stock", "id=eq." + ex.id,
+            { cantidad: (Number(ex.cantidad) || 0) + Number(it.cantidad),
+              precio_venta: it.precio, precio_costo: it.costo });
+        } else {
+          await SB.insert("stock", [{
+            codigo: it.codigo, categoria: categoriaDeCodigo(it.codigo), marca: it.marca,
+            talle: it.talle, color: it.color,
+            precio_venta: it.precio, precio_costo: it.costo, cantidad: it.cantidad,
+          }]);
+        }
+      }
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
   },
 
-  // Ajusta el stock de una combinación en +1 / -1
   async ajustarStock(codigo, talle, color, delta) {
-    return this._post("ajustarStock", { codigo, talle, color, delta });
+    if (CONFIG.MODO_PRUEBA) return this._mock("ajustarStock", {});
+    try {
+      const q = "codigo=eq." + enc(codigo) + "&talle=eq." + enc(talle) + "&color=eq." + enc(color);
+      const rows = await SB.select("stock", "select=*&" + q);
+      if (!rows.length) return { ok: false, error: "No encontrado" };
+      let restante = delta;
+      if (delta < 0) {
+        let quitar = -delta;
+        for (const r of rows) {
+          if (quitar <= 0) break;
+          const actual = Number(r.cantidad) || 0;
+          const q2 = Math.min(actual, quitar);
+          await SB.update("stock", "id=eq." + r.id, { cantidad: actual - q2 });
+          quitar -= q2;
+        }
+      } else {
+        const r = rows[0];
+        await SB.update("stock", "id=eq." + r.id, { cantidad: (Number(r.cantidad) || 0) + delta });
+      }
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
   },
 
-  // Elimina por completo una combinación de stock
   async eliminarStock(codigo, talle, color) {
-    return this._post("eliminarStock", { codigo, talle, color });
+    if (CONFIG.MODO_PRUEBA) return this._mock("eliminarStock", {});
+    try {
+      const q = "codigo=eq." + enc(codigo) + "&talle=eq." + enc(talle) + "&color=eq." + enc(color);
+      await SB.remove("stock", q);
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
   },
 
-  // Actualiza el precio de todas las variantes de un código
   async actualizarPrecio(codigo, precio, costo) {
-    return this._post("actualizarPrecio", { codigo, precio, costo });
+    if (CONFIG.MODO_PRUEBA) return this._mock("actualizarPrecio", {});
+    try {
+      await SB.update("stock", "codigo=eq." + enc(codigo),
+        { precio_venta: precio, precio_costo: costo });
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
   },
 
-  // Anula (elimina) una venta del historial
+  // ---------- VENTAS ----------
+  async registrarVenta(lineas, pago, det) {
+    if (CONFIG.MODO_PRUEBA) return this._mock("registrarVenta", { lineas, metodoPago: pago, detalles: det });
+    try {
+      det = det || {};
+      const id = "V-" + Date.now();
+      const metodoTxt = textoMetodo(pago);
+      const limite = sumarDias(det.inicioCambio, CONFIG.DIAS_CAMBIO);
+      const filas = lineas.map((l, i) => ({
+        id: id + "-" + i,
+        fecha_hora: det.fechaVenta ? new Date(det.fechaVenta).toISOString() : new Date().toISOString(),
+        codigo: l.codigo, marca: l.marca, talle: l.talle, color: l.color,
+        cantidad: l.cantidad, oferta: l.oferta || 0,
+        precio_base: l.precio * l.cantidad * (1 - (l.oferta || 0) / 100),
+        precio_final: det.precioFinal || null,
+        metodo_pago: metodoTxt, voucher_id: det.voucherId || null,
+        inicio_cambio: det.inicioCambio || null, limite_cambio: limite, restaurada: false,
+      }));
+      await SB.insert("ventas", filas);
+      // descontar stock
+      for (const l of lineas) await this.ajustarStock(l.codigo, l.talle, l.color, -l.cantidad);
+      return { ok: true, idVenta: id };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
+  async getVentas() {
+    if (CONFIG.MODO_PRUEBA) return this._mock("getVentas", {});
+    try {
+      const rows = await SB.select("ventas", "select=*&order=fecha_hora.desc");
+      return { ok: true, ventas: rows.map(ventaDeDB) };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
+  async restaurarVenta(id) {
+    if (CONFIG.MODO_PRUEBA) return this._mock("restaurarVenta", { id });
+    try {
+      const rows = await SB.select("ventas", "select=*&id=eq." + enc(id));
+      if (!rows.length) return { ok: false, error: "Venta no encontrada" };
+      const v = rows[0];
+      await this.ajustarStock(v.codigo, v.talle, v.color, Number(v.cantidad) || 0);
+      if (v.voucher_id) await SB.update("vouchers", "id=eq." + enc(v.voucher_id), { usado: false });
+      await SB.update("ventas", "id=eq." + enc(id), { restaurada: true });
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
   async anularVenta(id) {
-    return this._post("anularVenta", { id });
+    if (CONFIG.MODO_PRUEBA) return this._mock("anularVenta", { id });
+    try { await SB.remove("ventas", "id=eq." + enc(id)); return { ok: true }; }
+    catch (e) { return { ok: false, error: String(e) }; }
   },
 
-  // Registra un intercambio completo
-  async registrarIntercambio(payload) {
-    return this._post("registrarIntercambio", payload);
+  // ---------- INTERCAMBIO ----------
+  async registrarIntercambio(p) {
+    if (CONFIG.MODO_PRUEBA) return this._mock("registrarIntercambio", p);
+    try {
+      if (p.ventaDevuelta) {
+        const v = p.ventaDevuelta;
+        await this.ajustarStock(v.codigo, v.talle, v.color, v.cantidad || 1);
+        await this.restaurarVenta(v.id);
+      }
+      if (p.lineasNuevas && p.lineasNuevas.length) {
+        await this.registrarVenta(p.lineasNuevas,
+          p.metodoPago ? { metodo: p.metodoPago } : { metodo: "Cambio" },
+          { fechaVenta: new Date().toISOString(), inicioCambio: hoyISO() });
+      }
+      if (p.voucher) await this.crearVoucher(p.voucher);
+      return { ok: true, idIntercambio: "I-" + Date.now() };
+    } catch (e) { return { ok: false, error: String(e) }; }
   },
 
-  // Vouchers
+  // ---------- VOUCHERS ----------
   async getVouchers() {
-    return this._post("getVouchers", {});
-  },
-  async crearVoucher(voucher) {
-    return this._post("crearVoucher", { voucher });
-  },
-  // marca avisado / usado / deshabilitado
-  async actualizarVoucher(id, cambios) {
-    return this._post("actualizarVoucher", { id, cambios });
-  },
-  async toggleAvisoVoucher(id, avisado) {
-    return this._post("toggleAvisoVoucher", { id, avisado });
-  },
-  async deshabilitarVoucher(id) {
-    return this._post("deshabilitarVoucher", { id });
-  },
-  async usarVoucher(id) {
-    return this._post("usarVoucher", { id });
+    if (CONFIG.MODO_PRUEBA) return this._mock("getVouchers", {});
+    try {
+      const rows = await SB.select("vouchers", "select=*&order=fecha.desc");
+      return { ok: true, vouchers: rows.map(voucherDeDB) };
+    } catch (e) { return { ok: false, error: String(e) }; }
   },
 
-  // ---- MOCK en memoria ----
+  async crearVoucher(v) {
+    if (CONFIG.MODO_PRUEBA) return this._mock("crearVoucher", { voucher: v });
+    try {
+      await SB.insert("vouchers", [{
+        id: v.id, tipo: v.tipo,
+        monto: v.tipo === "monto" ? v.monto : 0,
+        descuento: v.tipo === "descuento" ? v.descuento : 0,
+        nombre: v.nombre || "", telefono: v.telefono || "",
+        fecha: v.fecha || new Date().toISOString(), vencimiento: v.vencimiento || null,
+        origen: v.origen || "", avisado: !!v.avisado, usado: !!v.usado,
+      }]);
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
+  async actualizarVoucher(id, cambios) {
+    if (CONFIG.MODO_PRUEBA) return this._mock("actualizarVoucher", { id, cambios });
+    try {
+      const c = {};
+      if (cambios.usado !== undefined) c.usado = cambios.usado;
+      if (cambios.avisado !== undefined) c.avisado = cambios.avisado;
+      if (cambios.vencimiento !== undefined) c.vencimiento = cambios.vencimiento;
+      await SB.update("vouchers", "id=eq." + enc(id), c);
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
+  async usarVoucher(id) { return this.actualizarVoucher(id, { usado: true }); },
+  async deshabilitarVoucher(id) { return this.actualizarVoucher(id, { usado: true }); },
+  async toggleAvisoVoucher(id, avisado) { return this.actualizarVoucher(id, { avisado: avisado }); },
+
+  // ---------- MOCK (datos de ejemplo si MODO_PRUEBA) ----------
   _mock(action, payload) {
     return new Promise((resolve) => {
       setTimeout(() => {
-        if (action === "getStock") {
-          resolve({ ok: true, stock: JSON.parse(JSON.stringify(STOCK_DEMO)) });
-        } else if (action === "getVentas") {
-          resolve({ ok: true, ventas: JSON.parse(JSON.stringify(VENTAS_DEMO)) });
-        } else if (action === "restaurarVenta") {
-          const v = VENTAS_DEMO.find((x) => x.id === payload.id);
-          if (v) v.restaurada = true;
-          resolve({ ok: true });
-        } else if (action === "registrarVenta") {
-          const id = "V-DEMO-" + Date.now();
-          const det = payload.detalles || {};
-          const pago = payload.metodoPago;
-          const metodoTxt = pago && pago.tipo === "dividido"
-            ? pago.partes.map((p) => p.metodo).join(" + ")
-            : (pago && pago.metodo) || (typeof pago === "string" ? pago : "");
-          payload.lineas.forEach((l, i) => {
-            const limite = sumarDias(det.inicioCambio, CONFIG.DIAS_CAMBIO);
-            VENTAS_DEMO.unshift({
-              id: id + "-" + i,
-              fechaHora: det.fechaVenta || new Date().toISOString(),
-              codigo: l.codigo, marca: l.marca, talle: l.talle, color: l.color,
-              oferta: l.oferta, cantidad: l.cantidad,
-              precioBase: l.precio * l.cantidad * (1 - (l.oferta || 0) / 100),
-              metodoPago: metodoTxt,
-              inicioCambio: det.inicioCambio,
-              limiteCambio: limite,
-            });
-          });
-          resolve({ ok: true, idVenta: id });
-        } else if (action === "anularVenta") {
-          VENTAS_DEMO = VENTAS_DEMO.filter((v) => v.id !== payload.id);
-          resolve({ ok: true });
-        } else if (action === "getVouchers") {
-          resolve({ ok: true, vouchers: JSON.parse(JSON.stringify(VOUCHERS_DEMO)) });
-        } else if (action === "crearVoucher") {
-          VOUCHERS_DEMO.unshift(payload.voucher);
-          resolve({ ok: true });
-        } else if (action === "actualizarVoucher") {
-          const v = VOUCHERS_DEMO.find((x) => x.id === payload.id);
-          if (v) Object.assign(v, payload.cambios);
-          resolve({ ok: true });
-        } else if (action === "toggleAvisoVoucher") {
-          const v = VOUCHERS_DEMO.find((x) => x.id === payload.id);
-          if (v) v.avisado = payload.avisado;
-          resolve({ ok: true });
-        } else if (action === "deshabilitarVoucher") {
-          const v = VOUCHERS_DEMO.find((x) => x.id === payload.id);
-          if (v) v.usado = true;
-          resolve({ ok: true });
-        } else if (action === "usarVoucher") {
-          const v = VOUCHERS_DEMO.find((x) => x.id === payload.id);
-          if (v) v.usado = true;
-          resolve({ ok: true });
-        } else if (action === "registrarIntercambio") {
-          // quitar la venta devuelta del historial de cambios
-          if (payload.ventaDevuelta) {
-            VENTAS_DEMO = VENTAS_DEMO.filter((v) => v.id !== payload.ventaDevuelta.id);
-          }
-          // si generó voucher, guardarlo
-          if (payload.voucher) VOUCHERS_DEMO.unshift(payload.voucher);
-          resolve({ ok: true, idIntercambio: "I-" + Date.now() });
-        } else {
-          resolve({ ok: true });
-        }
-      }, 200);
+        if (action === "getStock") resolve({ ok: true, stock: JSON.parse(JSON.stringify(STOCK_DEMO)) });
+        else if (action === "getVentas") resolve({ ok: true, ventas: JSON.parse(JSON.stringify(VENTAS_DEMO)) });
+        else if (action === "getVouchers") resolve({ ok: true, vouchers: JSON.parse(JSON.stringify(VOUCHERS_DEMO)) });
+        else if (action === "registrarVenta") resolve({ ok: true, idVenta: "V-DEMO-" + Date.now() });
+        else resolve({ ok: true });
+      }, 150);
     });
   },
 };
 
-// suma N días a una fecha yyyy-mm-dd → devuelve yyyy-mm-dd
+// codifica un valor para usarlo en un filtro de URL de PostgREST
+function enc(v) { return encodeURIComponent(String(v)); }
+
+// texto del método de pago (soporta pago simple, dividido o string)
+function textoMetodo(pago) {
+  if (!pago) return "";
+  if (typeof pago === "string") return pago;
+  if (pago.tipo === "dividido") return pago.partes.map((x) => x.metodo).join(" + ");
+  return pago.metodo || "";
+}
+
 function sumarDias(fechaStr, dias) {
   const d = fechaStr ? new Date(fechaStr + "T00:00:00") : new Date();
   d.setDate(d.getDate() + dias);
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   return d.toISOString().slice(0, 10);
 }
-
-// Historial de ventas de ejemplo (algunas dentro de ventana de cambio, otras fuera)
-function _fechaRel(dias) {
+function hoyISO() {
   const d = new Date();
-  d.setDate(d.getDate() + dias);
-  return d.toISOString();
-}
-function _fechaRelDate(dias) {
-  const d = new Date();
-  d.setDate(d.getDate() + dias);
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   return d.toISOString().slice(0, 10);
 }
-let VENTAS_DEMO = [
-  // vendida hace 3 días, ventana abierta (cambiable normal)
-  { id: "V-D1", fechaHora: _fechaRel(-3), codigo: "FOW0101", marca: "Fort Worth", talle: "M", color: "Verde",
-    oferta: 0, cantidad: 1, precioBase: 18500, metodoPago: "Efectivo",
-    inicioCambio: _fechaRelDate(-3), limiteCambio: _fechaRelDate(12) },
-  // vendida hace 20 días, ventana ya cerrada (vencido, ahora igual cambiable)
-  { id: "V-D2", fechaHora: _fechaRel(-20), codigo: "KEV0601", marca: "Kevingston", talle: "40", color: "Azul",
-    oferta: 10, cantidad: 1, precioBase: 49500, metodoPago: "Crédito",
-    inicioCambio: _fechaRelDate(-20), limiteCambio: _fechaRelDate(-5) },
-  // vendida hace 1 día con inicio de cambio futuro (ventana todavía no abierta)
-  { id: "V-D3", fechaHora: _fechaRel(-1), codigo: "FOW0201", marca: "Fort Worth", talle: "L", color: "Gris",
-    oferta: 0, cantidad: 1, precioBase: 42000, metodoPago: "Débito",
-    inicioCambio: _fechaRelDate(10), limiteCambio: _fechaRelDate(25) },
-  // ventas más antiguas (dentro de 2 meses) para ver el historial extendido
-  { id: "V-D4", fechaHora: _fechaRel(-38), codigo: "FOW0102", marca: "Fort Worth", talle: "M", color: "Blanco",
-    oferta: 0, cantidad: 1, precioBase: 17000, metodoPago: "Efectivo",
-    inicioCambio: _fechaRelDate(-38), limiteCambio: _fechaRelDate(-23) },
-  { id: "V-D5", fechaHora: _fechaRel(-52), codigo: "FOW0101", marca: "Fort Worth", talle: "L", color: "Negro",
-    oferta: 15, cantidad: 2, precioBase: 31450, metodoPago: "Transferencia",
-    inicioCambio: _fechaRelDate(-52), limiteCambio: _fechaRelDate(-37) },
-];
 
-// Vouchers de ejemplo (varios estados para ver las alarmas)
-function _vencEnDias(dias) {
-  const d = new Date(); d.setDate(d.getDate() + dias);
-  return d.toISOString().slice(0, 10);
-}
+// ---------- Datos de ejemplo (solo se usan si MODO_PRUEBA = true) ----------
+const STOCK_DEMO = [
+  { codigo: "FOW0101", categoria: "Remeras", marca: "Fort Worth", talle: "M", color: "Verde", precio: 18500, costo: 9250, cantidad: 5 },
+  { codigo: "FOW0201", categoria: "Buzos", marca: "Fort Worth", talle: "M", color: "Gris", precio: 42000, costo: 21000, cantidad: 6 },
+];
+function _fechaRel(dias) { const d = new Date(); d.setDate(d.getDate() + dias); return d.toISOString(); }
+function _fechaRelDate(dias) { const d = new Date(); d.setDate(d.getDate() + dias); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); }
+function _vencEnDias(dias) { const d = new Date(); d.setDate(d.getDate() + dias); return d.toISOString().slice(0, 10); }
+let VENTAS_DEMO = [
+  { id: "V-D1", fechaHora: _fechaRel(-3), codigo: "FOW0101", marca: "Fort Worth", talle: "M", color: "Verde", oferta: 0, cantidad: 1, precioBase: 18500, metodoPago: "Efectivo", inicioCambio: _fechaRelDate(-3), limiteCambio: _fechaRelDate(12) },
+];
 let VOUCHERS_DEMO = [
-  // vence en 4 días, no avisado → alarma ROJA
-  { id: "VCH-1001", tipo: "monto", fecha: _fechaRel(-31), vencimiento: _vencEnDias(4), monto: 8000,
-    nombre: "Lucía Gómez", telefono: "2915551234", origen: "Cambio de FOW0101", avisado: false, usado: false },
-  // vence en 5 días, ya avisado → alarma AMARILLA
-  { id: "VCH-1002", tipo: "descuento", fecha: _fechaRel(-30), vencimiento: _vencEnDias(5), descuento: 15,
-    nombre: "Martín Ruiz", telefono: "2914449876", origen: "Promo", avisado: true, usado: false },
-  // vigente lejos del vencimiento, sin alarma
-  { id: "VCH-1003", tipo: "monto", fecha: _fechaRel(-5), vencimiento: _vencEnDias(30), monto: 12000,
-    nombre: "Sofía Paz", telefono: "2913338765", origen: "Cambio de KEV0601", avisado: false, usado: false },
-  // ya usado
-  { id: "VCH-1004", tipo: "monto", fecha: _fechaRel(-40), vencimiento: _vencEnDias(-2), monto: 5000,
-    nombre: "Diego Sosa", telefono: "2912227654", origen: "Cambio de FOW0201", avisado: true, usado: true },
+  { id: "VCH-1001", tipo: "monto", fecha: _fechaRel(-31), vencimiento: _vencEnDias(4), monto: 8000, nombre: "Lucía Gómez", telefono: "2915551234", origen: "Cambio de FOW0101", avisado: false, usado: false },
 ];
 
 // Helpers de dominio
@@ -253,7 +354,6 @@ function categoriaDeCodigo(codigo) {
   const cat = CATEGORIAS.find((c) => c.num === num);
   return cat ? cat.nombre : "—";
 }
-
 function formatPrecio(n) {
   return "$" + Number(n).toLocaleString("es-AR");
 }
