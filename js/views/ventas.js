@@ -106,7 +106,7 @@ function filaProductoHTML(p) {
   return `
     <div class="prow" data-cod="${p.codigo}">
       <div class="pcell">
-        <img class="pimg" src="img/${p.codigo.toLowerCase()}.png" alt="">
+        <img class="pimg" src="${imgPrenda(p.codigo)}" alt="">
         <div class="pinfo">
           <span class="pmarca">${p.marca}</span>
           <span class="pcod">${p.codigo}</span>

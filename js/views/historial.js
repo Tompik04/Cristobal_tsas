@@ -64,7 +64,7 @@ function histRowHTML(v) {
   return `
     <div class="crow ${v.restaurada ? "expirado" : ""}" data-id="${v.id}">
       <div class="pcell">
-        <img class="pimg" src="img/${v.codigo.toLowerCase()}.png" alt="" onerror="this.style.opacity=0.3">
+        <img class="pimg" src="${imgPrenda(v.codigo)}" alt="" onerror="this.style.opacity=0.3">
         <div class="pinfo"><span class="pmarca">${v.marca}</span><span class="pcod">${v.codigo}</span></div>
       </div>
       <div class="c-meta">

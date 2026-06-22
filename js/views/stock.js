@@ -217,8 +217,12 @@ function bindFilaCarga(row) {
   refrescarPrecio();
 
   row.querySelector('[data-act="img"]').onclick = () => {
-    const cod = codInput.value.trim().toLowerCase();
-    row.querySelector(".simg").src = cod ? `img/${cod}.png` : "";
+    const cod = codInput.value.trim().toUpperCase();
+    if (!cod || cod.length < 6) return toast("Primero ingresá el código de la prenda");
+    seleccionarYSubirImagen(cod, (url) => {
+      // mostrar la nueva imagen en la preview de la fila (con cache-busting)
+      row.querySelector(".simg").src = url + "?t=" + Date.now();
+    });
   };
 
   row.querySelector('[data-act="all-talle"]').onclick = () => {
@@ -414,7 +418,10 @@ function erowHTML(it) {
   return `
     <div class="erow" data-key="${erowKey(it)}">
       <div class="pcell">
-        <img class="pimg" src="img/${it.codigo.toLowerCase()}.png" alt="" onerror="this.style.opacity=0.3">
+        <div class="pimg-wrap">
+          <img class="pimg" src="${imgPrenda(it.codigo)}" alt="" onerror="this.style.opacity=0.3">
+          <button class="pimg-edit" data-act="editimg" title="Cambiar imagen"><i class="ti ti-camera"></i></button>
+        </div>
         <div class="pinfo"><span class="pmarca">${it.marca}</span><span class="pcod">${it.codigo}</span></div>
       </div>
       <div class="evar">Talle <strong>${it.talle}</strong> · Color <strong>${it.color}</strong></div>
@@ -463,6 +470,15 @@ function bindErow(list, it) {
     });
   };
   row.querySelector('[data-act="editprice"]').onclick = () => abrirEditarPrecio(it.codigo);
+  row.querySelector('[data-act="editimg"]').onclick = () => {
+    seleccionarYSubirImagen(it.codigo, (url) => {
+      // refrescar todas las imágenes de ese código en pantalla (con cache-busting)
+      const nueva = url + "?t=" + Date.now();
+      document.querySelectorAll(".erow .pimg").forEach((img) => {
+        if (img.closest(".erow").querySelector(".pcod").textContent === it.codigo) img.src = nueva;
+      });
+    });
+  };
 }
 
 // Editar precio y costo a nivel código (afecta todas las variantes)
@@ -513,4 +529,25 @@ function abrirEditarPrecio(codigo) {
     toast(`Precios de ${codigo} actualizados`);
     renderStockCategoria(document.getElementById("view"), StockUI.categoria);
   };
+}
+
+// Abre el selector de archivos, sube la imagen del código a Supabase y llama onListo(url).
+function seleccionarYSubirImagen(codigo, onListo) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.onchange = async () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return toast("La imagen es muy grande (máx 5MB)");
+    toast("Subiendo imagen...");
+    const res = await API.subirImagenCodigo(codigo, file);
+    if (res.ok) {
+      toast("Imagen actualizada");
+      if (onListo) onListo(res.url);
+    } else {
+      toast("Error al subir la imagen");
+    }
+  };
+  input.click();
 }

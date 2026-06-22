@@ -63,6 +63,28 @@ const SB = {
     if (!res.ok) throw new Error("upsert " + tabla + ": " + res.status + " " + (await res.text()));
     return res.json();
   },
+
+  // ---- Storage (imágenes) ----
+  // sube (o reemplaza) un archivo en el bucket 'prendas'
+  async subirImagen(nombre, file) {
+    const url = CONFIG.SUPABASE_URL + "/storage/v1/object/prendas/" + nombre;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "apikey": CONFIG.SUPABASE_KEY,
+        "Authorization": "Bearer " + CONFIG.SUPABASE_KEY,
+        "Content-Type": file.type || "image/png",
+        "x-upsert": "true", // reemplaza si ya existe
+      },
+      body: file,
+    });
+    if (!res.ok) throw new Error("subirImagen: " + res.status + " " + (await res.text()));
+    return true;
+  },
+  // URL pública de una imagen del bucket
+  urlImagen(nombre) {
+    return CONFIG.SUPABASE_URL + "/storage/v1/object/public/prendas/" + nombre;
+  },
 };
 
 /* ---------- Mapeo entre columnas de la DB y campos de la app ----------
@@ -341,6 +363,21 @@ const API = {
     catch (e) { return { ok: false, error: String(e) }; }
   },
 
+  // ---------- IMÁGENES ----------
+  // sube la imagen de un código (file = File del input). Devuelve la URL pública.
+  async subirImagenCodigo(codigo, file) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true, url: "" };
+    try {
+      const nombre = codigo.toLowerCase() + ".png";
+      await SB.subirImagen(nombre, file);
+      return { ok: true, url: SB.urlImagen(nombre) };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+  // URL pública de la imagen de un código (con cache-busting opcional)
+  urlImagenCodigo(codigo) {
+    return SB.urlImagen(codigo.toLowerCase() + ".png");
+  },
+
   // ---------- MOCK (datos de ejemplo si MODO_PRUEBA) ----------
   _mock(action, payload) {
     return new Promise((resolve) => {
@@ -401,4 +438,14 @@ function categoriaDeCodigo(codigo) {
 }
 function formatPrecio(n) {
   return "$" + Number(n).toLocaleString("es-AR");
+}
+
+// URL de la imagen de una prenda según su código.
+// Usa Supabase Storage si está configurado; si no, cae al repo local (img/).
+function imgPrenda(codigo) {
+  if (!codigo) return "";
+  if (!CONFIG.MODO_PRUEBA && CONFIG.SUPABASE_URL) {
+    return CONFIG.SUPABASE_URL + "/storage/v1/object/public/prendas/" + String(codigo).toLowerCase() + ".png";
+  }
+  return "img/" + String(codigo).toLowerCase() + ".png";
 }

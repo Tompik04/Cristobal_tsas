@@ -167,6 +167,11 @@ button { font-family: inherit; }
   background: var(--oak-08); border: 1px solid var(--oak-25); border-radius: var(--r); padding: 14px 16px;
 }
 .pcell { display: flex; align-items: center; gap: 12px; }
+.pimg-wrap { position: relative; width: 54px; height: 54px; flex-shrink: 0; }
+.pimg-wrap .pimg { width: 54px; height: 54px; }
+.pimg-edit { position: absolute; bottom: -4px; right: -4px; width: 22px; height: 22px; border-radius: 50%; background: var(--pale-oak); color: var(--evergreen); border: 2px solid var(--evergreen); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 11px; padding: 0; }
+.pimg-edit:hover { background: var(--gold); }
+.pimg-edit i { font-size: 12px; }
 .pimg { width: 54px; height: 54px; border-radius: 8px; flex-shrink: 0; background: var(--oak-10); object-fit: contain; }
 .pinfo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pmarca { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
