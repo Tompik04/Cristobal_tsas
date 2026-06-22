@@ -79,7 +79,7 @@ function stockDeDB(r) {
 }
 function ventaDeDB(r) {
   return {
-    id: r.id, fechaHora: r.fecha_hora, codigo: r.codigo, marca: r.marca,
+    id: r.id, fechaHora: normalizarFechaISO(r.fecha_hora), codigo: r.codigo, marca: r.marca,
     talle: String(r.talle), color: r.color, cantidad: Number(r.cantidad) || 0,
     oferta: Number(r.oferta) || 0,
     precioBase: Number(r.precio_base) || 0, precioFinal: Number(r.precio_final) || 0,
@@ -88,11 +88,21 @@ function ventaDeDB(r) {
     restaurada: !!r.restaurada,
   };
 }
+// Supabase devuelve timestamps como "2026-06-22 00:55:00+00" (con espacio).
+// Algunos navegadores no lo parsean como UTC. Lo pasamos a ISO válido.
+function normalizarFechaISO(s) {
+  if (!s) return s;
+  let v = String(s).replace(" ", "T");
+  // "+00" -> "+00:00" ; si no tiene zona y no termina en Z, asumir UTC
+  if (/[+-]\d{2}$/.test(v)) v += ":00";
+  if (!/[zZ]|[+-]\d{2}:\d{2}$/.test(v)) v += "Z";
+  return v;
+}
 function voucherDeDB(r) {
   return {
     id: r.id, tipo: r.tipo, monto: Number(r.monto) || 0, descuento: Number(r.descuento) || 0,
     nombre: r.nombre, telefono: String(r.telefono || ""),
-    fecha: r.fecha, vencimiento: r.vencimiento, origen: r.origen,
+    fecha: normalizarFechaISO(r.fecha), vencimiento: r.vencimiento, origen: r.origen,
     avisado: !!r.avisado, usado: !!r.usado,
   };
 }
