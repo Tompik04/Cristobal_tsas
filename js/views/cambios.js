@@ -73,18 +73,19 @@ function estadoCambio(v) {
 function fmtFecha(iso) {
   if (!iso) return "—";
   const d = new Date(iso.length <= 10 ? iso + "T00:00:00" : iso);
-  return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+  return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", timeZone: "America/Argentina/Buenos_Aires" });
 }
-// fecha local en formato yyyy-mm-dd (respeta la zona horaria del navegador)
+// fecha local (Argentina) en formato yyyy-mm-dd
 function fechaLocalISO(iso) {
   const d = new Date(iso);
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 10);
+  // "en-CA" da formato yyyy-mm-dd; fijamos zona Argentina
+  return d.toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
 }
 function fmtFechaHora(iso) {
   const d = new Date(iso);
-  return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" }) + " " +
-         d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+  const tz = { timeZone: "America/Argentina/Buenos_Aires" };
+  return d.toLocaleDateString("es-AR", Object.assign({ day: "2-digit", month: "2-digit" }, tz)) + " " +
+         d.toLocaleTimeString("es-AR", Object.assign({ hour: "2-digit", minute: "2-digit" }, tz));
 }
 
 function crowHTML(v) {
