@@ -109,6 +109,10 @@ const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito"];
 // Categorías de gastos del local
 const CATEGORIAS_GASTO = ["Alquiler", "Luz", "Agua", "Gas", "Internet", "Monotributo", "Sueldos", "Mercadería", "Mantenimiento", "Impuestos", "Otros"];
 
+// Checklist de control mensual: obligatorios (no deberían faltar) y opcionales
+const GASTOS_OBLIGATORIOS = ["Alquiler", "Luz", "Agua", "Gas", "Internet", "Monotributo"];
+const GASTOS_OPCIONALES = ["Sueldos", "Mercadería", "Mantenimiento", "Impuestos", "Otros"];
+
 // Listas fijas para cargar stock
 const TALLES = ["XS", "S", "M", "L", "XL", "XXL", "36", "38", "40", "42", "44"];
 const COLORES = ["Negro", "Blanco", "Gris", "Verde", "Azul", "Rojo", "Beige", "Marrón"];

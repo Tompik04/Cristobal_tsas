@@ -38,7 +38,6 @@ async function cargarGastos() {
     placeholder: "Buscar por concepto...",
     campos: [
       { id: "categoria", label: "Categoría", tipo: "select", opciones: CATEGORIAS_GASTO },
-      { id: "tipo", label: "Tipo", tipo: "select", opciones: ["Recurrente", "Único"] },
     ],
     onChange: (f) => pintarGastos(f),
   });
@@ -74,12 +73,9 @@ function pintarResumen() {
   const ventasMes = _ventasParaResumen.filter((v) => !v.restaurada && (v.fechaHora || "").slice(0, 7) === mes);
   const totalVentas = ventasMes.reduce((a, v) => a + (v.precioBase || 0), 0);
 
-  // gastos del mes: los de ese mes + los recurrentes (se aplican todos los meses)
+  // gastos del mes
   const gastosDelMes = _gastos.filter((g) => (g.fecha || "").slice(0, 7) === mes);
-  const recurrentes = _gastos.filter((g) => g.recurrente && (g.fecha || "").slice(0, 7) !== mes && (g.fecha || "").slice(0, 7) <= mes);
-  const totalGastosMes = gastosDelMes.reduce((a, g) => a + g.monto, 0);
-  const totalRecurrentes = recurrentes.reduce((a, g) => a + g.monto, 0);
-  const totalGastos = totalGastosMes + totalRecurrentes;
+  const totalGastos = gastosDelMes.reduce((a, g) => a + g.monto, 0);
 
   const neta = totalVentas - totalGastos;
   const signo = neta >= 0 ? "pos" : "neg";
@@ -94,10 +90,37 @@ function pintarResumen() {
       <div class="rcard"><span class="rc-label">Ventas</span><span class="rc-val pos">${formatPrecio(totalVentas)}</span></div>
       <div class="rcard"><span class="rc-label">Gastos</span><span class="rc-val neg">${formatPrecio(totalGastos)}</span></div>
       <div class="rcard rc-net"><span class="rc-label">Ganancia neta</span><span class="rc-val ${signo}">${formatPrecio(neta)}</span></div>
-    </div>`;
+    </div>
+    <div id="checklistGastos"></div>`;
 
   document.getElementById("mesPrev").onclick = () => { _mesGastos = correrMes(mes, -1); pintarResumen(); pintarGastos(filtrosGasto()); };
   document.getElementById("mesNext").onclick = () => { _mesGastos = correrMes(mes, 1); pintarResumen(); pintarGastos(filtrosGasto()); };
+
+  pintarChecklist(gastosDelMes);
+}
+
+// checklist de control: qué gastos típicos ya se cargaron este mes
+function pintarChecklist(gastosDelMes) {
+  const cont = document.getElementById("checklistGastos");
+  const categoriasCargadas = new Set(gastosDelMes.map((g) => g.categoria));
+
+  const item = (cat) => {
+    const ok = categoriasCargadas.has(cat);
+    return `<div class="chk-item ${ok ? "chk-ok" : "chk-pend"}">
+      <i class="ti ${ok ? "ti-circle-check-filled" : "ti-circle-dashed"}"></i>
+      <span>${cat}</span>
+    </div>`;
+  };
+
+  cont.innerHTML = `
+    <div class="chk-block">
+      <p class="chk-title">Obligatorios del mes</p>
+      <div class="chk-grid">${GASTOS_OBLIGATORIOS.map(item).join("")}</div>
+    </div>
+    <div class="chk-block">
+      <p class="chk-title">Opcionales</p>
+      <div class="chk-grid">${GASTOS_OPCIONALES.map(item).join("")}</div>
+    </div>`;
 }
 
 function filtrosGasto() {
@@ -110,16 +133,11 @@ function pintarGastos(f) {
   const list = document.getElementById("gastosList");
   const mes = _mesGastos;
 
-  // mostrar los gastos del mes seleccionado + recurrentes que apliquen
-  let lista = _gastos.filter((g) => {
-    const gm = (g.fecha || "").slice(0, 7);
-    return gm === mes || (g.recurrente && gm <= mes);
-  });
+  // solo gastos del mes seleccionado
+  let lista = _gastos.filter((g) => (g.fecha || "").slice(0, 7) === mes);
 
   if (f.q) lista = lista.filter((g) => coincideTexto(g, f.q, ["concepto"]));
   if (f.categoria) lista = lista.filter((g) => g.categoria === f.categoria);
-  if (f.tipo === "Recurrente") lista = lista.filter((g) => g.recurrente);
-  if (f.tipo === "Único") lista = lista.filter((g) => !g.recurrente);
 
   lista.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
 
@@ -135,7 +153,7 @@ function gastoHTML(g) {
   return `
     <div class="crow gasto-row" data-id="${g.id}">
       <div class="c-meta">
-        <span class="c-vars"><strong>${g.concepto}</strong>${g.recurrente ? ` <span class="g-rec">· mensual</span>` : ""}</span>
+        <span class="c-vars"><strong>${g.concepto}</strong></span>
         <span class="c-fecha">${g.categoria || "—"} · ${fmtFecha(g.fecha)}</span>
       </div>
       <div class="v-value neg">${formatPrecio(g.monto)}</div>
@@ -178,7 +196,6 @@ function abrirNuevoGasto(gasto) {
       <div class="field"><label>Monto ($)</label><input class="sinput" type="number" min="0" id="gMonto" placeholder="$" value="${esEdicion ? gasto.monto : ""}"></div>
       <div class="field"><label>Categoría</label><select class="sinput" id="gCat">${cats}</select></div>
       <div class="field"><label>Fecha</label><input class="sinput" type="date" id="gFecha" value="${esEdicion ? gasto.fecha : hoy}"></div>
-      <label class="g-check"><input type="checkbox" id="gRec" ${esEdicion && gasto.recurrente ? "checked" : ""}> Gasto mensual recurrente (se repite cada mes)</label>
       <div class="modal-actions">
         <button class="btn-ghost" id="gCancel">Cancelar</button>
         <button class="btn-primary" id="gSave">${esEdicion ? "Guardar" : "Crear gasto"}</button>
@@ -192,16 +209,15 @@ function abrirNuevoGasto(gasto) {
     const monto = Number(document.getElementById("gMonto").value) || 0;
     const categoria = document.getElementById("gCat").value;
     const fecha = document.getElementById("gFecha").value;
-    const recurrente = document.getElementById("gRec").checked;
     if (!concepto) return toast("Falta el concepto");
     if (monto <= 0) return toast("Monto inválido");
     if (!fecha) return toast("Falta la fecha");
 
     if (esEdicion) {
-      await API.actualizarGasto(gasto.id, { concepto, monto, categoria, fecha, recurrente });
+      await API.actualizarGasto(gasto.id, { concepto, monto, categoria, fecha });
       toast("Gasto actualizado");
     } else {
-      await API.crearGasto({ id: "G-" + Date.now(), concepto, monto, categoria, fecha, recurrente });
+      await API.crearGasto({ id: "G-" + Date.now(), concepto, monto, categoria, fecha });
       toast("Gasto registrado");
     }
     cerrarModal();
