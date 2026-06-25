@@ -302,6 +302,7 @@ const API = {
       }
       if (p.voucher) await this.crearVoucher(p.voucher);
       if (p.voucherUsado) await this.usarVoucher(p.voucherUsado);
+      if (p.sobranteVoucher) await this.crearVoucher(p.sobranteVoucher);
       return { ok: true, idIntercambio: "I-" + Date.now() };
     } catch (e) { return { ok: false, error: String(e) }; }
   },

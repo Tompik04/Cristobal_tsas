@@ -441,9 +441,28 @@ async function abrirPagoDiferencia(venta, diferencia) {
       ];
     }
     const metodoTxt = partes.length ? partes.map((p) => p.metodo).join(" + ") : "Voucher";
+
+    // si el voucher de monto vale más que la diferencia, generar voucher por el sobrante
+    let sobranteVoucher = null;
+    if (voucherSel && voucherSel.tipo === "monto" && voucherSel.monto > base) {
+      const remanente = voucherSel.monto - base;
+      const vence = new Date(); vence.setDate(vence.getDate() + CONFIG.DIAS_VENCIMIENTO_VOUCHER);
+      sobranteVoucher = {
+        id: "VCH-" + Date.now(),
+        tipo: "monto", monto: remanente,
+        fecha: new Date().toISOString(),
+        vencimiento: vence.toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" }),
+        nombre: voucherSel.nombre || "", telefono: voucherSel.telefono || "",
+        origen: "Saldo de " + voucherSel.id, avisado: false, usado: false,
+        // el remanente hereda el tipo contable del voucher original
+        comprado: !!voucherSel.comprado, metodoPago: voucherSel.metodoPago || null,
+      };
+    }
+
     confirmarIntercambio(venta, {
       diferencia, voucher: 0, metodoPago: metodoTxt, pagos: partes,
       voucherUsado: voucherSel ? voucherSel.id : null,
+      sobranteVoucher,
     });
   };
 }
@@ -475,6 +494,7 @@ async function confirmarIntercambio(venta, info) {
     metodoPago: info.metodoPago,
     pagos: info.pagos || null,
     voucherUsado: info.voucherUsado || null,
+    sobranteVoucher: info.sobranteVoucher || null,
     voucher,
   });
 
@@ -490,7 +510,8 @@ async function confirmarIntercambio(venta, info) {
     // vaciar carrito
     State.carrito = [];
     cerrarModal();
-    if (voucher) toast(`Cambio hecho · Voucher de ${formatPrecio(voucher.monto)}`);
+    if (info.sobranteVoucher) toast(`Cambio hecho · Voucher de saldo ${formatPrecio(info.sobranteVoucher.monto)}`);
+    else if (voucher) toast(`Cambio hecho · Voucher de ${formatPrecio(voucher.monto)}`);
     else toast("Cambio realizado");
     cargarCambios();
   } else {
