@@ -96,13 +96,24 @@ function pintarHistorial(f) {
   }
   const totalHTML = `<div class="hist-total"><span>${etiqueta}</span><strong>${formatPrecio(total)}</strong></div>`;
 
-  list.innerHTML = totalHTML + lista.map(histRowHTML).join("");
+  list.innerHTML = totalHTML + lista.map((v) => histRowHTML(v, f.pago)).join("");
   lista.forEach((v) => bindHistRow(list, v));
 }
 
-function histRowHTML(v) {
+function histRowHTML(v, filtroPago) {
   const ofertaTxt = v.oferta ? ` · ${v.oferta}% off` : "";
   const pago = v.metodoPago ? ` · ${v.metodoPago}` : "";
+  // si se filtra por un método y la venta fue mixta, mostrar la parte de ese método
+  let precioHTML;
+  if (filtroPago) {
+    const parcial = montoPorTipo(v, filtroPago);
+    const esMixta = (v.pagos && v.pagos.length > 1);
+    precioHTML = esMixta
+      ? `<div class="c-precio"><span class="c-precio-parcial">${formatPrecio(parcial)}</span><span class="c-precio-total">de ${formatPrecio(v.precioBase)}</span></div>`
+      : `<div class="c-precio">${formatPrecio(parcial)}</div>`;
+  } else {
+    precioHTML = `<div class="c-precio">${formatPrecio(v.precioBase)}</div>`;
+  }
   return `
     <div class="crow ${v.restaurada ? "expirado" : ""}" data-id="${v.id}">
       <div class="pcell">
@@ -114,7 +125,7 @@ function histRowHTML(v) {
         <span class="c-fecha">${fmtFechaHora(v.fechaHora)}${pago}</span>
         ${v.restaurada ? `<span class="c-estado vencido">Restaurada</span>` : ""}
       </div>
-      <div class="c-precio">${formatPrecio(v.precioBase)}</div>
+      ${precioHTML}
       <button class="c-swap" data-act="restore" ${v.restaurada ? "disabled" : ""} title="${v.restaurada ? "Ya restaurada" : "Restaurar compra"}">
         <i class="ti ti-arrow-back-up"></i>
       </button>
