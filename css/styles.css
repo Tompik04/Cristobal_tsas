@@ -342,6 +342,10 @@ button { font-family: inherit; }
 .v-badge.gray { background: var(--oak-10); color: var(--oak-55); }
 .v-badge.ok { background: rgba(126,155,122,0.15); color: var(--sage); }
 
+.hist-total { display: flex; justify-content: space-between; align-items: center; margin: 0 0 12px; padding: 12px 18px; background: var(--oak-10); border: 1px solid var(--oak-35); border-radius: var(--r); }
+.hist-total span { font-size: 13px; letter-spacing: 0.06em; color: var(--oak-60); text-transform: uppercase; }
+.hist-total strong { font-size: 18px; color: var(--gold); }
+
 /* ============ GASTOS ============ */
 .gastos-top { padding: 0.5rem 2.5% 0.5rem; display: flex; justify-content: flex-end; }
 .resumen-mes { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 0.5rem 2.5% 1rem; }

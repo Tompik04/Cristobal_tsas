@@ -31,6 +31,7 @@ async function cargarHistorial() {
     placeholder: "Buscar por marca o código...",
     campos: [
       { id: "talle", label: "Talle", tipo: "select", opciones: tallesDisp },
+      { id: "pago", label: "Pago", tipo: "select", opciones: ["Efectivo", "Tarjeta", "Transferencia"] },
       { id: "estado", label: "Estado", tipo: "select", opciones: ["Activas", "Restauradas"] },
       { id: "fecha", label: "Fecha", tipo: "date" },
     ],
@@ -41,11 +42,21 @@ async function cargarHistorial() {
   pintarHistorial({});
 }
 
+// detecta si una venta incluye cierto tipo de pago (sirve para pagos divididos)
+function ventaUsaPago(v, tipo) {
+  const m = (v.metodoPago || "").toLowerCase();
+  if (tipo === "Efectivo") return m.includes("efectivo");
+  if (tipo === "Transferencia") return m.includes("transferencia");
+  if (tipo === "Tarjeta") return m.includes("débito") || m.includes("debito") || m.includes("crédito") || m.includes("credito");
+  return true;
+}
+
 function pintarHistorial(f) {
   const list = document.getElementById("histList");
   let lista = _ventasHist.slice();
   if (f.q) lista = lista.filter((v) => coincideTexto(v, f.q, ["marca", "codigo"]));
   if (f.talle) lista = lista.filter((v) => v.talle === f.talle);
+  if (f.pago) lista = lista.filter((v) => ventaUsaPago(v, f.pago));
   if (f.estado === "Activas") lista = lista.filter((v) => !v.restaurada);
   if (f.estado === "Restauradas") lista = lista.filter((v) => v.restaurada);
   if (f.fecha) lista = lista.filter((v) => fechaLocalISO(v.fechaHora) === f.fecha);
@@ -54,7 +65,12 @@ function pintarHistorial(f) {
     list.innerHTML = `<div class="soon"><i class="ti ti-receipt-off"></i><p>Sin ventas que coincidan.</p></div>`;
     return;
   }
-  list.innerHTML = lista.map(histRowHTML).join("");
+
+  // total de las ventas filtradas (por precio base, no restauradas)
+  const total = lista.filter((v) => !v.restaurada).reduce((a, v) => a + (v.precioBase || 0), 0);
+  const totalHTML = `<div class="hist-total"><span>Total filtrado (${lista.length})</span><strong>${formatPrecio(total)}</strong></div>`;
+
+  list.innerHTML = totalHTML + lista.map(histRowHTML).join("");
   lista.forEach((v) => bindHistRow(list, v));
 }
 
