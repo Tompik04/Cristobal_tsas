@@ -28,6 +28,7 @@ const Router = {
     historial: renderHistorial,
     gastos: renderGastos,
     caja: renderCaja,
+    cuentas: renderCuentas,
   },
 
   ir(vista, params = {}) {
@@ -79,6 +80,7 @@ function headerHTML(actual) {
     { id: "stock", label: "STOCK" },
     { id: "cambios", label: "CAMBIOS" },
     { id: "vouchers", label: "VOUCHERS" },
+    { id: "cuentas", label: "CTA CTE" },
   ];
   const nav = links
     .map((l) => {

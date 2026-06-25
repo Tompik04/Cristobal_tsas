@@ -408,6 +408,67 @@ const API = {
     } catch (e) { return { ok: false, error: String(e) }; }
   },
 
+  // ---------- CUENTAS CORRIENTES ----------
+  async getCuentas() {
+    if (CONFIG.MODO_PRUEBA) return { ok: true, cuentas: [], items: [], pagos: [] };
+    try {
+      const [cuentas, items, pagos] = await Promise.all([
+        SB.select("cuentas", "select=*&order=creada.desc"),
+        SB.select("cuenta_items", "select=*&order=fecha"),
+        SB.select("cuenta_pagos", "select=*&order=fecha"),
+      ]);
+      return {
+        ok: true,
+        cuentas: cuentas.map((c) => ({ id: c.id, nombre: c.nombre, apellido: c.apellido || "", telefono: String(c.telefono || ""), creada: normalizarFechaISO(c.creada) })),
+        items: items.map((i) => ({ id: i.id, cuentaId: i.cuenta_id, codigo: i.codigo, marca: i.marca, talle: String(i.talle), color: i.color, cantidad: Number(i.cantidad) || 0, precio: Number(i.precio) || 0, fecha: normalizarFechaISO(i.fecha) })),
+        pagos: pagos.map((p) => ({ id: p.id, cuentaId: p.cuenta_id, monto: Number(p.monto) || 0, metodoPago: p.metodo_pago, fecha: normalizarFechaISO(p.fecha) })),
+      };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+  async crearCuenta(c) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try {
+      await SB.insert("cuentas", [{ id: c.id, nombre: c.nombre, apellido: c.apellido || "", telefono: c.telefono || "" }]);
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+  async eliminarCuenta(id) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try { await SB.remove("cuentas", "id=eq." + enc(id)); return { ok: true }; }
+    catch (e) { return { ok: false, error: String(e) }; }
+  },
+  // agregar prendas a una cuenta (descuenta stock, suma deuda, NO es ingreso aún)
+  async agregarItemsCuenta(cuentaId, lineas) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try {
+      const filas = lineas.map((l, i) => ({
+        id: "CI-" + Date.now() + "-" + i, cuenta_id: cuentaId,
+        codigo: l.codigo, marca: l.marca, talle: l.talle, color: l.color,
+        cantidad: l.cantidad, precio: l.precio,
+      }));
+      await SB.insert("cuenta_items", filas);
+      for (const l of lineas) await this.ajustarStock(l.codigo, l.talle, l.color, -l.cantidad);
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+  async quitarItemCuenta(itemId, item) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try {
+      // reponer stock al quitar la prenda de la cuenta
+      if (item) await this.ajustarStock(item.codigo, item.talle, item.color, item.cantidad);
+      await SB.remove("cuenta_items", "id=eq." + enc(itemId));
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+  // registrar un pago (baja deuda, ES ingreso con método de pago)
+  async registrarPagoCuenta(cuentaId, monto, metodoPago) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try {
+      await SB.insert("cuenta_pagos", [{ id: "CP-" + Date.now(), cuenta_id: cuentaId, monto, metodo_pago: metodoPago }]);
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
   // ---------- MOCK (datos de ejemplo si MODO_PRUEBA) ----------
   _mock(action, payload) {
     return new Promise((resolve) => {

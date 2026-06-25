@@ -13,14 +13,29 @@ function renderHistorial(root) {
 }
 
 async function cargarHistorial() {
-  const res = await API.getVentas();
+  const [res, resCC] = await Promise.all([API.getVentas(), API.getCuentas()]);
   if (!res.ok) {
     document.getElementById("histList").innerHTML = `<div class="soon"><i class="ti ti-alert-triangle"></i><p>No se pudieron cargar las ventas.</p></div>`;
     return;
   }
   // último mes (30 días), incluye restauradas
   const desde = new Date(); desde.setDate(desde.getDate() - 30);
-  _ventasHist = res.ventas
+
+  // pagos de cuenta corriente como "ingresos" (para que sumen al total por método)
+  let pagosCC = [];
+  if (resCC.ok) {
+    const nombrePorCuenta = {};
+    resCC.cuentas.forEach((c) => { nombrePorCuenta[c.id] = `${c.nombre} ${c.apellido || ""}`.trim(); });
+    pagosCC = resCC.pagos.map((p) => ({
+      id: p.id, fechaHora: p.fecha, codigo: "CTA CTE", marca: "Pago cuenta",
+      talle: "—", color: nombrePorCuenta[p.cuentaId] || "", cantidad: 1, oferta: 0,
+      precioBase: p.monto, precioFinal: p.monto, metodoPago: p.metodoPago,
+      pagos: [{ metodo: p.metodoPago, monto: p.monto }],
+      restaurada: false, esPagoCuenta: true,
+    }));
+  }
+
+  _ventasHist = res.ventas.concat(pagosCC)
     .filter((v) => new Date(v.fechaHora) >= desde)
     .sort((a, b) => new Date(b.fechaHora) - new Date(a.fechaHora));
 
@@ -126,7 +141,7 @@ function histRowHTML(v, filtroPago) {
         ${v.restaurada ? `<span class="c-estado vencido">Restaurada</span>` : ""}
       </div>
       ${precioHTML}
-      <button class="c-swap" data-act="restore" ${v.restaurada ? "disabled" : ""} title="${v.restaurada ? "Ya restaurada" : "Restaurar compra"}">
+      <button class="c-swap" data-act="restore" ${v.restaurada || v.esPagoCuenta ? "disabled" : ""} title="${v.esPagoCuenta ? "Pago de cuenta corriente" : (v.restaurada ? "Ya restaurada" : "Restaurar compra")}">
         <i class="ti ti-arrow-back-up"></i>
       </button>
     </div>`;

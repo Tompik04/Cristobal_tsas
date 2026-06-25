@@ -392,6 +392,32 @@ button { font-family: inherit; }
 .billete-cant { width: 70px; text-align: center; background: rgba(4,31,30,0.6); border: 1px solid var(--oak-35); color: var(--pale-oak); font-family: 'Cinzel', serif; font-size: 16px; padding: 8px; border-radius: 8px; }
 .vuelto-box { border-top: 1px solid var(--oak-20); padding-top: 1rem; margin-top: 0.5rem; }
 
+/* ============ CUENTA CORRIENTE ============ */
+.cuenta-row { grid-template-columns: 1fr auto auto; cursor: pointer; }
+.modal-wide { max-width: 560px; }
+.cc-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 0.5rem; }
+.cc-head h2 { margin: 0; }
+.cc-tel { color: var(--oak-55); font-size: 13px; }
+.cc-saldo { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: rgba(201,122,109,0.1); border: 1px solid rgba(201,122,109,0.35); border-radius: var(--r); margin-bottom: 1.25rem; }
+.cc-saldo span { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--oak-60); }
+.cc-saldo strong { font-size: 22px; color: var(--danger); }
+.cc-saldo.saldada { background: rgba(126,155,122,0.1); border-color: rgba(126,155,122,0.35); }
+.cc-saldo.saldada strong { color: var(--sage); }
+.cc-section { margin-bottom: 1.25rem; }
+.cc-section-head { display: flex; justify-content: space-between; align-items: center; }
+.btn-mini { background: var(--oak-10); border: 1px solid var(--oak-35); color: var(--pale-oak); border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; font-family: 'Cinzel', serif; }
+.btn-mini:hover:not(:disabled) { background: var(--oak-20); }
+.btn-mini:disabled { opacity: 0.4; cursor: not-allowed; }
+.cc-items, .cc-pagos { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.cc-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--oak-08); border: 1px solid var(--oak-20); border-radius: 8px; }
+.cc-item-img { width: 38px; height: 38px; border-radius: 6px; object-fit: contain; background: var(--oak-10); flex-shrink: 0; }
+.cc-item-info { display: flex; flex-direction: column; flex: 1; font-size: 13px; }
+.cc-item-var { color: var(--oak-55); font-size: 11px; }
+.cc-item-precio { color: var(--pale-oak); font-size: 14px; }
+.cc-pago { display: flex; justify-content: space-between; padding: 8px 12px; background: var(--oak-08); border: 1px solid var(--oak-20); border-radius: 8px; font-size: 13px; }
+.cc-pago-monto { color: var(--sage); }
+.cc-vacio { color: var(--oak-55); font-size: 13px; padding: 8px; text-align: center; }
+
 /* ============ MODAL / POPUP ============ */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 50;

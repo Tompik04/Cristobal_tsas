@@ -230,24 +230,49 @@ function abrirCarrito() {
     : `<p class="drawer-empty">El carrito está vacío.</p>`;
 
   const total = State.carrito.reduce((a, l) => a + precioLinea(l), 0);
+  const enModoCuenta = !!State.cuentaDestino;
 
   document.getElementById("modalRoot").innerHTML = `
     <div class="modal-overlay" id="ov"></div>
     <aside class="drawer">
-      <h2>Carrito</h2>
+      <h2>${enModoCuenta ? "Agregar a cuenta" : "Carrito"}</h2>
       <div class="drawer-items">${items}</div>
       <div class="modal-total"><span>Total</span><span>${formatPrecio(total)}</span></div>
       <div class="modal-actions">
         <button class="btn-ghost" id="cerrar">Seguir</button>
-        <button class="btn-primary" id="cobrar" ${State.carrito.length ? "" : "disabled"}>Cobrar</button>
+        ${enModoCuenta
+          ? `<button class="btn-primary" id="aCuenta" ${State.carrito.length ? "" : "disabled"}>Agregar a cuenta</button>`
+          : `<button class="btn-primary" id="cobrar" ${State.carrito.length ? "" : "disabled"}>Cobrar</button>`}
       </div>
     </aside>`;
 
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("cerrar").onclick = cerrarModal;
-  document.getElementById("cobrar").onclick = () => {
+  const btnCobrar = document.getElementById("cobrar");
+  if (btnCobrar) btnCobrar.onclick = () => {
     cerrarModal();
     abrirPopupVenta(State.carrito.slice());
+  };
+  const btnCuenta = document.getElementById("aCuenta");
+  if (btnCuenta) btnCuenta.onclick = async () => {
+    const cuentaId = State.cuentaDestino;
+    const res = await API.agregarItemsCuenta(cuentaId, State.carrito.slice());
+    if (res.ok) {
+      // descontar stock localmente
+      State.carrito.forEach((l) => {
+        const s = State.stock.find((x) => x.codigo === l.codigo && x.talle === l.talle && x.color === l.color);
+        if (s) s.cantidad -= l.cantidad;
+      });
+      State.carrito = [];
+      State.cuentaDestino = null;
+      actualizarBadge();
+      renderCartFab();
+      cerrarModal();
+      toast("Prendas agregadas a la cuenta");
+      Router.ir("cuentas");
+    } else {
+      toast("Error al agregar a la cuenta");
+    }
   };
   document.querySelectorAll("[data-rm]").forEach((b) => {
     b.onclick = () => {
