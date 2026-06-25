@@ -106,6 +106,7 @@ function ventaDeDB(r) {
     oferta: Number(r.oferta) || 0,
     precioBase: Number(r.precio_base) || 0, precioFinal: Number(r.precio_final) || 0,
     metodoPago: r.metodo_pago, voucherId: r.voucher_id,
+    pagos: r.pagos || null,
     inicioCambio: r.inicio_cambio, limiteCambio: r.limite_cambio,
     restaurada: !!r.restaurada,
   };
@@ -239,6 +240,8 @@ const API = {
         precio_base: l.precio * l.cantidad * (1 - (l.oferta || 0) / 100),
         precio_final: det.precioFinal || null,
         metodo_pago: metodoTxt, voucher_id: det.voucherId || null,
+        // el desglose de pagos va completo en la primera línea (representa el total de la venta)
+        pagos: (i === 0 && pago && pago.partes) ? pago.partes : null,
         inicio_cambio: det.inicioCambio || null, limite_cambio: limite, restaurada: false,
       }));
       await SB.insert("ventas", filas);

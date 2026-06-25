@@ -51,6 +51,24 @@ function ventaUsaPago(v, tipo) {
   return true;
 }
 
+// ¿un método pertenece a la categoría de filtro?
+function metodoEsTipo(metodo, tipo) {
+  const m = (metodo || "").toLowerCase();
+  if (tipo === "Efectivo") return m.includes("efectivo");
+  if (tipo === "Transferencia") return m.includes("transferencia");
+  if (tipo === "Tarjeta") return m.includes("débito") || m.includes("debito") || m.includes("crédito") || m.includes("credito");
+  return false;
+}
+
+// monto que entró por un tipo de pago en una venta (usa el desglose si existe)
+function montoPorTipo(v, tipo) {
+  if (v.pagos && v.pagos.length) {
+    return v.pagos.filter((p) => metodoEsTipo(p.metodo, tipo)).reduce((a, p) => a + (Number(p.monto) || 0), 0);
+  }
+  // ventas viejas sin desglose: si el método coincide, se asume el total
+  return ventaUsaPago(v, tipo) ? (v.precioBase || 0) : 0;
+}
+
 function pintarHistorial(f) {
   const list = document.getElementById("histList");
   let lista = _ventasHist.slice();
@@ -66,9 +84,17 @@ function pintarHistorial(f) {
     return;
   }
 
-  // total de las ventas filtradas (por precio base, no restauradas)
-  const total = lista.filter((v) => !v.restaurada).reduce((a, v) => a + (v.precioBase || 0), 0);
-  const totalHTML = `<div class="hist-total"><span>Total filtrado (${lista.length})</span><strong>${formatPrecio(total)}</strong></div>`;
+  // total: si se filtra por un método, mostrar solo la parte de ese método; si no, el total
+  const activas = lista.filter((v) => !v.restaurada);
+  let total, etiqueta;
+  if (f.pago) {
+    total = activas.reduce((a, v) => a + montoPorTipo(v, f.pago), 0);
+    etiqueta = `Total en ${f.pago.toLowerCase()} (${lista.length})`;
+  } else {
+    total = activas.reduce((a, v) => a + (v.precioBase || 0), 0);
+    etiqueta = `Total filtrado (${lista.length})`;
+  }
+  const totalHTML = `<div class="hist-total"><span>${etiqueta}</span><strong>${formatPrecio(total)}</strong></div>`;
 
   list.innerHTML = totalHTML + lista.map(histRowHTML).join("");
   lista.forEach((v) => bindHistRow(list, v));

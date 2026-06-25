@@ -493,12 +493,16 @@ function abrirPopupVenta(lineas) {
 
     let pago;
     if (!modoDividido) {
-      pago = { tipo: "simple", metodo: metodo1 };
+      // pago simple: todo lo cobrado va al único método
+      pago = { tipo: "simple", metodo: metodo1, partes: [{ metodo: metodo1, monto: precioFinal }] };
     } else {
-      const monto1 = Number(montoM1.value) || 0;
+      // pago dividido: monto1 es lo que se cobra en el método 1 (con recargo si es tarjeta);
+      // el método 2 cubre el resto de lo cobrado
+      const cobra1 = Number(montoM1.value) || 0;
+      const cobra2 = precioFinal - cobra1;
       pago = { tipo: "dividido", partes: [
-        { metodo: selM1.value, monto: monto1 },
-        { metodo: selM2.value, monto: baseConDesc - monto1 },
+        { metodo: selM1.value, monto: cobra1 },
+        { metodo: selM2.value, monto: cobra2 },
       ] };
     }
 
