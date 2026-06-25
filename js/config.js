@@ -113,6 +113,9 @@ const CATEGORIAS_GASTO = ["Alquiler", "Luz", "Agua", "Gas", "Internet", "Monotri
 const GASTOS_OBLIGATORIOS = ["Alquiler", "Luz", "Agua", "Gas", "Internet", "Monotributo"];
 const GASTOS_OPCIONALES = ["Sueldos", "Mercadería", "Mantenimiento", "Impuestos", "Otros"];
 
+// Denominaciones de billetes que maneja la Caja
+const DENOMINACIONES = [100, 200, 500, 1000, 2000, 10000];
+
 // Listas fijas para cargar stock
 const TALLES = ["XS", "S", "M", "L", "XL", "XXL", "36", "38", "40", "42", "44"];
 const COLORES = ["Negro", "Blanco", "Gris", "Verde", "Azul", "Rojo", "Beige", "Marrón"];

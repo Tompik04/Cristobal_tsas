@@ -373,6 +373,20 @@ button { font-family: inherit; }
 .chk-item.chk-pend i { color: var(--danger); }
 @media (max-width: 640px) { .resumen-cards { grid-template-columns: 1fr; } .gasto-row { grid-template-columns: 1fr; } }
 
+/* ============ CAJA ============ */
+.h-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.caja-total { display: flex; justify-content: space-between; align-items: center; margin: 0 2.5% 1.25rem; padding: 16px 20px; background: var(--oak-10); border: 1px solid var(--oak-55); border-radius: var(--r); }
+.caja-total span { font-size: 13px; letter-spacing: 0.08em; color: var(--oak-60); text-transform: uppercase; }
+.caja-total strong { font-size: 26px; color: var(--gold); }
+.caja-list { display: flex; flex-direction: column; gap: 10px; padding: 0 2.5% 3rem; }
+.billete-row { display: flex; justify-content: space-between; align-items: center; background: var(--oak-08); border: 1px solid var(--oak-25); border-radius: var(--r); padding: 14px 18px; }
+.billete-info { display: flex; flex-direction: column; gap: 2px; }
+.billete-den { font-size: 18px; color: var(--pale-oak); }
+.billete-sub { font-size: 12px; color: var(--oak-55); }
+.billete-ctrl { display: flex; align-items: center; gap: 8px; }
+.billete-cant { width: 70px; text-align: center; background: rgba(4,31,30,0.6); border: 1px solid var(--oak-35); color: var(--pale-oak); font-family: 'Cinzel', serif; font-size: 16px; padding: 8px; border-radius: 8px; }
+.vuelto-box { border-top: 1px solid var(--oak-20); padding-top: 1rem; margin-top: 0.5rem; }
+
 /* ============ MODAL / POPUP ============ */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 50;

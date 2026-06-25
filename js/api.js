@@ -381,6 +381,22 @@ const API = {
     return SB.urlImagen(codigo.toLowerCase() + ".png");
   },
 
+  // ---------- CAJA ----------
+  async getCaja() {
+    if (CONFIG.MODO_PRUEBA) return { ok: true, caja: CONFIG.DENOMINACIONES.map((d) => ({ denominacion: d, cantidad: 0 })) };
+    try {
+      const rows = await SB.select("caja", "select=*&order=denominacion");
+      return { ok: true, caja: rows.map((r) => ({ denominacion: Number(r.denominacion), cantidad: Number(r.cantidad) || 0 })) };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+  async setCajaCantidad(denominacion, cantidad) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try {
+      await SB.update("caja", "denominacion=eq." + denominacion, { cantidad: Math.max(0, cantidad) });
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
   // ---------- MOCK (datos de ejemplo si MODO_PRUEBA) ----------
   _mock(action, payload) {
     return new Promise((resolve) => {

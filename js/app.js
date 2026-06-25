@@ -27,6 +27,7 @@ const Router = {
     vouchers: renderVouchers,
     historial: renderHistorial,
     gastos: renderGastos,
+    caja: renderCaja,
   },
 
   ir(vista, params = {}) {
@@ -95,11 +96,14 @@ function headerHTML(actual) {
   return `
     <div class="h-left">
       <button class="h-home" id="hHome" aria-label="Inicio"><i class="ti ti-home"></i></button>
-      <button class="h-hist" id="hHist" aria-label="Historial" title="Historial de ventas"><i class="ti ti-clock-hour-4"></i></button>
+      <button class="h-hist" id="hCaja" aria-label="Caja" title="Caja"><i class="ti ti-cash"></i></button>
       <button class="h-hist" id="hGastos" aria-label="Gastos" title="Gastos del local"><i class="ti ti-receipt-2"></i></button>
     </div>
     <nav class="h-nav">${nav}</nav>
-    <div class="h-logo">${LOGO_SVG}</div>
+    <div class="h-right">
+      <button class="h-hist" id="hHist" aria-label="Historial" title="Historial de ventas"><i class="ti ti-clock-hour-4"></i></button>
+      <div class="h-logo">${LOGO_SVG}</div>
+    </div>
   `;
 }
 
@@ -108,6 +112,8 @@ function bindHeader() {
   if (home) home.onclick = () => Router.ir("home");
   const hist = document.getElementById("hHist");
   if (hist) hist.onclick = () => Router.ir("historial");
+  const caja = document.getElementById("hCaja");
+  if (caja) caja.onclick = () => Router.ir("caja");
   const gastos = document.getElementById("hGastos");
   if (gastos) gastos.onclick = () => Router.ir("gastos");
   document.querySelectorAll("[data-nav]").forEach((a) => {

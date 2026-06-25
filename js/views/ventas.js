@@ -365,6 +365,14 @@ function abrirPopupVenta(lineas) {
         <div class="modal-total"><span>Total a cobrar</span><span id="totalVal">${formatPrecio(base)}</span></div>
       </div>
 
+      <div class="vuelto-box" id="vueltoBox" style="display:none">
+        <div class="field">
+          <label>Paga con</label>
+          <input type="number" id="pagaCon" min="0" placeholder="$ que entrega el cliente">
+        </div>
+        <div class="modal-total"><span>Vuelto</span><span id="vueltoVal">$0</span></div>
+      </div>
+
       <div class="modal-actions">
         <button class="btn-ghost" id="cancelar">Cancelar</button>
         <button class="btn-primary" id="confirmar" disabled>Confirmar</button>
@@ -453,7 +461,40 @@ function abrirPopupVenta(lineas) {
     else recargoLine.style.display = "none";
     totalVal.textContent = formatPrecio(baseConDesc + recargo);
     btnConf.disabled = !valido;
+
+    actualizarVuelto(baseConDesc, recargo);
     return { desc, baseConDesc, recargo };
+  }
+
+  // muestra el campo de vuelto si la venta tiene parte en efectivo
+  function efectivoACobrar(baseConDesc, recargo) {
+    if (!modoDividido) {
+      return metodo1 === "Efectivo" ? baseConDesc + recargo : 0;
+    }
+    // dividido: el efectivo es lo que se cobra en el método que sea efectivo
+    const cobra1 = Number(montoM1.value) || 0;
+    const totalCobrar = baseConDesc + recargo;
+    const cobra2 = totalCobrar - cobra1;
+    let ef = 0;
+    if (selM1.value === "Efectivo") ef += cobra1;
+    if (selM2.value === "Efectivo") ef += cobra2;
+    return ef;
+  }
+
+  function actualizarVuelto(baseConDesc, recargo) {
+    const box = document.getElementById("vueltoBox");
+    const ef = efectivoACobrar(baseConDesc, recargo);
+    if (ef > 0) {
+      box.style.display = "";
+      const paga = Number(document.getElementById("pagaCon").value) || 0;
+      const vuelto = paga - ef;
+      const vueltoEl = document.getElementById("vueltoVal");
+      vueltoEl.textContent = formatPrecio(vuelto >= 0 ? vuelto : 0);
+      vueltoEl.style.color = paga > 0 && vuelto < 0 ? "var(--danger)" : "";
+      if (paga > 0 && vuelto < 0) vueltoEl.textContent = "Falta " + formatPrecio(-vuelto);
+    } else {
+      box.style.display = "none";
+    }
   }
 
   document.getElementById("modoSimple").onclick = () => {
@@ -480,6 +521,7 @@ function abrirPopupVenta(lineas) {
     };
   });
   [selM1, selM2, montoM1].forEach((el) => el.addEventListener("input", recalcular));
+  document.getElementById("pagaCon").addEventListener("input", () => recalcular());
   [selM1, selM2].forEach((el) => el.addEventListener("change", recalcular));
 
   btnConf.onclick = async () => {
