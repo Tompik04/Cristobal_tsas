@@ -368,7 +368,7 @@ function abrirPopupVenta(lineas) {
       <div class="vuelto-box" id="vueltoBox" style="display:none">
         <div class="field">
           <label>Paga con</label>
-          <input type="number" id="pagaCon" min="0" placeholder="$ que entrega el cliente">
+          <input type="number" id="pagaCon" class="sinput" min="0" placeholder="$ que entrega el cliente">
         </div>
         <div class="modal-total"><span>Vuelto</span><span id="vueltoVal">$0</span></div>
       </div>

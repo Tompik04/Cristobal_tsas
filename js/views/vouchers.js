@@ -116,7 +116,8 @@ function voucherHTML(v) {
     <div class="crow voucher-row ${claseFila}" data-id="${v.id}">
       <div class="c-meta">
         <span class="c-vars"><strong>${v.nombre || "—"}</strong> · ${v.telefono || "—"}</span>
-        <span class="c-fecha">${v.id} · ${v.origen || ""}</span>
+        <span class="c-fecha">${v.id} · ${v.origen || ""}${v.comprado ? ` · pagado con ${v.metodoPago || "—"}` : ""}</span>
+        <span class="v-tipo-origen ${v.comprado ? "comprado" : "saldo"}">${v.comprado ? "Comprado (ingresó plata)" : "Saldo a favor"}</span>
         ${badge}
       </div>
       <div class="v-value">${valorVoucher(v)}</div>
@@ -242,6 +243,11 @@ function abrirNuevoVoucher() {
       <div class="field"><label>Nombre</label><input class="sinput" id="vNom" placeholder="Nombre y apellido"></div>
       <div class="field"><label>Teléfono</label><input class="sinput" id="vTel" placeholder="Ej. 2915551234" inputmode="numeric"></div>
       <div class="field"><label>Vencimiento</label><input class="sinput" type="date" id="vVence" value="${venceDefault}"></div>
+      <label class="g-check"><input type="checkbox" id="vComprado"> Voucher comprado (el cliente lo paga ahora)</label>
+      <div class="field" id="campoMetodo" style="display:none">
+        <label>Método de pago</label>
+        <select class="sinput" id="vMetodo">${MEDIOS_PAGO.map((m) => `<option value="${m}">${m}</option>`).join("")}</select>
+      </div>
       <div class="modal-actions">
         <button class="btn-ghost" id="vCancel">Cancelar</button>
         <button class="btn-primary" id="vSave">Crear voucher</button>
@@ -266,6 +272,12 @@ function abrirNuevoVoucher() {
 
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("vCancel").onclick = cerrarModal;
+
+  // mostrar método de pago solo si es comprado
+  const chkComprado = document.getElementById("vComprado");
+  const campoMetodo = document.getElementById("campoMetodo");
+  chkComprado.onchange = () => { campoMetodo.style.display = chkComprado.checked ? "" : "none"; };
+
   document.getElementById("vSave").onclick = async () => {
     const nombre = document.getElementById("vNom").value.trim();
     const telefono = document.getElementById("vTel").value.trim();
@@ -274,9 +286,12 @@ function abrirNuevoVoucher() {
     if (!telefono) return toast("Falta el teléfono");
     if (!vencimiento) return toast("Falta el vencimiento");
 
+    const comprado = chkComprado.checked;
     const voucher = {
       id: "VCH-" + Date.now(), tipo, fecha: new Date().toISOString(), vencimiento,
-      nombre, telefono, origen: "Alta manual", avisado: false, usado: false,
+      nombre, telefono, origen: comprado ? "Compra" : "Alta manual",
+      avisado: false, usado: false,
+      comprado, metodoPago: comprado ? document.getElementById("vMetodo").value : null,
     };
     if (tipo === "monto") {
       const m = Number(document.getElementById("vMonto").value) || 0;
@@ -287,6 +302,8 @@ function abrirNuevoVoucher() {
       if (d <= 0 || d > 100) return toast("Descuento inválido");
       voucher.descuento = d;
     }
+    // un voucher comprado de descuento no tiene sentido (no entra plata fija); avisar
+    if (comprado && tipo === "descuento") return toast("Un voucher comprado debe ser de monto fijo");
     await API.crearVoucher(voucher);
     cerrarModal();
     toast("Voucher creado");

@@ -127,6 +127,7 @@ function voucherDeDB(r) {
     nombre: r.nombre, telefono: String(r.telefono || ""),
     fecha: normalizarFechaISO(r.fecha), vencimiento: r.vencimiento, origen: r.origen,
     avisado: !!r.avisado, usado: !!r.usado,
+    comprado: !!r.comprado, metodoPago: r.metodo_pago || null,
   };
 }
 function gastoDeDB(r) {
@@ -288,11 +289,19 @@ const API = {
         await this.restaurarVenta(v.id);
       }
       if (p.lineasNuevas && p.lineasNuevas.length) {
-        await this.registrarVenta(p.lineasNuevas,
-          p.metodoPago ? { metodo: p.metodoPago } : { metodo: "Cambio" },
+        // construir el objeto de pago con desglose (para que entre bien en la caja)
+        let pago;
+        if (p.pagos && p.pagos.length) {
+          pago = { tipo: p.pagos.length > 1 ? "dividido" : "simple", partes: p.pagos };
+          if (p.pagos.length === 1) pago.metodo = p.pagos[0].metodo;
+        } else {
+          pago = { metodo: p.metodoPago || "Cambio" };
+        }
+        await this.registrarVenta(p.lineasNuevas, pago,
           { fechaVenta: new Date().toISOString(), inicioCambio: hoyISO() });
       }
       if (p.voucher) await this.crearVoucher(p.voucher);
+      if (p.voucherUsado) await this.usarVoucher(p.voucherUsado);
       return { ok: true, idIntercambio: "I-" + Date.now() };
     } catch (e) { return { ok: false, error: String(e) }; }
   },
@@ -316,6 +325,7 @@ const API = {
         nombre: v.nombre || "", telefono: v.telefono || "",
         fecha: v.fecha || new Date().toISOString(), vencimiento: v.vencimiento || null,
         origen: v.origen || "", avisado: !!v.avisado, usado: !!v.usado,
+        comprado: !!v.comprado, metodo_pago: v.metodoPago || null,
       }]);
       return { ok: true };
     } catch (e) { return { ok: false, error: String(e) }; }

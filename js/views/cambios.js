@@ -237,42 +237,215 @@ function abrirDatosVoucher(venta, monto) {
   };
 }
 
-// si el cliente debe pagar, pedir método de pago
-function abrirPagoDiferencia(venta, diferencia) {
-  let metodo = null;
-  const pagos = MEDIOS_PAGO.map((m) => `<button class="pay-opt" data-pago="${m}">${m}</button>`).join("");
+// si el cliente debe pagar, pedir método de pago (simple o dividido, con vuelto y voucher)
+async function abrirPagoDiferencia(venta, diferencia) {
+  let modoDividido = false;
+  let metodo1 = null;
+  let voucherSel = null;
+  const base = diferencia;
+
+  // cargar vouchers disponibles para aplicar
+  const rv = await API.getVouchers();
+  const vouchersDisp = rv.ok
+    ? rv.vouchers.filter((v) => !v.usado && diasParaVencer(v.vencimiento) >= 0)
+    : [];
+
+  const opcVouchers = `<option value="">Sin voucher</option>` +
+    vouchersDisp.map((v) => {
+      const val = v.tipo === "descuento" ? `${v.descuento}% off` : formatPrecio(v.monto);
+      return `<option value="${v.id}">${v.nombre || v.id} · ${val}</option>`;
+    }).join("");
+
+  const pagos1 = MEDIOS_PAGO.map((m) => `<button class="pay-opt" data-m1="${m}">${m}</button>`).join("");
+
   document.getElementById("modalRoot").innerHTML = `
     <div class="modal-overlay" id="ov"></div>
     <div class="modal">
       <h2>Pago de diferencia</h2>
-      <div class="modal-total"><span>A pagar</span><span id="difTotal">${formatPrecio(diferencia)}</span></div>
-      <div class="modal-line" id="recLine" style="display:none"><span>Recargo tarjeta (20%)</span><strong id="recVal">$0</strong></div>
-      <p class="login-sub" style="text-align:center">Método de pago</p>
-      <div class="pay-grid">${pagos}</div>
+      <div class="modal-line"><span>Diferencia a pagar</span><strong>${formatPrecio(base)}</strong></div>
+
+      <div class="pay-mode">
+        <button class="pay-mode-btn selected" id="modoSimple">Pago simple</button>
+        <button class="pay-mode-btn" id="modoDiv">Pago dividido</button>
+      </div>
+
+      <div id="paySimple">
+        <p class="login-sub" style="text-align:center">Método de pago</p>
+        <div class="pay-grid">${pagos1}</div>
+      </div>
+
+      <div id="payDividido" style="display:none">
+        <div class="split-row">
+          <div class="field"><label>Método 1</label><select id="selM1">${MEDIOS_PAGO.map((m) => `<option value="${m}">${m}</option>`).join("")}</select></div>
+          <div class="field"><label>Monto en método 1</label><input type="number" id="montoM1" min="0" placeholder="$"></div>
+        </div>
+        <div class="split-row">
+          <div class="field"><label>Método 2 (resto)</label><select id="selM2">${MEDIOS_PAGO.map((m, i) => `<option value="${m}"${i === 1 ? " selected" : ""}>${m}</option>`).join("")}</select></div>
+          <div class="field"><label>Monto en método 2</label><input type="text" id="montoM2" disabled value="—"></div>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:0.5rem">
+        <label>Aplicar voucher</label>
+        <select id="selVoucher" class="sinput">${opcVouchers}</select>
+      </div>
+
+      <div class="swap-diff" style="border-top:1px solid var(--oak-20);padding-top:1rem">
+        <div class="modal-line descuento-line" id="descLine" style="display:none"><span id="descLabel">Voucher</span><strong id="descVal">$0</strong></div>
+        <div class="modal-line" id="recLine" style="display:none"><span>Recargo tarjeta (20%)</span><strong id="recVal">$0</strong></div>
+        <div class="modal-total"><span>Total a cobrar</span><span id="difTotal">${formatPrecio(base)}</span></div>
+      </div>
+
+      <div class="vuelto-box" id="vueltoBox" style="display:none">
+        <div class="field"><label>Paga con</label><input type="number" id="pagaCon" class="sinput" min="0" placeholder="$ que entrega el cliente"></div>
+        <div class="modal-total"><span>Vuelto</span><span id="vueltoVal">$0</span></div>
+      </div>
+
       <div class="modal-actions">
         <button class="btn-ghost" id="payCancel">Volver</button>
         <button class="btn-primary" id="payConfirm" disabled>Confirmar cambio</button>
       </div>
     </div>`;
+
   const btn = document.getElementById("payConfirm");
   const recLine = document.getElementById("recLine");
   const recVal = document.getElementById("recVal");
   const difTotal = document.getElementById("difTotal");
+  const paySimple = document.getElementById("paySimple");
+  const payDividido = document.getElementById("payDividido");
+  const selM1 = document.getElementById("selM1");
+  const selM2 = document.getElementById("selM2");
+  const montoM1 = document.getElementById("montoM1");
+  const montoM2 = document.getElementById("montoM2");
+
+  const selVoucher = document.getElementById("selVoucher");
+  const descLine = document.getElementById("descLine");
+  const descVal = document.getElementById("descVal");
+  const descLabel = document.getElementById("descLabel");
+
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("payCancel").onclick = () => abrirIntercambio(venta);
-  document.querySelectorAll("[data-pago]").forEach((b) => {
+
+  function recargoDe(monto, met) { return MEDIOS_CON_RECARGO.includes(met) ? monto * CONFIG.RECARGO_TARJETA : 0; }
+
+  // base con el voucher aplicado (voucher primero, recargo después)
+  function calcularBase() {
+    let desc = 0;
+    if (voucherSel) {
+      if (voucherSel.tipo === "descuento") desc = base * (voucherSel.descuento / 100);
+      else desc = Math.min(voucherSel.monto, base);
+    }
+    return { baseConDesc: Math.max(0, base - desc), desc };
+  }
+
+  function recalcular() {
+    const { baseConDesc, desc } = calcularBase();
+    if (desc > 0) {
+      descLine.style.display = "flex";
+      descLabel.textContent = voucherSel && voucherSel.tipo === "descuento" ? `Voucher ${voucherSel.descuento}%` : "Voucher";
+      descVal.textContent = "− " + formatPrecio(desc);
+    } else descLine.style.display = "none";
+
+    let recargo = 0, valido = false;
+    if (!modoDividido) {
+      if (metodo1) { recargo = recargoDe(baseConDesc, metodo1); valido = true; }
+    } else {
+      const m1 = selM1.value, m2 = selM2.value;
+      const cobra1 = Number(montoM1.value) || 0;
+      const factor1 = MEDIOS_CON_RECARGO.includes(m1) ? (1 + CONFIG.RECARGO_TARJETA) : 1;
+      const productoM1 = cobra1 / factor1;
+      const productoM2 = baseConDesc - productoM1;
+      const cobra2 = productoM2 + recargoDe(productoM2, m2);
+      montoM2.value = productoM2 >= 0 ? formatPrecio(cobra2) : "—";
+      if (productoM1 > 0 && productoM1 < baseConDesc && m1 !== m2) {
+        recargo = recargoDe(productoM1, m1) + recargoDe(productoM2, m2);
+        valido = true;
+      }
+    }
+    // si el voucher cubre todo, no hace falta pagar
+    if (baseConDesc <= 0) { valido = true; }
+    if (recargo > 0) { recLine.style.display = "flex"; recVal.textContent = formatPrecio(recargo); }
+    else recLine.style.display = "none";
+    difTotal.textContent = formatPrecio(baseConDesc + recargo);
+    btn.disabled = !valido;
+    actualizarVuelto(baseConDesc, recargo);
+    return { recargo, baseConDesc };
+  }
+
+  function efectivoACobrar(baseConDesc, recargo) {
+    if (!modoDividido) return metodo1 === "Efectivo" ? baseConDesc + recargo : 0;
+    const cobra1 = Number(montoM1.value) || 0;
+    const cobra2 = (baseConDesc + recargo) - cobra1;
+    let ef = 0;
+    if (selM1.value === "Efectivo") ef += cobra1;
+    if (selM2.value === "Efectivo") ef += cobra2;
+    return ef;
+  }
+  function actualizarVuelto(baseConDesc, recargo) {
+    const box = document.getElementById("vueltoBox");
+    const ef = efectivoACobrar(recargo);
+    if (ef > 0) {
+      box.style.display = "";
+      const paga = Number(document.getElementById("pagaCon").value) || 0;
+      const vuelto = paga - ef;
+      const el = document.getElementById("vueltoVal");
+      if (paga > 0 && vuelto < 0) { el.textContent = "Falta " + formatPrecio(-vuelto); el.style.color = "var(--danger)"; }
+      else { el.textContent = formatPrecio(vuelto >= 0 ? vuelto : 0); el.style.color = ""; }
+    } else box.style.display = "none";
+  }
+
+  document.getElementById("modoSimple").onclick = () => {
+    modoDividido = false;
+    document.getElementById("modoSimple").classList.add("selected");
+    document.getElementById("modoDiv").classList.remove("selected");
+    paySimple.style.display = ""; payDividido.style.display = "none";
+    recalcular();
+  };
+  document.getElementById("modoDiv").onclick = () => {
+    modoDividido = true;
+    document.getElementById("modoDiv").classList.add("selected");
+    document.getElementById("modoSimple").classList.remove("selected");
+    paySimple.style.display = "none"; payDividido.style.display = "";
+    recalcular();
+  };
+  document.querySelectorAll("[data-m1]").forEach((b) => {
     b.onclick = () => {
       document.querySelectorAll(".pay-opt").forEach((x) => x.classList.remove("selected"));
       b.classList.add("selected");
-      metodo = b.dataset.pago;
-      const rec = MEDIOS_CON_RECARGO.includes(metodo) ? diferencia * CONFIG.RECARGO_TARJETA : 0;
-      if (rec > 0) { recLine.style.display = "flex"; recVal.textContent = formatPrecio(rec); }
-      else recLine.style.display = "none";
-      difTotal.textContent = formatPrecio(diferencia + rec);
-      btn.disabled = false;
+      metodo1 = b.dataset.m1;
+      recalcular();
     };
   });
-  btn.onclick = () => confirmarIntercambio(venta, { diferencia, voucher: 0, metodoPago: metodo });
+  [selM1, selM2, montoM1].forEach((el) => el.addEventListener("input", recalcular));
+  [selM1, selM2].forEach((el) => el.addEventListener("change", recalcular));
+  document.getElementById("pagaCon").addEventListener("input", () => recalcular());
+  selVoucher.addEventListener("change", () => {
+    voucherSel = vouchersDisp.find((v) => v.id === selVoucher.value) || null;
+    recalcular();
+  });
+
+  btn.onclick = () => {
+    const { recargo, baseConDesc } = recalcular();
+    const totalCobrar = baseConDesc + recargo;
+    let partes;
+    if (totalCobrar <= 0) {
+      // el voucher cubrió todo, no entra plata
+      partes = [];
+    } else if (!modoDividido) {
+      partes = [{ metodo: metodo1, monto: totalCobrar }];
+    } else {
+      const cobra1 = Number(montoM1.value) || 0;
+      partes = [
+        { metodo: selM1.value, monto: cobra1 },
+        { metodo: selM2.value, monto: totalCobrar - cobra1 },
+      ];
+    }
+    const metodoTxt = partes.length ? partes.map((p) => p.metodo).join(" + ") : "Voucher";
+    confirmarIntercambio(venta, {
+      diferencia, voucher: 0, metodoPago: metodoTxt, pagos: partes,
+      voucherUsado: voucherSel ? voucherSel.id : null,
+    });
+  };
 }
 
 async function confirmarIntercambio(venta, info) {
@@ -300,6 +473,8 @@ async function confirmarIntercambio(venta, info) {
     lineasNuevas: State.carrito.slice(),
     diferencia: info.diferencia,
     metodoPago: info.metodoPago,
+    pagos: info.pagos || null,
+    voucherUsado: info.voucherUsado || null,
     voucher,
   });
 
