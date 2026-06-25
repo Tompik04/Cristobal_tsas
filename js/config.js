@@ -116,6 +116,13 @@ const GASTOS_OPCIONALES = ["Sueldos", "Mercadería", "Mantenimiento", "Impuestos
 // Denominaciones de billetes que maneja la Caja
 const DENOMINACIONES = [100, 200, 500, 1000, 2000, 10000];
 
+// ¿es válido dividir el pago entre estos dos métodos?
+// Permite repetir tarjetas (Crédito/Débito), pero no Efectivo+Efectivo ni Transferencia+Transferencia.
+function combinacionPagoValida(m1, m2) {
+  if (m1 !== m2) return true;
+  return MEDIOS_CON_RECARGO.includes(m1); // solo tarjetas pueden repetirse
+}
+
 // Listas fijas para cargar stock
 const TALLES = ["XS", "S", "M", "L", "XL", "XXL", "36", "38", "40", "42", "44"];
 const COLORES = ["Negro", "Blanco", "Gris", "Verde", "Azul", "Rojo", "Beige", "Marrón"];

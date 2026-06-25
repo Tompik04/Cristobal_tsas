@@ -451,7 +451,7 @@ function abrirPopupVenta(lineas) {
       const productoM2 = baseConDesc - productoM1; // parte del producto que cubre el método 2
       const cobra2 = productoM2 + recargoDe(productoM2, m2); // lo que se cobra en el método 2
       montoM2.value = productoM2 >= 0 ? formatPrecio(cobra2) : "—";
-      if (productoM1 > 0 && productoM1 < baseConDesc && m1 !== m2) {
+      if (productoM1 > 0 && productoM1 < baseConDesc && combinacionPagoValida(m1, m2)) {
         recargo = recargoDe(productoM1, m1) + recargoDe(productoM2, m2);
         valido = true;
       }
