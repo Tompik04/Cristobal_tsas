@@ -1,16 +1,33 @@
 :root {
   --evergreen: #041F1E;
   --evergreen-soft: #0a2e2c;
+  --evergreen-deep: #03100f;
   --pale-oak: #DCCAAC;
   --platinum: #E9E9ED;
   --coffee: #0F060B;
 
   /* acentos que combinan con la paleta */
   --gold: #C9A24B;          /* dorado cálido */
+  --gold-bright: #E3BD63;   /* dorado más luminoso */
   --terracotta: #B86A4B;    /* terracota suave */
+  --terracotta-bright: #D17F5C;
   --sage: #7E9B7A;          /* verde salvia */
+  --sage-bright: #9CBE97;
+  --teal: #3E8E8A;          /* turquesa apagado */
+  --teal-bright: #57B0AB;
+  --plum: #8A5A78;          /* ciruela suave */
+  --amber: #E0A458;         /* ámbar cálido */
   --success: #5FA86A;       /* verde confirmación */
   --danger: #C97A6D;        /* rojo apagado */
+  --danger-bright: #E08D7E;
+
+  /* degradados para dar vida */
+  --grad-gold: linear-gradient(135deg, #E3BD63 0%, #C9A24B 50%, #B8893A 100%);
+  --grad-teal: linear-gradient(135deg, #57B0AB 0%, #3E8E8A 100%);
+  --grad-terra: linear-gradient(135deg, #D17F5C 0%, #B86A4B 100%);
+  --grad-sage: linear-gradient(135deg, #9CBE97 0%, #7E9B7A 100%);
+  --grad-bg: radial-gradient(ellipse at top, #0a2e2c 0%, #041F1E 55%, #03100f 100%);
+  --grad-card: linear-gradient(160deg, rgba(220,202,172,0.07) 0%, rgba(220,202,172,0.03) 100%);
 
   --oak-08: rgba(220, 202, 172, 0.08);
   --oak-10: rgba(220, 202, 172, 0.10);
@@ -19,6 +36,11 @@
   --oak-35: rgba(220, 202, 172, 0.35);
   --oak-55: rgba(220, 202, 172, 0.55);
   --oak-60: rgba(220, 202, 172, 0.60);
+
+  /* sombras y glow */
+  --glow-gold: 0 0 20px rgba(201,162,75,0.25);
+  --shadow-card: 0 4px 18px rgba(0,0,0,0.25);
+  --shadow-lift: 0 10px 30px rgba(0,0,0,0.35);
 
   --r: 14px;
 }
@@ -142,9 +164,44 @@ button { font-family: inherit; }
 }
 
 /* ============ VENTAS (categorías) ============ */
+/* Botones del home con acento de color por sección */
+.home-btn {
+  position: relative; overflow: hidden;
+  background: var(--grad-card);
+  box-shadow: var(--shadow-card);
+}
+.home-btn::before {
+  content: ""; position: absolute; inset: 0; opacity: 0;
+  transition: opacity 0.25s ease; z-index: 0;
+}
+.home-btn::after {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  transition: width 0.25s ease;
+}
+.home-btn span { position: relative; z-index: 2; transition: color 0.2s ease, transform 0.2s ease; }
+.home-btn:hover { transform: translateY(-4px); box-shadow: var(--shadow-lift); }
+.home-btn:hover span { transform: scale(1.04); }
+.home-btn:hover::before { opacity: 0.16; }
+.home-btn:hover::after { width: 6px; }
+
+.home-btn[data-go="ventas"]::before { background: var(--grad-gold); }
+.home-btn[data-go="ventas"]::after { background: var(--grad-gold); }
+.home-btn[data-go="ventas"]:hover span { color: var(--gold-bright); }
+.home-btn[data-go="stock"]::before { background: var(--grad-teal); }
+.home-btn[data-go="stock"]::after { background: var(--grad-teal); }
+.home-btn[data-go="stock"]:hover span { color: var(--teal-bright); }
+.home-btn[data-go="cambios"]::before { background: var(--grad-terra); }
+.home-btn[data-go="cambios"]::after { background: var(--grad-terra); }
+.home-btn[data-go="cambios"]:hover span { color: var(--terracotta-bright); }
+.home-btn[data-go="vouchers"]::before { background: var(--grad-sage); }
+.home-btn[data-go="vouchers"]::after { background: var(--grad-sage); }
+.home-btn[data-go="vouchers"]:hover span { color: var(--sage-bright); }
+
 .view-title {
   text-align: center; font-size: clamp(20px, 3.4vw, 34px); font-weight: 600;
   letter-spacing: 0.22em; padding: 1.4rem 0 1rem;
+  background: var(--grad-gold); -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: var(--gold);
 }
 .cat-grid {
   display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; padding: 0.5rem 2.5% 2rem;
@@ -609,4 +666,131 @@ button { font-family: inherit; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* ============================================================
+   CAPA DE REDISEÑO — más color, profundidad y movimiento
+   (respeta la identidad: verde profundo + dorado + Cinzel)
+   ============================================================ */
+
+/* --- Fondo con profundidad --- */
+body {
+  background: var(--grad-bg);
+  background-attachment: fixed;
+}
+
+/* --- Movimiento global suave (respeta reduce-motion) --- */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+  @keyframes popIn { 0% { opacity: 0; transform: scale(0.96); } 100% { opacity: 1; transform: scale(1); } }
+  @keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+
+  .view-title { animation: fadeUp 0.5s ease both; }
+  .crow, .billete-row, .rcard, .chk-item, .cc-item { animation: fadeUp 0.4s ease both; }
+  .crow:nth-child(2){animation-delay:.03s} .crow:nth-child(3){animation-delay:.06s}
+  .crow:nth-child(4){animation-delay:.09s} .crow:nth-child(5){animation-delay:.12s}
+  .crow:nth-child(6){animation-delay:.15s} .crow:nth-child(7){animation-delay:.18s}
+  .modal, .drawer { animation: popIn 0.28s cubic-bezier(0.2,0.8,0.2,1) both; }
+  .modal-overlay { animation: fadeIn 0.2s ease both; }
+  .home-btn { animation: fadeUp 0.5s ease both; }
+  .home-btn:nth-child(2){animation-delay:.07s} .home-btn:nth-child(3){animation-delay:.14s} .home-btn:nth-child(4){animation-delay:.21s}
+}
+
+/* --- Header con hilo dorado degradado --- */
+.app-header {
+  background: linear-gradient(180deg, rgba(10,46,44,0.95) 0%, rgba(4,31,30,0.92) 100%);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid transparent;
+  border-image: var(--grad-gold) 1;
+  box-shadow: 0 2px 20px rgba(0,0,0,0.25);
+}
+
+/* --- Botones primarios con degradado dorado --- */
+.btn-primary {
+  background: var(--grad-gold);
+  color: var(--evergreen-deep);
+  border: none;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(201,162,75,0.2);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--glow-gold), 0 6px 18px rgba(201,162,75,0.3); filter: brightness(1.05); }
+.btn-primary:active:not(:disabled) { transform: translateY(0); }
+
+/* --- Cards y filas con vida --- */
+.crow {
+  background: var(--grad-card);
+  border: 1px solid var(--oak-20);
+  box-shadow: var(--shadow-card);
+  transition: transform 0.18s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.crow:hover { transform: translateY(-2px); border-color: var(--oak-35); box-shadow: var(--shadow-lift); }
+
+/* --- Botones de pago / opciones con transición --- */
+.pay-opt, .step-btn, .v-icon, .c-swap, .mes-nav, .btn-mini {
+  transition: transform 0.15s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+.pay-opt:hover, .btn-mini:hover:not(:disabled) { transform: translateY(-1px); }
+.pay-opt.selected {
+  background: var(--grad-gold);
+  color: var(--evergreen-deep);
+  border-color: transparent;
+  box-shadow: var(--glow-gold);
+}
+
+/* --- Inputs con foco dorado --- */
+.sinput, input, select, textarea {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.sinput:focus, input:focus, select:focus, textarea:focus {
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 0 3px rgba(201,162,75,0.15);
+  outline: none;
+}
+
+/* --- Acentos por sección: cada total/resumen con su color --- */
+.hist-total { background: linear-gradient(135deg, rgba(62,142,138,0.12), rgba(220,202,172,0.05)); border-color: rgba(62,142,138,0.35); }
+.hist-total strong { color: var(--teal-bright); }
+.caja-total { background: linear-gradient(135deg, rgba(201,162,75,0.14), rgba(220,202,172,0.04)); }
+.caja-total strong { background: var(--grad-gold); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.resumen-cards .rcard { background: var(--grad-card); transition: transform 0.18s ease, box-shadow 0.2s ease; }
+.resumen-cards .rcard:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+.rc-net { background: linear-gradient(135deg, rgba(201,162,75,0.12), rgba(220,202,172,0.04)) !important; }
+
+/* --- Badges y etiquetas más vivas --- */
+.v-badge.red { background: linear-gradient(135deg, rgba(224,141,126,0.2), rgba(201,122,109,0.12)); }
+.v-badge.ok { background: linear-gradient(135deg, rgba(156,190,151,0.18), rgba(126,155,122,0.1)); }
+
+/* --- Total / valores monetarios con brillo dorado --- */
+.modal-total span:last-child, .v-value:not(.neg) { color: var(--gold-bright); }
+
+/* --- Campanita y alarmas con leve pulso --- */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12); opacity: 0.85; } }
+  .nav-bell:not(.hidden), .alarma-bar.roja { animation: pulse 2s ease-in-out infinite; }
+}
+
+/* --- Iconos del header con hover --- */
+.h-home, .h-hist {
+  transition: transform 0.15s ease, color 0.2s ease, background 0.2s ease;
+}
+.h-home:hover, .h-hist:hover { transform: translateY(-2px); color: var(--gold-bright); }
+
+/* --- Links del nav con subrayado degradado --- */
+.nav-link, .nav-link-wrap {
+  position: relative;
+  transition: color 0.2s ease;
+}
+.nav-link::after {
+  content: ""; position: absolute; left: 0; bottom: -4px; height: 2px; width: 0;
+  background: var(--grad-gold); transition: width 0.25s ease;
+}
+.nav-link:hover::after { width: 100%; }
+.nav-link.current::after { width: 100%; }
+
+/* --- Respeta reduce-motion: sin transformaciones --- */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
 }
