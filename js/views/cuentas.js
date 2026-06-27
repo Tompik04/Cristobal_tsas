@@ -42,13 +42,33 @@ async function cargarCuentas() {
   pintarCuentas({});
 }
 
-// deuda total de una cuenta: suma de prendas − suma de pagos
+// ¿una prenda de cuenta corriente está vencida? (35 días desde que se agregó)
+function itemVencido(item) {
+  if (!item.fecha) return false;
+  const limite = new Date(item.fecha);
+  limite.setDate(limite.getDate() + CONFIG.DIAS_VENCIMIENTO_VOUCHER);
+  return new Date() > limite;
+}
+// precio efectivo de una prenda: si venció, sube +20% (precio de lista)
+function precioItemEfectivo(item) {
+  const base = item.precio * item.cantidad;
+  return itemVencido(item) ? base * (1 + CONFIG.RECARGO_TARJETA) : base;
+}
+// fecha de vencimiento de una prenda
+function vencimientoItem(item) {
+  if (!item.fecha) return null;
+  const limite = new Date(item.fecha);
+  limite.setDate(limite.getDate() + CONFIG.DIAS_VENCIMIENTO_VOUCHER);
+  return limite;
+}
+
+// deuda total de una cuenta: suma de prendas (vencidas +20%) − suma saldada por pagos
 function deudaCuenta(cuentaId) {
   const items = _ccItems.filter((i) => i.cuentaId === cuentaId);
   const pagos = _ccPagos.filter((p) => p.cuentaId === cuentaId);
-  const totalItems = items.reduce((a, i) => a + i.precio * i.cantidad, 0);
-  const totalPagos = pagos.reduce((a, p) => a + p.monto, 0);
-  return totalItems - totalPagos;
+  const totalItems = items.reduce((a, i) => a + precioItemEfectivo(i), 0);
+  const totalSaldado = pagos.reduce((a, p) => a + (p.salda != null ? p.salda : p.monto), 0);
+  return totalItems - totalSaldado;
 }
 
 function pintarCuentas(f) {
@@ -122,29 +142,46 @@ function abrirDetalleCuenta(cuentaId) {
   const items = _ccItems.filter((i) => i.cuentaId === cuentaId);
   const pagos = _ccPagos.filter((p) => p.cuentaId === cuentaId);
   const deuda = deudaCuenta(cuentaId);
+  const deudaCredito = deuda * (1 + CONFIG.RECARGO_TARJETA); // referencia con recargo
 
   const itemsHTML = items.length
-    ? items.map((i) => `
-        <div class="cc-item">
+    ? items.map((i) => {
+        const vencido = itemVencido(i);
+        const precioActual = precioItemEfectivo(i);
+        const venc = vencimientoItem(i);
+        const dias = venc ? Math.ceil((venc - new Date()) / 86400000) : null;
+        return `
+        <div class="cc-item ${vencido ? "cc-item-vencido" : ""}">
           <img class="cc-item-img" src="${imgPrenda(i.codigo)}" onerror="this.style.opacity=0.3">
           <div class="cc-item-info">
             <span>${i.marca} · ${i.codigo}</span>
             <span class="cc-item-var">Talle ${i.talle} · ${i.color} · x${i.cantidad}</span>
+            ${vencido
+              ? `<span class="cc-item-venc vencido">Vencida · precio de lista (+20%)</span>`
+              : `<span class="cc-item-venc">Vence en ${dias}d · ${fmtFecha(venc.toISOString())}</span>`}
           </div>
-          <span class="cc-item-precio">${formatPrecio(i.precio * i.cantidad)}</span>
+          <div class="cc-item-precios">
+            ${vencido ? `<span class="cc-item-precio-old">${formatPrecio(i.precio * i.cantidad)}</span>` : ""}
+            <span class="cc-item-precio">${formatPrecio(precioActual)}</span>
+          </div>
           <button class="v-icon danger" data-quitar="${i.id}" title="Quitar (repone stock)"><i class="ti ti-x"></i></button>
-        </div>`).join("")
+        </div>`;
+      }).join("")
     : `<p class="cc-vacio">Sin prendas cargadas.</p>`;
 
   const pagosHTML = pagos.length
-    ? pagos.map((p) => `
+    ? pagos.map((p) => {
+        const salda = p.salda != null ? p.salda : p.monto;
+        const conRecargo = p.monto > salda + 0.5; // pagó con recargo (crédito)
+        return `
         <div class="cc-pago">
           <span>${fmtFecha(p.fecha)} · ${metodoColoreado(p.metodoPago)}</span>
           <div class="cc-pago-der">
-            <span class="cc-pago-monto">− ${formatPrecio(p.monto)}</span>
+            <span class="cc-pago-monto">− ${formatPrecio(salda)}${conRecargo ? ` <span class="cc-pago-cobrado">(cobró ${formatPrecio(p.monto)})</span>` : ""}</span>
             <button class="v-icon danger" data-quitarpago="${p.id}" title="Eliminar pago"><i class="ti ti-x"></i></button>
           </div>
-        </div>`).join("")
+        </div>`;
+      }).join("")
     : `<p class="cc-vacio">Sin pagos registrados.</p>`;
 
   document.getElementById("modalRoot").innerHTML = `
@@ -157,6 +194,7 @@ function abrirDetalleCuenta(cuentaId) {
       <div class="cc-saldo ${deuda <= 0.5 ? "saldada" : ""}">
         <span>${deuda <= 0.5 ? "Cuenta saldada" : "Saldo adeudado"}</span>
         <strong>${formatPrecio(Math.max(0, deuda))}</strong>
+        ${deuda > 0.5 ? `<span class="cc-saldo-credito">Con recargo crédito: ${formatPrecio(deudaCredito)}</span>` : ""}
       </div>
 
       <div class="cc-section">
@@ -274,9 +312,14 @@ function abrirPagoCuenta(cuentaId, deuda) {
     <div class="modal">
       <h2>Registrar pago</h2>
       <div class="modal-line"><span>Saldo adeudado</span><strong>${formatPrecio(deuda)}</strong></div>
-      <div class="field"><label>Monto que paga</label><input class="sinput" type="number" id="ccMonto" min="0" max="${deuda}" placeholder="$"></div>
+      <div class="field">
+        <label>Cuánto de la deuda salda</label>
+        <input class="sinput" type="number" id="ccMonto" min="0" max="${Math.ceil(deuda)}" placeholder="$">
+      </div>
       <p class="login-sub" style="text-align:center">Método de pago</p>
       <div class="pay-grid">${pagos1}</div>
+      <div class="modal-line" id="ccRecargoLine" style="display:none"><span>Recargo tarjeta (20%)</span><strong id="ccRecargoVal">$0</strong></div>
+      <div class="modal-total"><span>Se cobra al cliente</span><span id="ccCobra">$0</span></div>
       <div class="modal-actions">
         <button class="btn-ghost" id="ccPagoCancel">Volver</button>
         <button class="btn-primary" id="ccPagoConfirm" disabled>Confirmar pago</button>
@@ -285,21 +328,39 @@ function abrirPagoCuenta(cuentaId, deuda) {
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("ccPagoCancel").onclick = () => abrirDetalleCuenta(cuentaId);
   const btn = document.getElementById("ccPagoConfirm");
+  const inputMonto = document.getElementById("ccMonto");
+  const recargoLine = document.getElementById("ccRecargoLine");
+  const recargoVal = document.getElementById("ccRecargoVal");
+  const cobraEl = document.getElementById("ccCobra");
+
+  function recalcular() {
+    const salda = Number(inputMonto.value) || 0;
+    const recargo = (metodo && MEDIOS_CON_RECARGO.includes(metodo)) ? salda * CONFIG.RECARGO_TARJETA : 0;
+    if (recargo > 0) { recargoLine.style.display = "flex"; recargoVal.textContent = formatPrecio(recargo); }
+    else recargoLine.style.display = "none";
+    cobraEl.textContent = formatPrecio(salda + recargo);
+    btn.disabled = !(salda > 0 && metodo && salda <= deuda + 0.5);
+  }
+
   document.querySelectorAll("[data-m]").forEach((b) => {
     b.onclick = () => {
       document.querySelectorAll(".pay-opt").forEach((x) => x.classList.remove("selected"));
       b.classList.add("selected");
       metodo = b.dataset.m;
-      btn.disabled = false;
+      recalcular();
     };
   });
+  inputMonto.addEventListener("input", recalcular);
+
   btn.onclick = async () => {
-    const monto = Number(document.getElementById("ccMonto").value) || 0;
-    if (monto <= 0) return toast("Monto inválido");
-    if (monto > deuda + 0.5) return toast("El monto supera la deuda");
+    const salda = Number(inputMonto.value) || 0;
+    if (salda <= 0) return toast("Ingresá cuánto salda");
+    if (salda > deuda + 0.5) return toast("El monto supera la deuda");
     if (!metodo) return toast("Elegí un método de pago");
-    await API.registrarPagoCuenta(cuentaId, monto, metodo);
-    toast(`Pago de ${formatPrecio(monto)} registrado`);
+    const recargo = MEDIOS_CON_RECARGO.includes(metodo) ? salda * CONFIG.RECARGO_TARJETA : 0;
+    const cobrado = salda + recargo;
+    await API.registrarPagoCuenta(cuentaId, cobrado, metodo, salda);
+    toast(`Pago registrado · saldó ${formatPrecio(salda)}`);
     await recargarYReabrir(cuentaId);
   };
 }

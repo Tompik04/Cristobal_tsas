@@ -460,6 +460,13 @@ button { font-family: inherit; }
 .cc-saldo strong { font-size: 22px; color: var(--danger); }
 .cc-saldo.saldada { background: rgba(126,155,122,0.1); border-color: rgba(126,155,122,0.35); }
 .cc-saldo.saldada strong { color: var(--sage); }
+.cc-saldo-credito { font-size: 12px; color: var(--terracotta-bright); margin-top: 4px; }
+.cc-item-vencido { border-color: rgba(201,122,109,0.45); background: rgba(201,122,109,0.06); }
+.cc-item-venc { font-size: 10px; color: var(--oak-55); }
+.cc-item-venc.vencido { color: var(--danger-bright); }
+.cc-item-precios { display: flex; flex-direction: column; align-items: flex-end; }
+.cc-item-precio-old { font-size: 11px; color: var(--oak-55); text-decoration: line-through; }
+.cc-pago-cobrado { font-size: 11px; color: var(--oak-55); }
 .cc-section { margin-bottom: 1.25rem; }
 .cc-section-head { display: flex; justify-content: space-between; align-items: center; }
 .btn-mini { background: var(--oak-10); border: 1px solid var(--oak-35); color: var(--pale-oak); border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; font-family: 'Cinzel', serif; }

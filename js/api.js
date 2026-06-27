@@ -421,7 +421,7 @@ const API = {
         ok: true,
         cuentas: cuentas.map((c) => ({ id: c.id, nombre: c.nombre, apellido: c.apellido || "", telefono: String(c.telefono || ""), creada: normalizarFechaISO(c.creada) })),
         items: items.map((i) => ({ id: i.id, cuentaId: i.cuenta_id, codigo: i.codigo, marca: i.marca, talle: String(i.talle), color: i.color, cantidad: Number(i.cantidad) || 0, precio: Number(i.precio) || 0, fecha: normalizarFechaISO(i.fecha) })),
-        pagos: pagos.map((p) => ({ id: p.id, cuentaId: p.cuenta_id, monto: Number(p.monto) || 0, metodoPago: p.metodo_pago, fecha: normalizarFechaISO(p.fecha) })),
+        pagos: pagos.map((p) => ({ id: p.id, cuentaId: p.cuenta_id, monto: Number(p.monto) || 0, salda: p.salda != null ? Number(p.salda) : null, metodoPago: p.metodo_pago, fecha: normalizarFechaISO(p.fecha) })),
       };
     } catch (e) { return { ok: false, error: String(e) }; }
   },
@@ -461,10 +461,14 @@ const API = {
     } catch (e) { return { ok: false, error: String(e) }; }
   },
   // registrar un pago (baja deuda, ES ingreso con método de pago)
-  async registrarPagoCuenta(cuentaId, monto, metodoPago) {
+  // monto = lo cobrado al cliente (con recargo si es tarjeta); salda = cuánto baja la deuda base
+  async registrarPagoCuenta(cuentaId, monto, metodoPago, salda) {
     if (CONFIG.MODO_PRUEBA) return { ok: true };
     try {
-      await SB.insert("cuenta_pagos", [{ id: "CP-" + Date.now(), cuenta_id: cuentaId, monto, metodo_pago: metodoPago }]);
+      await SB.insert("cuenta_pagos", [{
+        id: "CP-" + Date.now(), cuenta_id: cuentaId, monto, metodo_pago: metodoPago,
+        salda: salda != null ? salda : monto,
+      }]);
       return { ok: true };
     } catch (e) { return { ok: false, error: String(e) }; }
   },
