@@ -5,7 +5,6 @@
 function renderHome(root) {
   root.innerHTML = `
     <div class="home home-simple">
-      <div class="home-logo home-logo-big">${LOGO_SVG}</div>
       <p class="home-brand" id="homeBrand">CRISTOBAL</p>
     </div>
   `;

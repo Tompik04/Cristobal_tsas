@@ -52,6 +52,8 @@ const Router = {
     headerEl.innerHTML = headerHTML(vista);
     bindHeader();
 
+    pintarFondoLogo(vista);
+
     const fn = this.vistas[vista];
     viewEl.innerHTML = "";
     if (fn) fn(viewEl, params);
@@ -64,6 +66,7 @@ const Router = {
     const vista = State.vistaActual || "home";
     const headerEl = document.getElementById("appHeader");
     headerEl.innerHTML = headerHTML(vista); bindHeader();
+    pintarFondoLogo(vista);
     const viewEl = document.getElementById("view");
     const fn = this.vistas[vista];
     viewEl.innerHTML = "";
@@ -89,6 +92,14 @@ function renderCartFab() {
 // actualiza el badge / visibilidad del carrito global
 function actualizarBadge() {
   renderCartFab();
+}
+
+// pinta el logo de fondo con un tinte según la sección
+function pintarFondoLogo(vista) {
+  const bg = document.getElementById("bgLogo");
+  if (!bg) return;
+  if (!bg.dataset.cargado) { bg.innerHTML = LOGO_SVG; bg.dataset.cargado = "1"; }
+  bg.className = "bg-logo bg-" + vista;
 }
 
 function headerHTML(actual) {
