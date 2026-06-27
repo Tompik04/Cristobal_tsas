@@ -140,7 +140,10 @@ function abrirDetalleCuenta(cuentaId) {
     ? pagos.map((p) => `
         <div class="cc-pago">
           <span>${fmtFecha(p.fecha)} · ${metodoColoreado(p.metodoPago)}</span>
-          <span class="cc-pago-monto">− ${formatPrecio(p.monto)}</span>
+          <div class="cc-pago-der">
+            <span class="cc-pago-monto">− ${formatPrecio(p.monto)}</span>
+            <button class="v-icon danger" data-quitarpago="${p.id}" title="Eliminar pago"><i class="ti ti-x"></i></button>
+          </div>
         </div>`).join("")
     : `<p class="cc-vacio">Sin pagos registrados.</p>`;
 
@@ -201,6 +204,23 @@ function abrirDetalleCuenta(cuentaId) {
     };
   });
 
+  pagos.forEach((p) => {
+    const b = document.querySelector(`[data-quitarpago="${p.id}"]`);
+    if (b) b.onclick = () => {
+      dobleConfirmacion({
+        titulo: "Eliminar pago",
+        mensaje1: `Vas a eliminar el pago de ${formatPrecio(p.monto)} (${p.metodoPago || "—"}).`,
+        mensaje2: "La deuda vuelve a subir por ese monto. ¿Confirmás?",
+        textoBoton: "Eliminar",
+        onOk: async () => {
+          await API.eliminarPagoCuenta(p.id);
+          toast("Pago eliminado");
+          await recargarYReabrir(cuentaId);
+        },
+      });
+    };
+  });
+
   document.getElementById("ccEliminar").onclick = () => {
     dobleConfirmacion({
       titulo: "Eliminar cuenta",
@@ -254,7 +274,7 @@ function abrirPagoCuenta(cuentaId, deuda) {
     <div class="modal">
       <h2>Registrar pago</h2>
       <div class="modal-line"><span>Saldo adeudado</span><strong>${formatPrecio(deuda)}</strong></div>
-      <div class="field"><label>Monto que paga</label><input class="sinput" type="number" id="ccMonto" min="0" max="${deuda}" placeholder="$" value="${Math.round(deuda)}"></div>
+      <div class="field"><label>Monto que paga</label><input class="sinput" type="number" id="ccMonto" min="0" max="${deuda}" placeholder="$"></div>
       <p class="login-sub" style="text-align:center">Método de pago</p>
       <div class="pay-grid">${pagos1}</div>
       <div class="modal-actions">

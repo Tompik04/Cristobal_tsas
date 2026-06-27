@@ -468,6 +468,12 @@ const API = {
       return { ok: true };
     } catch (e) { return { ok: false, error: String(e) }; }
   },
+  // eliminar un pago (revierte: la deuda vuelve a subir)
+  async eliminarPagoCuenta(pagoId) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try { await SB.remove("cuenta_pagos", "id=eq." + enc(pagoId)); return { ok: true }; }
+    catch (e) { return { ok: false, error: String(e) }; }
+  },
 
   // ---------- MOCK (datos de ejemplo si MODO_PRUEBA) ----------
   _mock(action, payload) {

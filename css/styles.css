@@ -471,7 +471,8 @@ button { font-family: inherit; }
 .cc-item-info { display: flex; flex-direction: column; flex: 1; font-size: 13px; }
 .cc-item-var { color: var(--oak-55); font-size: 11px; }
 .cc-item-precio { color: var(--pale-oak); font-size: 14px; }
-.cc-pago { display: flex; justify-content: space-between; padding: 8px 12px; background: var(--oak-08); border: 1px solid var(--oak-20); border-radius: 8px; font-size: 13px; }
+.cc-pago { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--oak-08); border: 1px solid var(--oak-20); border-radius: 8px; font-size: 13px; }
+.cc-pago-der { display: flex; align-items: center; gap: 10px; }
 .cc-pago-monto { color: var(--sage); }
 .cc-vacio { color: var(--oak-55); font-size: 13px; padding: 8px; text-align: center; }
 
