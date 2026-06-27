@@ -7,7 +7,17 @@ const State = {
   carrito: [],        // líneas agregadas { codigo, marca, talle, color, oferta, cantidad, precio }
   vistaActual: "home",
   dentroCategoria: false, // true cuando estás dentro de una categoría (Ventas/Stock)
+  privadoHasta: 0,    // timestamp hasta el cual el modo privado está activo
 };
+
+// ¿está activo el modo privado (datos históricos visibles)?
+function modoPrivadoActivo() {
+  return Date.now() < State.privadoHasta;
+}
+// activar modo privado por 1 hora
+function activarModoPrivado() {
+  State.privadoHasta = Date.now() + 60 * 60 * 1000;
+}
 
 // refresca solo el header (para reflejar si la sección actual es "volver")
 function refrescarHeader() {
@@ -52,6 +62,18 @@ const Router = {
     if (fn) fn(viewEl, params);
     renderCartFab();
     window.scrollTo(0, 0);
+  },
+
+  // repinta la vista actual (sin resetear dentroCategoria)
+  recargar() {
+    const vista = State.vistaActual || "home";
+    const headerEl = document.getElementById("appHeader");
+    if (vista !== "home") { headerEl.innerHTML = headerHTML(vista); bindHeader(); }
+    const viewEl = document.getElementById("view");
+    const fn = this.vistas[vista];
+    viewEl.innerHTML = "";
+    if (fn) fn(viewEl);
+    renderCartFab();
   },
 };
 
@@ -104,7 +126,7 @@ function headerHTML(actual) {
     <div class="h-right">
       <button class="h-hist" id="hCaja" aria-label="Caja" title="Caja"><i class="ti ti-cash"></i></button>
       <button class="h-hist" id="hHist" aria-label="Historial" title="Historial de ventas"><i class="ti ti-clock-hour-4"></i></button>
-      <div class="h-logo">${LOGO_SVG}</div>
+      <div class="h-logo" id="hLogo" title="Cristóbal">${LOGO_SVG}</div>
     </div>
   `;
 }
@@ -118,6 +140,15 @@ function bindHeader() {
   if (caja) caja.onclick = () => Router.ir("caja");
   const gastos = document.getElementById("hGastos");
   if (gastos) gastos.onclick = () => Router.ir("gastos");
+  const logo = document.getElementById("hLogo");
+  if (logo) logo.onclick = () => {
+    if (modoPrivadoActivo()) {
+      // ya está desbloqueado: ofrecer bloquear de nuevo
+      abrirGestionPrivado();
+    } else {
+      abrirCodigoPrivado();
+    }
+  };
   document.querySelectorAll("[data-nav]").forEach((a) => {
     a.onclick = () => Router.ir(a.dataset.nav);
   });
@@ -144,6 +175,66 @@ async function actualizarCampanitaVouchers() {
       bell.classList.add("hidden");
     }
   } catch (e) { /* sin red, no muestra */ }
+}
+
+// ---- Modo privado: pedir código para desbloquear datos históricos ----
+function abrirCodigoPrivado() {
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-overlay" id="ovPriv"></div>
+    <div class="modal" style="max-width:360px">
+      <h2>Acceso privado</h2>
+      <p class="login-sub" style="text-align:center">Ingresá el código para ver los datos históricos completos.</p>
+      <div class="field"><input class="sinput" type="password" id="codPriv" inputmode="numeric" placeholder="Código" style="text-align:center;letter-spacing:0.3em"></div>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="codCancel">Cancelar</button>
+        <button class="btn-primary" id="codOk">Desbloquear</button>
+      </div>
+    </div>`;
+  const input = document.getElementById("codPriv");
+  input.focus();
+  document.getElementById("ovPriv").onclick = cerrarModal;
+  document.getElementById("codCancel").onclick = cerrarModal;
+  const confirmar = async () => {
+    const cod = input.value.trim();
+    if (!cod) return;
+    const res = await API.validarCodigoPrivado(cod);
+    if (res.ok) {
+      activarModoPrivado();
+      cerrarModal();
+      toast("Modo privado activado por 1 hora");
+      Router.recargar();
+    } else {
+      input.value = "";
+      input.placeholder = "Código incorrecto";
+      input.classList.add("shake");
+      setTimeout(() => input.classList.remove("shake"), 500);
+    }
+  };
+  document.getElementById("codOk").onclick = confirmar;
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") confirmar(); });
+}
+
+// si ya está desbloqueado, permitir volver a bloquear
+function abrirGestionPrivado() {
+  const restante = Math.ceil((State.privadoHasta - Date.now()) / 60000);
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-overlay" id="ovPriv"></div>
+    <div class="modal" style="max-width:360px">
+      <h2>Modo privado activo</h2>
+      <p class="login-sub" style="text-align:center">Los datos históricos están visibles. Quedan ${restante} min.</p>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="codCerrar">Cerrar</button>
+        <button class="btn-primary" id="codBloquear">Bloquear ahora</button>
+      </div>
+    </div>`;
+  document.getElementById("ovPriv").onclick = cerrarModal;
+  document.getElementById("codCerrar").onclick = cerrarModal;
+  document.getElementById("codBloquear").onclick = () => {
+    State.privadoHasta = 0;
+    cerrarModal();
+    toast("Modo privado desactivado");
+    Router.recargar();
+  };
 }
 
 // Toast simple

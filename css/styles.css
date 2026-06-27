@@ -469,6 +469,11 @@ button { font-family: inherit; }
 .cc-item-precio-old { font-size: 11px; color: var(--oak-55); text-decoration: line-through; }
 .cc-pago-cobrado { font-size: 11px; color: var(--oak-55); }
 .sinput:disabled { opacity: 0.45; cursor: not-allowed; }
+.resumen-cards.resumen-2 { grid-template-columns: 1fr 1fr; }
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes shakeX { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
+  .shake { animation: shakeX 0.4s ease; }
+}
 .cc-section { margin-bottom: 1.25rem; }
 .cc-section-head { display: flex; justify-content: space-between; align-items: center; }
 .btn-mini { background: var(--oak-10); border: 1px solid var(--oak-35); color: var(--pale-oak); border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; font-family: 'Cinzel', serif; }

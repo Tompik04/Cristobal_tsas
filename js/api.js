@@ -150,6 +150,16 @@ const API = {
     }
   },
 
+  // validar el código del modo privado (ver datos históricos)
+  async validarCodigoPrivado(codigo) {
+    if (CONFIG.MODO_PRUEBA) return { ok: codigo === "0000" };
+    try {
+      const rows = await SB.select("config", "clave=eq.CODIGO_PRIVADO&select=valor");
+      const real = rows.length ? String(rows[0].valor) : "0000";
+      return { ok: String(codigo) === real };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
   // ---------- STOCK ----------
   async getStock() {
     if (CONFIG.MODO_PRUEBA) return this._mock("getStock", {});

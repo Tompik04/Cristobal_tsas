@@ -18,8 +18,11 @@ async function cargarHistorial() {
     document.getElementById("histList").innerHTML = `<div class="soon"><i class="ti ti-alert-triangle"></i><p>No se pudieron cargar las ventas.</p></div>`;
     return;
   }
-  // último mes (30 días), incluye restauradas
-  const desde = new Date(); desde.setDate(desde.getDate() - 30);
+  const privado = modoPrivadoActivo();
+  // en modo normal: solo últimos 2 días (hoy y ayer). En privado: último mes completo.
+  const diasAtras = privado ? 60 : 1;
+  const desde = new Date(); desde.setDate(desde.getDate() - diasAtras);
+  desde.setHours(0, 0, 0, 0);
 
   // pagos de cuenta corriente como "ingresos" (para que sumen al total por método)
   let pagosCC = [];
@@ -42,13 +45,20 @@ async function cargarHistorial() {
   const fcont = document.getElementById("histFiltros");
   fcont.innerHTML = "";
   const tallesDisp = [...new Set(_ventasHist.map((v) => v.talle))];
+  // límites del filtro de fecha: en modo normal solo hoy y ayer
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
+  const ayerD = new Date(); ayerD.setDate(ayerD.getDate() - 1);
+  const ayer = ayerD.toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
+  const campoFecha = privado
+    ? { id: "fecha", label: "Fecha", tipo: "date" }
+    : { id: "fecha", label: "Fecha", tipo: "date", min: ayer, max: hoy };
   const barra = crearBarraFiltros({
     placeholder: "Buscar por marca o código...",
     campos: [
       { id: "talle", label: "Talle", tipo: "select", opciones: tallesDisp },
       { id: "pago", label: "Pago", tipo: "select", opciones: ["Efectivo", "Tarjeta", "Transferencia"] },
       { id: "estado", label: "Estado", tipo: "select", opciones: ["Activas", "Restauradas"] },
-      { id: "fecha", label: "Fecha", tipo: "date" },
+      campoFecha,
     ],
     onChange: (f) => pintarHistorial(f),
   });
@@ -100,16 +110,21 @@ function pintarHistorial(f) {
   }
 
   // total: si se filtra por un método, mostrar solo la parte de ese método; si no, el total
-  const activas = lista.filter((v) => !v.restaurada);
-  let total, etiqueta;
-  if (f.pago) {
-    total = activas.reduce((a, v) => a + montoPorTipo(v, f.pago), 0);
-    etiqueta = `Total en ${f.pago.toLowerCase()} (${lista.length})`;
-  } else {
-    total = activas.reduce((a, v) => a + (v.precioBase || 0), 0);
-    etiqueta = `Total filtrado (${lista.length})`;
+  // en modo normal el total solo aparece si se eligió una fecha
+  const mostrarTotal = modoPrivadoActivo() || !!f.fecha;
+  let totalHTML = "";
+  if (mostrarTotal) {
+    const activas = lista.filter((v) => !v.restaurada);
+    let total, etiqueta;
+    if (f.pago) {
+      total = activas.reduce((a, v) => a + montoPorTipo(v, f.pago), 0);
+      etiqueta = `Total en ${f.pago.toLowerCase()} (${lista.length})`;
+    } else {
+      total = activas.reduce((a, v) => a + (v.precioBase || 0), 0);
+      etiqueta = `Total filtrado (${lista.length})`;
+    }
+    totalHTML = `<div class="hist-total"><span>${etiqueta}</span><strong>${formatPrecio(total)}</strong></div>`;
   }
-  const totalHTML = `<div class="hist-total"><span>${etiqueta}</span><strong>${formatPrecio(total)}</strong></div>`;
 
   list.innerHTML = totalHTML + lista.map((v) => histRowHTML(v, f.pago)).join("");
   lista.forEach((v) => bindHistRow(list, v));

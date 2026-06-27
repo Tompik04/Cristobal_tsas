@@ -31,6 +31,8 @@ function crearBarraFiltros(config) {
       inp.className = "filter-field date-f";
       inp.dataset.filter = c.id;
       inp.title = c.label;
+      if (c.min) inp.min = c.min;
+      if (c.max) inp.max = c.max;
       wrap.appendChild(inp);
     } else if (c.tipo === "number") {
       const inp = document.createElement("input");
