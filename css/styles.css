@@ -137,6 +137,14 @@ button { font-family: inherit; }
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 2rem; padding: 2rem 2.5%; overflow: hidden;
 }
+/* Home simple: solo logo grande de fondo + CRISTOBAL */
+.home-simple { min-height: calc(100vh - 80px); position: relative; justify-content: center; }
+.home-logo-big {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: min(70%, 480px); aspect-ratio: 1; opacity: 0.14; pointer-events: none; z-index: 1;
+}
+.home-logo-big svg { width: 100%; height: 100%; }
+.home-simple .home-brand { z-index: 3; }
 .home-brand {
   font-weight: 600; color: var(--pale-oak); width: 95%; text-align: center;
   line-height: 1; white-space: nowrap; position: relative; z-index: 3;
@@ -470,6 +478,7 @@ button { font-family: inherit; }
 .cc-pago-cobrado { font-size: 11px; color: var(--oak-55); }
 .sinput:disabled { opacity: 0.45; cursor: not-allowed; }
 .resumen-cards.resumen-2 { grid-template-columns: 1fr 1fr; }
+.resumen-cards.resumen-1 { grid-template-columns: 1fr; max-width: 320px; margin-left: auto; margin-right: auto; }
 @media (prefers-reduced-motion: no-preference) {
   @keyframes shakeX { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
   .shake { animation: shakeX 0.4s ease; }

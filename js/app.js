@@ -47,15 +47,10 @@ const Router = {
     const viewEl = document.getElementById("view");
     const headerEl = document.getElementById("appHeader");
 
-    // La home no lleva header
-    if (vista === "home") {
-      headerEl.innerHTML = "";
-      headerEl.style.display = "none";
-    } else {
-      headerEl.style.display = "flex";
-      headerEl.innerHTML = headerHTML(vista);
-      bindHeader();
-    }
+    // El header ahora se muestra en todas las vistas, incluida la home
+    headerEl.style.display = "flex";
+    headerEl.innerHTML = headerHTML(vista);
+    bindHeader();
 
     const fn = this.vistas[vista];
     viewEl.innerHTML = "";
@@ -68,7 +63,7 @@ const Router = {
   recargar() {
     const vista = State.vistaActual || "home";
     const headerEl = document.getElementById("appHeader");
-    if (vista !== "home") { headerEl.innerHTML = headerHTML(vista); bindHeader(); }
+    headerEl.innerHTML = headerHTML(vista); bindHeader();
     const viewEl = document.getElementById("view");
     const fn = this.vistas[vista];
     viewEl.innerHTML = "";
@@ -119,21 +114,18 @@ function headerHTML(actual) {
     .join("");
   return `
     <div class="h-left">
-      <button class="h-home" id="hHome" aria-label="Inicio"><i class="ti ti-home"></i></button>
+      <button class="h-hist" id="hHist" aria-label="Historial" title="Historial de ventas"><i class="ti ti-clock-hour-4"></i></button>
+      <button class="h-hist" id="hCaja" aria-label="Caja" title="Caja"><i class="ti ti-cash"></i></button>
       <button class="h-hist" id="hGastos" aria-label="Gastos" title="Gastos del local"><i class="ti ti-receipt-2"></i></button>
     </div>
     <nav class="h-nav">${nav}</nav>
     <div class="h-right">
-      <button class="h-hist" id="hCaja" aria-label="Caja" title="Caja"><i class="ti ti-cash"></i></button>
-      <button class="h-hist" id="hHist" aria-label="Historial" title="Historial de ventas"><i class="ti ti-clock-hour-4"></i></button>
       <div class="h-logo" id="hLogo" title="Cristóbal">${LOGO_SVG}</div>
     </div>
   `;
 }
 
 function bindHeader() {
-  const home = document.getElementById("hHome");
-  if (home) home.onclick = () => Router.ir("home");
   const hist = document.getElementById("hHist");
   if (hist) hist.onclick = () => Router.ir("historial");
   const caja = document.getElementById("hCaja");

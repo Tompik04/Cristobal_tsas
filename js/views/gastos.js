@@ -83,22 +83,27 @@ function pintarResumen() {
   const signo = neta >= 0 ? "pos" : "neg";
 
   const privado = modoPrivadoActivo();
-  // en modo normal: solo mes actual (sin flechas de navegación) y sin ganancia neta
+  // en modo normal: solo mes actual (sin flechas) y solo la tarjeta de Gastos
   const navMeses = privado
     ? `<button class="mes-nav" id="mesPrev"><i class="ti ti-chevron-left"></i></button>
        <span class="mes-label">${mesLegible(mes)}</span>
        <button class="mes-nav" id="mesNext"><i class="ti ti-chevron-right"></i></button>`
     : `<span class="mes-label">${mesLegible(mes)}</span>`;
-  const cardNeta = privado
-    ? `<div class="rcard rc-net"><span class="rc-label">Ganancia neta</span><span class="rc-val ${signo}">${formatPrecio(neta)}</span></div>`
-    : "";
+
+  let cardsHTML;
+  if (privado) {
+    cardsHTML = `
+      <div class="rcard"><span class="rc-label">Ventas</span><span class="rc-val pos">${formatPrecio(totalVentas)}</span></div>
+      <div class="rcard"><span class="rc-label">Gastos</span><span class="rc-val neg">${formatPrecio(totalGastos)}</span></div>
+      <div class="rcard rc-net"><span class="rc-label">Ganancia neta</span><span class="rc-val ${signo}">${formatPrecio(neta)}</span></div>`;
+  } else {
+    cardsHTML = `<div class="rcard"><span class="rc-label">Gastos del mes</span><span class="rc-val neg">${formatPrecio(totalGastos)}</span></div>`;
+  }
 
   cont.innerHTML = `
     <div class="resumen-mes">${navMeses}</div>
-    <div class="resumen-cards ${privado ? "" : "resumen-2"}">
-      <div class="rcard"><span class="rc-label">Ventas</span><span class="rc-val pos">${formatPrecio(totalVentas)}</span></div>
-      <div class="rcard"><span class="rc-label">Gastos</span><span class="rc-val neg">${formatPrecio(totalGastos)}</span></div>
-      ${cardNeta}
+    <div class="resumen-cards ${privado ? "" : "resumen-1"}">
+      ${cardsHTML}
     </div>
     <div id="checklistGastos"></div>`;
 

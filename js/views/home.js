@@ -4,23 +4,11 @@
 
 function renderHome(root) {
   root.innerHTML = `
-    <div class="home">
+    <div class="home home-simple">
+      <div class="home-logo home-logo-big">${LOGO_SVG}</div>
       <p class="home-brand" id="homeBrand">CRISTOBAL</p>
-      <div class="home-grid-wrap">
-        <div class="home-logo">${LOGO_SVG}</div>
-        <div class="home-grid">
-          <a class="home-btn" data-go="ventas"><span>VENTAS</span></a>
-          <a class="home-btn" data-go="stock"><span>STOCK</span></a>
-          <a class="home-btn" data-go="cambios"><span>CAMBIOS</span></a>
-          <a class="home-btn" data-go="vouchers"><span>VOUCHERS</span></a>
-        </div>
-      </div>
     </div>
   `;
-
-  root.querySelectorAll("[data-go]").forEach((b) => {
-    b.onclick = () => Router.ir(b.dataset.go);
-  });
 
   // Ajuste responsive del título: ocupa ~95% del ancho
   const brand = document.getElementById("homeBrand");
@@ -39,7 +27,6 @@ function renderHome(root) {
   }
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
   else fit();
-  // re-ajustar al cambiar tamaño mientras estemos en la home
   const onResize = () => { if (State.vistaActual === "home") fit(); };
   window.addEventListener("resize", onResize);
   fit();
