@@ -135,7 +135,7 @@ button { font-family: inherit; }
 /* ============ LOGO DE FONDO GLOBAL ============ */
 .bg-logo {
   position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  width: min(85%, 1000px); aspect-ratio: 1; z-index: 0; pointer-events: none;
+  width: min(85%, 1200px); aspect-ratio: 1; z-index: 0; pointer-events: none;
   display: flex; align-items: center; justify-content: center;
   transition: opacity 0.4s ease, filter 0.4s ease;
 }
@@ -146,14 +146,14 @@ button { font-family: inherit; }
 /* HOME: bien visible, color crema */
 .bg-logo.bg-home { opacity: 0.16; --bg-logo-color: var(--pale-oak); }
 /* SECCIONES: más sutil, con el color de cada sección, apenas por encima del fondo */
-.bg-logo.bg-ventas { opacity: 0.12; --bg-logo-color: var(--gold); }
-.bg-logo.bg-stock { opacity: 0.12; --bg-logo-color: var(--teal); }
-.bg-logo.bg-cambios { opacity: 0.10; --bg-logo-color: var(--terracotta); }
-.bg-logo.bg-vouchers { opacity: 0.10; --bg-logo-color: var(--sage); }
-.bg-logo.bg-cuentas { opacity: 0.12; --bg-logo-color: var(--teal-bright); }
-.bg-logo.bg-historial { opacity: 0.10; --bg-logo-color: var(--teal); }
-.bg-logo.bg-caja { opacity: 0.10; --bg-logo-color: var(--gold); }
-.bg-logo.bg-gastos { opacity: 0.10; --bg-logo-color: var(--terracotta); }
+.bg-logo.bg-ventas { opacity: 0.05; --bg-logo-color: var(--gold); }
+.bg-logo.bg-stock { opacity: 0.05; --bg-logo-color: var(--teal); }
+.bg-logo.bg-cambios { opacity: 0.05; --bg-logo-color: var(--terracotta); }
+.bg-logo.bg-vouchers { opacity: 0.05; --bg-logo-color: var(--sage); }
+.bg-logo.bg-cuentas { opacity: 0.05; --bg-logo-color: var(--teal-bright); }
+.bg-logo.bg-historial { opacity: 0.05; --bg-logo-color: var(--teal); }
+.bg-logo.bg-caja { opacity: 0.05; --bg-logo-color: var(--gold); }
+.bg-logo.bg-gastos { opacity: 0.05; --bg-logo-color: var(--terracotta); }
 
 /* el contenido va por encima del fondo */
 .app-header { position: relative; z-index: 10; }
