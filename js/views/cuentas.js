@@ -194,7 +194,7 @@ function abrirDetalleCuenta(cuentaId) {
       <div class="cc-saldo ${deuda <= 0.5 ? "saldada" : ""}">
         <span>${deuda <= 0.5 ? "Cuenta saldada" : "Saldo adeudado"}</span>
         <strong>${formatPrecio(Math.max(0, deuda))}</strong>
-        ${deuda > 0.5 ? `<span class="cc-saldo-credito">Con recargo crédito: ${formatPrecio(deudaCredito)}</span>` : ""}
+        ${deuda > 0.5 ? `<span class="cc-saldo-credito">Con recargo crédito: <strong>${formatPrecio(deudaCredito)}</strong></span>` : ""}
       </div>
 
       <div class="cc-section">
@@ -314,11 +314,16 @@ function abrirPagoCuenta(cuentaId, deuda) {
       <div class="modal-line"><span>Saldo adeudado</span><strong>${formatPrecio(deuda)}</strong></div>
       <div class="field">
         <label>Cuánto de la deuda salda</label>
-        <input class="sinput" type="number" id="ccMonto" min="0" max="${Math.ceil(deuda)}" placeholder="$">
+        <input class="sinput" type="number" id="ccSalda" min="0" max="${Math.ceil(deuda)}" placeholder="$">
+      </div>
+      <div class="field" id="ccPagaWrap" style="display:none">
+        <label>O cuánto paga con recargo</label>
+        <input class="sinput" type="number" id="ccPaga" min="0" placeholder="$ con recargo incluido">
       </div>
       <p class="login-sub" style="text-align:center">Método de pago</p>
       <div class="pay-grid">${pagos1}</div>
       <div class="modal-line" id="ccRecargoLine" style="display:none"><span>Recargo tarjeta (20%)</span><strong id="ccRecargoVal">$0</strong></div>
+      <div class="modal-line"><span>Salda de deuda</span><strong id="ccSaldaVal">$0</strong></div>
       <div class="modal-total"><span>Se cobra al cliente</span><span id="ccCobra">$0</span></div>
       <div class="modal-actions">
         <button class="btn-ghost" id="ccPagoCancel">Volver</button>
@@ -328,18 +333,45 @@ function abrirPagoCuenta(cuentaId, deuda) {
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("ccPagoCancel").onclick = () => abrirDetalleCuenta(cuentaId);
   const btn = document.getElementById("ccPagoConfirm");
-  const inputMonto = document.getElementById("ccMonto");
+  const inSalda = document.getElementById("ccSalda");
+  const inPaga = document.getElementById("ccPaga");
+  const pagaWrap = document.getElementById("ccPagaWrap");
   const recargoLine = document.getElementById("ccRecargoLine");
   const recargoVal = document.getElementById("ccRecargoVal");
+  const saldaVal = document.getElementById("ccSaldaVal");
   const cobraEl = document.getElementById("ccCobra");
 
+  // valores finales que se confirman
+  let saldaFinal = 0, cobradoFinal = 0;
+
+  function tieneRecargo() { return metodo && MEDIOS_CON_RECARGO.includes(metodo); }
+
   function recalcular() {
-    const salda = Number(inputMonto.value) || 0;
-    const recargo = (metodo && MEDIOS_CON_RECARGO.includes(metodo)) ? salda * CONFIG.RECARGO_TARJETA : 0;
-    if (recargo > 0) { recargoLine.style.display = "flex"; recargoVal.textContent = formatPrecio(recargo); }
+    const f = tieneRecargo() ? (1 + CONFIG.RECARGO_TARJETA) : 1;
+    // determinar qué input se está usando
+    const usaPaga = tieneRecargo() && inPaga.value !== "" && Number(inPaga.value) > 0;
+    if (usaPaga) {
+      // ingresó el monto con recargo → calcular cuánto salda
+      cobradoFinal = Number(inPaga.value) || 0;
+      saldaFinal = cobradoFinal / f;
+      inSalda.disabled = true;
+    } else {
+      // ingresó cuánto salda → calcular cuánto se cobra
+      saldaFinal = Number(inSalda.value) || 0;
+      cobradoFinal = saldaFinal * f;
+      inPaga.disabled = inSalda.value !== "" && Number(inSalda.value) > 0;
+    }
+    // si ambos vacíos, rehabilitar los dos
+    if ((inSalda.value === "" || Number(inSalda.value) === 0) && (inPaga.value === "" || Number(inPaga.value) === 0)) {
+      inSalda.disabled = false; inPaga.disabled = false;
+    }
+
+    const recargo = cobradoFinal - saldaFinal;
+    if (tieneRecargo() && recargo > 0) { recargoLine.style.display = "flex"; recargoVal.textContent = formatPrecio(recargo); }
     else recargoLine.style.display = "none";
-    cobraEl.textContent = formatPrecio(salda + recargo);
-    btn.disabled = !(salda > 0 && metodo && salda <= deuda + 0.5);
+    saldaVal.textContent = formatPrecio(saldaFinal);
+    cobraEl.textContent = formatPrecio(cobradoFinal);
+    btn.disabled = !(saldaFinal > 0 && metodo && saldaFinal <= deuda + 0.5);
   }
 
   document.querySelectorAll("[data-m]").forEach((b) => {
@@ -347,20 +379,21 @@ function abrirPagoCuenta(cuentaId, deuda) {
       document.querySelectorAll(".pay-opt").forEach((x) => x.classList.remove("selected"));
       b.classList.add("selected");
       metodo = b.dataset.m;
+      // mostrar segundo input solo si el método tiene recargo
+      pagaWrap.style.display = tieneRecargo() ? "" : "none";
+      if (!tieneRecargo()) { inPaga.value = ""; inPaga.disabled = false; inSalda.disabled = false; }
       recalcular();
     };
   });
-  inputMonto.addEventListener("input", recalcular);
+  inSalda.addEventListener("input", recalcular);
+  inPaga.addEventListener("input", recalcular);
 
   btn.onclick = async () => {
-    const salda = Number(inputMonto.value) || 0;
-    if (salda <= 0) return toast("Ingresá cuánto salda");
-    if (salda > deuda + 0.5) return toast("El monto supera la deuda");
+    if (saldaFinal <= 0) return toast("Ingresá cuánto salda");
+    if (saldaFinal > deuda + 0.5) return toast("El monto supera la deuda");
     if (!metodo) return toast("Elegí un método de pago");
-    const recargo = MEDIOS_CON_RECARGO.includes(metodo) ? salda * CONFIG.RECARGO_TARJETA : 0;
-    const cobrado = salda + recargo;
-    await API.registrarPagoCuenta(cuentaId, cobrado, metodo, salda);
-    toast(`Pago registrado · saldó ${formatPrecio(salda)}`);
+    await API.registrarPagoCuenta(cuentaId, Math.round(cobradoFinal), metodo, Math.round(saldaFinal));
+    toast(`Pago registrado · saldó ${formatPrecio(Math.round(saldaFinal))}`);
     await recargarYReabrir(cuentaId);
   };
 }
