@@ -139,7 +139,7 @@ function abrirDetalleCuenta(cuentaId) {
   const pagosHTML = pagos.length
     ? pagos.map((p) => `
         <div class="cc-pago">
-          <span>${fmtFecha(p.fecha)} · ${p.metodoPago || "—"}</span>
+          <span>${fmtFecha(p.fecha)} · ${metodoColoreado(p.metodoPago)}</span>
           <span class="cc-pago-monto">− ${formatPrecio(p.monto)}</span>
         </div>`).join("")
     : `<p class="cc-vacio">Sin pagos registrados.</p>`;
@@ -222,7 +222,17 @@ function abrirDetalleCuenta(cuentaId) {
 async function recargarYReabrir(cuentaId) {
   const res = await API.getCuentas();
   if (res.ok) { _cuentas = res.cuentas; _ccItems = res.items; _ccPagos = res.pagos; }
+  // re-pintar la lista de fondo para que muestre el saldo actualizado al cerrar el detalle
+  const listEl = document.getElementById("ccList");
+  if (listEl) pintarCuentas(filtrosCuenta());
   abrirDetalleCuenta(cuentaId);
+}
+
+// lee los filtros actuales de la barra (para re-pintar sin perderlos)
+function filtrosCuenta() {
+  const f = {};
+  document.querySelectorAll("#ccFiltros [data-filter]").forEach((el) => { f[el.dataset.filter] = el.value.trim(); });
+  return f;
 }
 
 // ---- Agregar prendas del stock a la cuenta (usa el carrito) ----

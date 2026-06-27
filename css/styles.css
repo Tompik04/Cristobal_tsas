@@ -475,6 +475,16 @@ button { font-family: inherit; }
 .cc-pago-monto { color: var(--sage); }
 .cc-vacio { color: var(--oak-55); font-size: 13px; padding: 8px; text-align: center; }
 
+/* ============ TAGS DE MÉTODO DE PAGO ============ */
+.pago-tag {
+  display: inline-block; font-size: 13px; font-weight: 600; letter-spacing: 0.03em;
+  padding: 3px 10px; border-radius: 7px; border: 1px solid transparent;
+}
+.pago-efectivo { background: rgba(126,196,160,0.18); color: #9FE0BC; border-color: rgba(126,196,160,0.4); }
+.pago-credito { background: rgba(212,154,174,0.18); color: #E8AFC0; border-color: rgba(212,154,174,0.4); }
+.pago-debito { background: rgba(95,184,176,0.18); color: #7FCEC7; border-color: rgba(95,184,176,0.4); }
+.pago-transfer { background: rgba(224,164,88,0.18); color: #EBC089; border-color: rgba(224,164,88,0.4); }
+
 /* ============ MODAL / POPUP ============ */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 50;

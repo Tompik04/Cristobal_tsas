@@ -117,7 +117,7 @@ function pintarHistorial(f) {
 
 function histRowHTML(v, filtroPago) {
   const ofertaTxt = v.oferta ? ` · ${v.oferta}% off` : "";
-  const pago = v.metodoPago ? ` · ${v.metodoPago}` : "";
+  const pago = v.metodoPago ? ` · ${metodoColoreado(v.metodoPago)}` : "";
   // si se filtra por un método y la venta fue mixta, mostrar la parte de ese método
   let precioHTML;
   if (filtroPago) {

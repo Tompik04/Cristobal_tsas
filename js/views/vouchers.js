@@ -116,7 +116,7 @@ function voucherHTML(v) {
     <div class="crow voucher-row ${claseFila}" data-id="${v.id}">
       <div class="c-meta">
         <span class="c-vars"><strong>${v.nombre || "—"}</strong> · ${v.telefono || "—"}</span>
-        <span class="c-fecha">${v.id} · ${v.origen || ""}${v.comprado ? ` · pagado con ${v.metodoPago || "—"}` : ""}</span>
+        <span class="c-fecha">${v.id} · ${v.origen || ""}${v.comprado ? ` · pagado con ${metodoColoreado(v.metodoPago)}` : ""}</span>
         <span class="v-tipo-origen ${v.comprado ? "comprado" : "saldo"}">${v.comprado ? "Comprado (ingresó plata)" : "Saldo a favor"}</span>
         ${badge}
       </div>

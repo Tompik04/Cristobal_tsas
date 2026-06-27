@@ -123,6 +123,24 @@ function combinacionPagoValida(m1, m2) {
   return MEDIOS_CON_RECARGO.includes(m1); // solo tarjetas pueden repetirse
 }
 
+// clase CSS para colorear un método de pago (para resaltarlo visualmente)
+function clasePago(metodo) {
+  const m = (metodo || "").toLowerCase();
+  if (m.includes("efectivo")) return "pago-efectivo";
+  if (m.includes("crédito") || m.includes("credito")) return "pago-credito";
+  if (m.includes("débito") || m.includes("debito")) return "pago-debito";
+  if (m.includes("transferencia")) return "pago-transfer";
+  return "";
+}
+// envuelve un texto de método (puede ser "Efectivo + Crédito") en spans coloreados
+function metodoColoreado(metodo) {
+  if (!metodo) return "";
+  return String(metodo).split("+").map((parte) => {
+    const t = parte.trim();
+    return `<span class="pago-tag ${clasePago(t)}">${t}</span>`;
+  }).join(" + ");
+}
+
 // Listas fijas para cargar stock
 const TALLES = ["XS", "S", "M", "L", "XL", "XXL", "36", "38", "40", "42", "44"];
 const COLORES = ["Negro", "Blanco", "Gris", "Verde", "Azul", "Rojo", "Beige", "Marrón"];
