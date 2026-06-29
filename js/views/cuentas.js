@@ -71,6 +71,29 @@ function deudaCuenta(cuentaId) {
   return totalItems - totalSaldado;
 }
 
+// total saldado (suma de lo que bajó la deuda con todos los pagos)
+function totalSaldado(cuentaId) {
+  return _ccPagos.filter((p) => p.cuentaId === cuentaId)
+    .reduce((a, p) => a + (p.salda != null ? p.salda : p.monto), 0);
+}
+
+// reparte el total saldado sobre las prendas ordenadas de más vieja a más nueva.
+// devuelve cada prenda con: pagada (bool), abonado (cuánto se le aplicó), falta (cuánto resta)
+function itemsConEstadoPago(cuentaId) {
+  const items = _ccItems.filter((i) => i.cuentaId === cuentaId)
+    .slice()
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha)); // más vieja primero
+  let restante = totalSaldado(cuentaId);
+  return items.map((i) => {
+    const precio = precioItemEfectivo(i);
+    let abonado = 0;
+    if (restante >= precio) { abonado = precio; restante -= precio; }
+    else { abonado = restante; restante = 0; }
+    const pagada = abonado >= precio - 0.5;
+    return Object.assign({}, i, { precioActual: precio, abonado, falta: precio - abonado, pagada });
+  });
+}
+
 function pintarCuentas(f) {
   const list = document.getElementById("ccList");
   let lista = _cuentas.slice();
@@ -144,12 +167,17 @@ function abrirDetalleCuenta(cuentaId) {
   const deuda = deudaCuenta(cuentaId);
   const deudaCredito = deuda * (1 + CONFIG.RECARGO_TARJETA); // referencia con recargo
 
-  const itemsHTML = items.length
-    ? items.map((i) => {
+  // prendas con su estado de pago (FIFO): las pagadas no se muestran
+  const itemsEstado = itemsConEstadoPago(cuentaId);
+  const itemsPendientes = itemsEstado.filter((i) => !i.pagada);
+  const cantPagadas = itemsEstado.length - itemsPendientes.length;
+
+  const itemsHTML = itemsPendientes.length
+    ? itemsPendientes.map((i) => {
         const vencido = itemVencido(i);
-        const precioActual = precioItemEfectivo(i);
         const venc = vencimientoItem(i);
         const dias = venc ? Math.ceil((venc - new Date()) / 86400000) : null;
+        const parcial = i.abonado > 0.5;
         return `
         <div class="cc-item ${vencido ? "cc-item-vencido" : ""}">
           <img class="cc-item-img" src="${imgPrenda(i.codigo)}" onerror="this.style.opacity=0.3">
@@ -159,15 +187,16 @@ function abrirDetalleCuenta(cuentaId) {
             ${vencido
               ? `<span class="cc-item-venc vencido">Vencida · precio de lista (+20%)</span>`
               : `<span class="cc-item-venc">Vence en ${dias}d · ${fmtFecha(venc.toISOString())}</span>`}
+            ${parcial ? `<span class="cc-item-parcial">Abonado ${formatPrecio(i.abonado)} · falta ${formatPrecio(i.falta)}</span>` : ""}
           </div>
           <div class="cc-item-precios">
             ${vencido ? `<span class="cc-item-precio-old">${formatPrecio(i.precio * i.cantidad)}</span>` : ""}
-            <span class="cc-item-precio">${formatPrecio(precioActual)}</span>
+            <span class="cc-item-precio">${formatPrecio(i.precioActual)}</span>
           </div>
           <button class="v-icon danger" data-quitar="${i.id}" title="Quitar (repone stock)"><i class="ti ti-x"></i></button>
         </div>`;
       }).join("")
-    : `<p class="cc-vacio">Sin prendas cargadas.</p>`;
+    : `<p class="cc-vacio">${cantPagadas > 0 ? "Todas las prendas están saldadas." : "Sin prendas cargadas."}</p>`;
 
   const pagosHTML = pagos.length
     ? pagos.map((p) => {
@@ -199,7 +228,7 @@ function abrirDetalleCuenta(cuentaId) {
 
       <div class="cc-section">
         <div class="cc-section-head">
-          <p class="chk-title">Prendas</p>
+          <p class="chk-title">Prendas${cantPagadas > 0 ? ` <span class="cc-pagadas-tag">${cantPagadas} saldada${cantPagadas > 1 ? "s" : ""}</span>` : ""}</p>
           <button class="btn-mini" id="ccAddItem"><i class="ti ti-plus"></i> Agregar del stock</button>
         </div>
         <div class="cc-items">${itemsHTML}</div>
