@@ -141,8 +141,8 @@ function metodoColoreado(metodo) {
 }
 
 // Listas fijas para cargar stock
-const TALLES = ["XS", "S", "M", "L", "XL", "XXL", "36", "38", "40", "42", "44"];
-const COLORES = ["Negro", "Blanco", "Gris", "Verde", "Azul", "Rojo", "Beige", "Marrón"];
+const TALLES = ["S", "M", "L", "XL", "XXL", "36", "38", "40", "42", "44"];
+const COLORES = ["Negro", "Blanco", "Gris", "Verde", "Azul", "Rojo", "Beige", "Marrón", "Mostaza", "Celeste", "Violeta"];
 
 // Talles según categoría (provisorio, se ajusta más adelante)
 const TALLES_LETRA = ["XS", "S", "M", "L", "XL", "XXL"];
