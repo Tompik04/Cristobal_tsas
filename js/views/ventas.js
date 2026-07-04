@@ -32,7 +32,7 @@ function renderListaProductos(root, categoria) {
   const porCodigo = {};
   items.forEach((s) => {
     if (!porCodigo[s.codigo]) {
-      porCodigo[s.codigo] = { codigo: s.codigo, marca: s.marca, precio: s.precio, variantes: [] };
+      porCodigo[s.codigo] = { codigo: s.codigo, marca: s.marca, precio: s.precio, categoria: categoria, variantes: [] };
     }
     porCodigo[s.codigo].variantes.push(s);
   });
@@ -121,7 +121,7 @@ function filaProductoHTML(p) {
   return `
     <div class="prow" data-cod="${p.codigo}">
       <div class="pcell">
-        <img class="pimg zoomable" src="${imgPrenda(p.codigo)}" alt="">
+        <img class="pimg zoomable" src="${imgPrenda(p.codigo, p.categoria)}" alt="">
         <div class="pinfo">
           <span class="pmarca">${p.marca}</span>
           <span class="pcod">${p.codigo}</span>
@@ -159,7 +159,7 @@ function bindFila(root, p) {
   const selOferta = row.querySelector('[data-f="oferta"]');
 
   const imgEl = row.querySelector(".pimg.zoomable");
-  if (imgEl) imgEl.onclick = () => verImagenAmpliada(p.codigo, p.marca);
+  if (imgEl) imgEl.onclick = () => verImagenAmpliada(p.codigo, p.marca, p.categoria);
 
   function coloresDeTalle(talle) {
     return p.variantes.filter((v) => v.talle === talle && v.cantidad > 0);

@@ -147,7 +147,7 @@ function histRowHTML(v, filtroPago) {
   return `
     <div class="crow ${v.restaurada ? "expirado" : ""}" data-id="${v.id}">
       <div class="pcell">
-        <img class="pimg${v.esPagoCuenta ? "" : " zoomable"}" src="${imgPrenda(v.codigo)}" alt="" onerror="this.style.opacity=0.3">
+        <img class="pimg${v.esPagoCuenta ? "" : " zoomable"}" src="${imgPrenda(v.codigo, categoriaDeStock(v.codigo))}" alt="" onerror="this.style.opacity=0.3">
         <div class="pinfo"><span class="pmarca">${v.marca}</span><span class="pcod">${v.codigo}</span></div>
       </div>
       <div class="c-meta">
@@ -165,7 +165,7 @@ function histRowHTML(v, filtroPago) {
 function bindHistRow(list, v) {
   const row = list.querySelector(`.crow[data-id="${v.id}"]`);
   const imgEl = row.querySelector(".pimg.zoomable");
-  if (imgEl) imgEl.onclick = () => verImagenAmpliada(v.codigo, v.marca);
+  if (imgEl) imgEl.onclick = () => verImagenAmpliada(v.codigo, v.marca, categoriaDeStock(v.codigo));
   const btn = row.querySelector('[data-act="restore"]');
   if (btn && !btn.disabled) {
     btn.onclick = () => {

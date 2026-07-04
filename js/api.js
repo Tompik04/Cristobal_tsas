@@ -442,17 +442,17 @@ const API = {
 
   // ---------- IMÁGENES ----------
   // sube la imagen de un código (file = File del input). Devuelve la URL pública.
-  async subirImagenCodigo(codigo, file) {
+  async subirImagenCodigo(codigo, file, categoria) {
     if (CONFIG.MODO_PRUEBA) return { ok: true, url: "" };
     try {
-      const nombre = codigo.toLowerCase() + ".png";
+      const nombre = nombreImagen(codigo, categoria) + ".png";
       await SB.subirImagen(nombre, file);
       return { ok: true, url: SB.urlImagen(nombre) };
     } catch (e) { return { ok: false, error: String(e) }; }
   },
-  // URL pública de la imagen de un código (con cache-busting opcional)
-  urlImagenCodigo(codigo) {
-    return SB.urlImagen(codigo.toLowerCase() + ".png");
+  // URL pública de la imagen de un código+categoría (con cache-busting opcional)
+  urlImagenCodigo(codigo, categoria) {
+    return SB.urlImagen(nombreImagen(codigo, categoria) + ".png");
   },
 
   // ---------- CAJA ----------
@@ -606,10 +606,30 @@ function formatPrecio(n) {
 
 // URL de la imagen de una prenda según su código.
 // Usa Supabase Storage si está configurado; si no, cae al repo local (img/).
-function imgPrenda(codigo) {
+// nombre del archivo de imagen: {codigo}_{categoria}.png (así cada categoría tiene su foto).
+// Sin categoría, cae al nombre viejo {codigo}.png (compatibilidad con imágenes ya subidas).
+function nombreImagen(codigo, categoria) {
+  const cod = String(codigo || "").toLowerCase();
+  if (!categoria) return cod;
+  // normalizar la categoría: minúsculas, sin espacios ni acentos
+  const cat = String(categoria).toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+  return cod + "_" + cat;
+}
+
+// deduce la categoría de un código buscándolo en el stock actual (para historial/cambios/cuentas,
+// que no guardan la categoría). Si no lo encuentra, devuelve null (cae a imagen vieja por código).
+function categoriaDeStock(codigo) {
+  const f = (typeof State !== "undefined" && State.stock) ? State.stock.find((s) => s.codigo === codigo) : null;
+  return f ? f.categoria : null;
+}
+
+function imgPrenda(codigo, categoria) {
   if (!codigo) return "";
+  const nombre = nombreImagen(codigo, categoria);
   if (!CONFIG.MODO_PRUEBA && CONFIG.SUPABASE_URL) {
-    return CONFIG.SUPABASE_URL + "/storage/v1/object/public/prendas/" + String(codigo).toLowerCase() + ".png";
+    return CONFIG.SUPABASE_URL + "/storage/v1/object/public/prendas/" + nombre + ".png";
   }
-  return "img/" + String(codigo).toLowerCase() + ".png";
+  return "img/" + nombre + ".png";
 }

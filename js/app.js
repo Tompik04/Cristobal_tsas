@@ -255,8 +255,8 @@ function cerrarModal() {
 }
 
 // Popup para ver una imagen de prenda ampliada (se abre tocando la foto)
-function verImagenAmpliada(codigo, marca) {
-  const src = imgPrenda(codigo);
+function verImagenAmpliada(codigo, marca, categoria) {
+  const src = imgPrenda(codigo, categoria);
   document.getElementById("modalRoot").innerHTML = `
     <div class="modal-overlay" id="imgOv"></div>
     <div class="img-zoom">

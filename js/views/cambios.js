@@ -97,7 +97,7 @@ function crowHTML(v) {
   return `
     <div class="crow ${claseFila}" data-id="${v.id}">
       <div class="pcell">
-        <img class="pimg" src="${imgPrenda(v.codigo)}" alt="" onerror="this.style.opacity=0.3">
+        <img class="pimg" src="${imgPrenda(v.codigo, categoriaDeStock(v.codigo))}" alt="" onerror="this.style.opacity=0.3">
         <div class="pinfo"><span class="pmarca">${v.marca}</span><span class="pcod">${v.codigo}</span></div>
       </div>
       <div class="c-meta">
@@ -143,7 +143,7 @@ function abrirIntercambio(venta) {
 
   const cardDevuelta = `
     <div class="swap-card">
-      <img src="${imgPrenda(venta.codigo)}" onerror="this.style.opacity=0.3">
+      <img src="${imgPrenda(venta.codigo, categoriaDeStock(venta.codigo))}" onerror="this.style.opacity=0.3">
       <div class="sc-info">
         <strong>${venta.marca}</strong>
         <span class="sc-cod">${venta.codigo} · ${venta.talle}/${venta.color}</span>
@@ -153,7 +153,7 @@ function abrirIntercambio(venta) {
 
   const cardsNuevas = State.carrito.map((l) => `
     <div class="swap-card">
-      <img src="${imgPrenda(l.codigo)}" onerror="this.style.opacity=0.3">
+      <img src="${imgPrenda(l.codigo, categoriaDeStock(l.codigo))}" onerror="this.style.opacity=0.3">
       <div class="sc-info">
         <strong>${l.marca}</strong>
         <span class="sc-cod">${l.codigo} · ${l.talle}/${l.color} · x${l.cantidad}</span>

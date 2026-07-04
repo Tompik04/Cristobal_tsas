@@ -180,7 +180,7 @@ function abrirDetalleCuenta(cuentaId) {
         const parcial = i.abonado > 0.5;
         return `
         <div class="cc-item ${vencido ? "cc-item-vencido" : ""}">
-          <img class="cc-item-img" src="${imgPrenda(i.codigo)}" onerror="this.style.opacity=0.3">
+          <img class="cc-item-img" src="${imgPrenda(i.codigo, categoriaDeStock(i.codigo))}" onerror="this.style.opacity=0.3">
           <div class="cc-item-info">
             <span>${i.marca} · ${i.codigo}</span>
             <span class="cc-item-var">Talle ${i.talle} · ${i.color} · x${i.cantidad}</span>

@@ -492,7 +492,7 @@ function srowAgrupadaHTML(p, f, idx) {
     <div class="prow srow-agrup" data-idx="${idx}">
       <div class="pcell">
         <div class="pimg-wrap">
-          <img class="pimg zoomable" src="${imgPrenda(p.codigo)}" alt="" onerror="this.style.opacity=0.3">
+          <img class="pimg zoomable" src="${imgPrenda(p.codigo, p.categoria)}" alt="" onerror="if(!this.dataset.fb){this.dataset.fb=1;this.src='${imgPrenda(p.codigo)}';}else{this.style.opacity=0.3;}">
           <button class="pimg-edit" data-act="editimg" title="Cambiar imagen"><i class="ti ti-camera"></i></button>
         </div>
         <div class="pinfo">
@@ -590,12 +590,12 @@ function bindSrowAgrupada(cont, p, f, idx) {
   };
   row.querySelector('[data-act="editprice"]').onclick = () => abrirEditarPrecio(p);
   const imgEl = row.querySelector(".pimg.zoomable");
-  if (imgEl) imgEl.onclick = () => verImagenAmpliada(p.codigo, p.marca);
+  if (imgEl) imgEl.onclick = () => verImagenAmpliada(p.codigo, p.marca, p.categoria);
   row.querySelector('[data-act="editimg"]').onclick = () => {
     seleccionarYSubirImagen(p.codigo, (url) => {
       const nueva = url + "?t=" + Date.now();
       row.querySelector(".pimg").src = nueva;
-    });
+    }, p.categoria);
   };
 
   // checkbox de selección múltiple (opera sobre la clave del grupo)
@@ -730,7 +730,7 @@ function abrirEditarPrecio(p) {
 }
 
 // Abre el selector de archivos, sube la imagen del código a Supabase y llama onListo(url).
-function seleccionarYSubirImagen(codigo, onListo) {
+function seleccionarYSubirImagen(codigo, onListo, categoria) {
   const input = document.createElement("input");
   input.type = "file";
   input.accept = "image/*";
@@ -739,7 +739,7 @@ function seleccionarYSubirImagen(codigo, onListo) {
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) return toast("La imagen es muy grande (máx 5MB)");
     toast("Subiendo imagen...");
-    const res = await API.subirImagenCodigo(codigo, file);
+    const res = await API.subirImagenCodigo(codigo, file, categoria || StockUI.categoria);
     if (res.ok) {
       toast("Imagen actualizada");
       if (onListo) onListo(res.url);
