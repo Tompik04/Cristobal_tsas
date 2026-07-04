@@ -138,15 +138,17 @@ function leerFila(row) {
 
 // busca el precio de venta ya conocido de un código
 function precioConocido(codigo) {
-  const enStock = State.stock.find((s) => s.codigo === codigo && s.precio > 0);
+  const cat = StockUI.categoria;
+  const enStock = State.stock.find((s) => s.codigo === codigo && s.categoria === cat && s.precio > 0);
   if (enStock) return enStock.precio;
   const enPend = StockUI.pendientes.find((p) => p.codigo === codigo && p.precio > 0);
   if (enPend) return enPend.precio;
   return null;
 }
-// busca el costo ya conocido de un código
+// busca el costo ya conocido de un código (solo en la categoría actual)
 function costoConocido(codigo) {
-  const enStock = State.stock.find((s) => s.codigo === codigo && s.costo > 0);
+  const cat = StockUI.categoria;
+  const enStock = State.stock.find((s) => s.codigo === codigo && s.categoria === cat && s.costo > 0);
   if (enStock) return enStock.costo;
   const enPend = StockUI.pendientes.find((p) => p.codigo === codigo && p.costo > 0);
   if (enPend) return enPend.costo;
@@ -206,9 +208,9 @@ function bindFilaCarga(row) {
   codInput.oninput = () => {
     const cod = codInput.value.trim().toUpperCase();
     if (cod.length >= 3) {
-      // marca: primero buscar si el código ya existe en stock (marca personalizada),
+      // marca: primero buscar si el código ya existe EN ESTA CATEGORÍA (marca personalizada),
       // sino por prefijo de marca conocida
-      const enStock = State.stock.find((s) => s.codigo === cod && s.marca);
+      const enStock = State.stock.find((s) => s.codigo === cod && s.categoria === StockUI.categoria && s.marca);
       const nombre = enStock ? enStock.marca : marcaDePrefijo(cod.substring(0, 3));
       if (nombre) { marcaInput.value = nombre; marcaInput.setAttribute("readonly", ""); }
       else marcaInput.removeAttribute("readonly");

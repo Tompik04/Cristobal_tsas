@@ -476,7 +476,7 @@ button { font-family: inherit; }
 
 /* ===== Selección múltiple en stock (barra flotante) ===== */
 .sel-fab {
-  position: fixed; left: 50%; bottom: 24px; transform: translateX(calc(-50% + 180px)); z-index: 31;
+  position: fixed; left: 50%; bottom: 82px; transform: translateX(-50%); z-index: 31;
   display: flex; align-items: center; gap: 12px;
   padding: 10px 16px; border-radius: 12px;
   background: var(--evergreen-soft); border: 1px solid rgba(201,122,109,0.4);
@@ -492,9 +492,9 @@ button { font-family: inherit; }
   transition: filter 0.2s ease, transform 0.15s ease; white-space: nowrap;
 }
 .btn-del-multi:hover { filter: brightness(1.1); transform: translateY(-1px); }
-/* en pantallas chicas, apilar la barra flotante centrada arriba del Agregar todo */
+/* en pantallas chicas, la barra flotante ocupa el ancho, arriba del Agregar todo */
 @media (max-width: 860px) {
-  .sel-fab { left: 12px; right: 12px; bottom: 88px; transform: none; justify-content: space-between; }
+  .sel-fab { left: 12px; right: 12px; bottom: 82px; transform: none; justify-content: space-between; }
 }
 .evar-check { display: flex; align-items: center; margin-right: 6px; cursor: pointer; }
 .evar-chk {
