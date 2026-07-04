@@ -361,16 +361,10 @@ async function confirmarPendientes() {
   if (btn) { btn.disabled = true; btn.textContent = "Guardando..."; }
   const res = await API.agregarStock(StockUI.pendientes);
   if (res.ok) {
-    StockUI.pendientes.forEach((p) => {
-      const existente = State.stock.find(
-        (s) => s.codigo === p.codigo && s.talle === p.talle && s.color === p.color
-      );
-      if (existente) { existente.cantidad += p.cantidad; }
-      else State.stock.push({
-        codigo: p.codigo, categoria: StockUI.categoria, marca: p.marca,
-        talle: p.talle, color: p.color, precio: p.precio || 0, costo: p.costo || 0, cantidad: p.cantidad,
-      });
-    });
+    // recargar el stock desde la base para que el estado en memoria quede
+    // exactamente igual (ids, categorías y lotes correctos) sin desincronización
+    const rec = await API.getStock();
+    if (rec.ok) State.stock = rec.stock;
     StockUI.pendientes = [];
     _pendAbierto = false;
     cerrarModal();
