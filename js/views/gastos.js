@@ -122,7 +122,7 @@ function pintarChecklist(gastosDelMes) {
 
   const item = (cat) => {
     const ok = categoriasCargadas.has(cat);
-    return `<div class="chk-item ${ok ? "chk-ok" : "chk-pend"}">
+    return `<div class="chk-item chk-click ${ok ? "chk-ok" : "chk-pend"}" data-cat="${cat}" title="Agregar gasto de ${cat}">
       <i class="ti ${ok ? "ti-circle-check-filled" : "ti-circle-dashed"}"></i>
       <span>${cat}</span>
     </div>`;
@@ -137,6 +137,14 @@ function pintarChecklist(gastosDelMes) {
       <p class="chk-title">Opcionales</p>
       <div class="chk-grid">${GASTOS_OPCIONALES.map(item).join("")}</div>
     </div>`;
+
+  // click en cada categoría abre el popup de nuevo gasto con concepto y categoría precargados
+  cont.querySelectorAll(".chk-click").forEach((el) => {
+    el.onclick = () => {
+      const cat = el.dataset.cat;
+      abrirNuevoGasto({ concepto: cat, categoria: cat });
+    };
+  });
 }
 
 function filtrosGasto() {
@@ -201,14 +209,16 @@ function bindGasto(list, g) {
 // ---- Alta / edición de gasto ----
 function abrirNuevoGasto(gasto) {
   const esEdicion = gasto && gasto.id;
+  const preCat = gasto && gasto.categoria ? gasto.categoria : "";
+  const preConcepto = gasto && gasto.concepto ? gasto.concepto : "";
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
-  const cats = CATEGORIAS_GASTO.map((c) => `<option value="${c}"${esEdicion && gasto.categoria === c ? " selected" : ""}>${c}</option>`).join("");
+  const cats = CATEGORIAS_GASTO.map((c) => `<option value="${c}"${preCat === c ? " selected" : ""}>${c}</option>`).join("");
 
   document.getElementById("modalRoot").innerHTML = `
     <div class="modal-overlay" id="ov"></div>
     <div class="modal">
       <h2>${esEdicion ? "Editar gasto" : "Nuevo gasto"}</h2>
-      <div class="field"><label>Concepto</label><input class="sinput" id="gConcepto" placeholder="Ej. Alquiler local" value="${esEdicion ? gasto.concepto : ""}"></div>
+      <div class="field"><label>Concepto</label><input class="sinput" id="gConcepto" placeholder="Ej. Alquiler local" value="${preConcepto}"></div>
       <div class="field"><label>Monto ($)</label><input class="sinput" type="number" min="0" id="gMonto" placeholder="$" value="${esEdicion ? gasto.monto : ""}"></div>
       <div class="field"><label>Categoría</label><select class="sinput" id="gCat">${cats}</select></div>
       <div class="field"><label>Fecha</label><input class="sinput" type="date" id="gFecha" value="${esEdicion ? gasto.fecha : hoy}"></div>
@@ -220,6 +230,11 @@ function abrirNuevoGasto(gasto) {
 
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("gCancel").onclick = cerrarModal;
+  // si vino con concepto precargado, enfocar el monto directamente
+  if (!esEdicion && preConcepto) {
+    const m = document.getElementById("gMonto");
+    if (m) m.focus();
+  }
   document.getElementById("gSave").onclick = async () => {
     const concepto = document.getElementById("gConcepto").value.trim();
     const monto = Number(document.getElementById("gMonto").value) || 0;

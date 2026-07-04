@@ -100,17 +100,22 @@ const CATEGORIAS = [
   { num: "08", nombre: "Babucha" },
   { num: "09", nombre: "Shorts" },
   { num: "10", nombre: "Mayas" },
+  { num: "11", nombre: "Musculosas" },
+  { num: "12", nombre: "Sweater" },
+  { num: "13", nombre: "Chombas" },
+  { num: "14", nombre: "Chalecos" },
+  { num: "15", nombre: "Camisacos" },
 ];
 
 const OFERTAS = [0, 5, 10, 15, 20];
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito"];
 
 // Categorías de gastos del local
-const CATEGORIAS_GASTO = ["Alquiler", "Luz", "Agua", "Gas", "Internet", "Monotributo", "Sueldos", "Mercadería", "Mantenimiento", "Impuestos", "Otros"];
+const CATEGORIAS_GASTO = ["Alquiler", "Luz", "Internet", "Monotributo", "Sueldos", "Mercadería", "Mantenimiento", "Envíos", "Materiales", "Otros"];
 
 // Checklist de control mensual: obligatorios (no deberían faltar) y opcionales
-const GASTOS_OBLIGATORIOS = ["Alquiler", "Luz", "Agua", "Gas", "Internet", "Monotributo"];
-const GASTOS_OPCIONALES = ["Sueldos", "Mercadería", "Mantenimiento", "Impuestos", "Otros"];
+const GASTOS_OBLIGATORIOS = ["Alquiler", "Luz", "Internet", "Monotributo"];
+const GASTOS_OPCIONALES = ["Sueldos", "Mercadería", "Mantenimiento", "Envíos", "Materiales", "Otros"];
 
 // Denominaciones de billetes que maneja la Caja
 const DENOMINACIONES = [100, 200, 500, 1000, 2000, 10000];
@@ -154,6 +159,11 @@ const TALLES_POR_CATEGORIA = {
   Camisas: TALLES_LETRA,
   Abrigos: TALLES_LETRA,
   Mayas: TALLES_LETRA,
+  Musculosas: TALLES_LETRA,
+  Sweater: TALLES_LETRA,
+  Chombas: TALLES_LETRA,
+  Chalecos: TALLES_LETRA,
+  Camisacos: TALLES_LETRA,
   Jeans: TALLES_NUMERO,
   Cargos: TALLES_NUMERO,
   Babucha: TALLES_NUMERO,
