@@ -93,7 +93,7 @@ const SB = {
 
 function stockDeDB(r) {
   return {
-    codigo: r.codigo, categoria: r.categoria, marca: r.marca,
+    id: r.id, codigo: r.codigo, categoria: r.categoria, marca: r.marca,
     talle: String(r.talle), color: r.color,
     precio: Number(r.precio_venta) || 0, costo: Number(r.precio_costo) || 0,
     cantidad: Number(r.cantidad) || 0,
@@ -175,15 +175,22 @@ const API = {
       // traer stock actual para sumar cantidades a lo existente
       const actual = await SB.select("stock", "select=*");
       for (const it of items) {
+        const cat = it.categoria || categoriaDeCodigo(it.codigo);
+        // una fila existente coincide si: mismo código, talle, color, categoría Y mismos precios.
+        // Si el precio difiere, es un lote nuevo → fila separada.
         const ex = actual.find((r) =>
-          r.codigo === it.codigo && String(r.talle) === String(it.talle) && r.color === it.color);
+          r.codigo === it.codigo &&
+          String(r.talle) === String(it.talle) &&
+          r.color === it.color &&
+          r.categoria === cat &&
+          Number(r.precio_venta) === Number(it.precio) &&
+          Number(r.precio_costo) === Number(it.costo));
         if (ex) {
           await SB.update("stock", "id=eq." + ex.id,
-            { cantidad: (Number(ex.cantidad) || 0) + Number(it.cantidad),
-              precio_venta: it.precio, precio_costo: it.costo });
+            { cantidad: (Number(ex.cantidad) || 0) + Number(it.cantidad) });
         } else {
           await SB.insert("stock", [{
-            codigo: it.codigo, categoria: categoriaDeCodigo(it.codigo), marca: it.marca,
+            codigo: it.codigo, categoria: cat, marca: it.marca,
             talle: it.talle, color: it.color,
             precio_venta: it.precio, precio_costo: it.costo, cantidad: it.cantidad,
           }]);
@@ -193,21 +200,35 @@ const API = {
     } catch (e) { return { ok: false, error: String(e) }; }
   },
 
-  async ajustarStock(codigo, talle, color, delta) {
+  // ajusta la cantidad de una fila específica por su id
+  async ajustarStock(id, delta) {
     if (CONFIG.MODO_PRUEBA) return this._mock("ajustarStock", {});
     try {
-      const q = "codigo=eq." + enc(codigo) + "&talle=eq." + enc(talle) + "&color=eq." + enc(color);
-      const rows = await SB.select("stock", "select=*&" + q);
+      const rows = await SB.select("stock", "select=*&id=eq." + enc(id));
       if (!rows.length) return { ok: false, error: "No encontrado" };
-      let restante = delta;
+      const r = rows[0];
+      const nueva = Math.max(0, (Number(r.cantidad) || 0) + delta);
+      await SB.update("stock", "id=eq." + enc(id), { cantidad: nueva });
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
+  // ajusta stock por variante (codigo+talle+color) cuando no se tiene el id.
+  // Para descontar: resta de las filas con stock (puede haber varios lotes).
+  // Para sumar: suma a la primera fila que coincida.
+  async ajustarStockPorVariante(codigo, talle, color, delta) {
+    if (CONFIG.MODO_PRUEBA) return this._mock("ajustarStockPorVariante", {});
+    try {
+      const q = "codigo=eq." + enc(codigo) + "&talle=eq." + enc(talle) + "&color=eq." + enc(color);
+      const rows = await SB.select("stock", "select=*&" + q + "&order=id");
+      if (!rows.length) return { ok: false, error: "No encontrado" };
       if (delta < 0) {
         let quitar = -delta;
         for (const r of rows) {
           if (quitar <= 0) break;
           const actual = Number(r.cantidad) || 0;
           const q2 = Math.min(actual, quitar);
-          await SB.update("stock", "id=eq." + r.id, { cantidad: actual - q2 });
-          quitar -= q2;
+          if (q2 > 0) { await SB.update("stock", "id=eq." + r.id, { cantidad: actual - q2 }); quitar -= q2; }
         }
       } else {
         const r = rows[0];
@@ -217,20 +238,52 @@ const API = {
     } catch (e) { return { ok: false, error: String(e) }; }
   },
 
-  async eliminarStock(codigo, talle, color) {
+  // elimina una fila específica por su id
+  async eliminarStock(id) {
     if (CONFIG.MODO_PRUEBA) return this._mock("eliminarStock", {});
     try {
-      const q = "codigo=eq." + enc(codigo) + "&talle=eq." + enc(talle) + "&color=eq." + enc(color);
-      await SB.remove("stock", q);
+      await SB.remove("stock", "id=eq." + enc(id));
       return { ok: true };
     } catch (e) { return { ok: false, error: String(e) }; }
   },
 
-  async actualizarPrecio(codigo, precio, costo) {
+  // actualiza precios de TODAS las filas de un código+categoría (precio del modelo)
+  async actualizarPrecio(codigo, precio, costo, categoria) {
     if (CONFIG.MODO_PRUEBA) return this._mock("actualizarPrecio", {});
     try {
-      await SB.update("stock", "codigo=eq." + enc(codigo),
-        { precio_venta: precio, precio_costo: costo });
+      let q = "codigo=eq." + enc(codigo);
+      if (categoria) q += "&categoria=eq." + enc(categoria);
+      await SB.update("stock", q, { precio_venta: precio, precio_costo: costo });
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
+  // edita una fila específica de stock por su id (marca, código, precios)
+  async editarStockFila(id, campos) {
+    if (CONFIG.MODO_PRUEBA) return this._mock("editarStockFila", {});
+    try {
+      const c = {};
+      if (campos.codigo != null) c.codigo = campos.codigo;
+      if (campos.marca != null) c.marca = campos.marca;
+      if (campos.precio != null) c.precio_venta = campos.precio;
+      if (campos.costo != null) c.precio_costo = campos.costo;
+      if (Object.keys(c).length) await SB.update("stock", "id=eq." + enc(id), c);
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
+  // edita marca y/o código de TODAS las filas de un código+categoría
+  async editarDatosCodigo(codigoViejo, categoria, nuevo) {
+    if (CONFIG.MODO_PRUEBA) return this._mock("editarDatosCodigo", {});
+    try {
+      let q = "codigo=eq." + enc(codigoViejo);
+      if (categoria) q += "&categoria=eq." + enc(categoria);
+      const campos = {};
+      if (nuevo.codigo != null) campos.codigo = nuevo.codigo;
+      if (nuevo.marca != null) campos.marca = nuevo.marca;
+      if (nuevo.precio != null) campos.precio_venta = nuevo.precio;
+      if (nuevo.costo != null) campos.precio_costo = nuevo.costo;
+      if (Object.keys(campos).length) await SB.update("stock", q, campos);
       return { ok: true };
     } catch (e) { return { ok: false, error: String(e) }; }
   },
@@ -257,7 +310,7 @@ const API = {
       }));
       await SB.insert("ventas", filas);
       // descontar stock
-      for (const l of lineas) await this.ajustarStock(l.codigo, l.talle, l.color, -l.cantidad);
+      for (const l of lineas) await this.ajustarStockPorVariante(l.codigo, l.talle, l.color, -l.cantidad);
       return { ok: true, idVenta: id };
     } catch (e) { return { ok: false, error: String(e) }; }
   },
@@ -276,7 +329,7 @@ const API = {
       const rows = await SB.select("ventas", "select=*&id=eq." + enc(id));
       if (!rows.length) return { ok: false, error: "Venta no encontrada" };
       const v = rows[0];
-      await this.ajustarStock(v.codigo, v.talle, v.color, Number(v.cantidad) || 0);
+      await this.ajustarStockPorVariante(v.codigo, v.talle, v.color, Number(v.cantidad) || 0);
       if (v.voucher_id) await SB.update("vouchers", "id=eq." + enc(v.voucher_id), { usado: false });
       await SB.update("ventas", "id=eq." + enc(id), { restaurada: true });
       return { ok: true };
@@ -295,7 +348,7 @@ const API = {
     try {
       if (p.ventaDevuelta) {
         const v = p.ventaDevuelta;
-        await this.ajustarStock(v.codigo, v.talle, v.color, v.cantidad || 1);
+        await this.ajustarStockPorVariante(v.codigo, v.talle, v.color, v.cantidad || 1);
         await this.restaurarVenta(v.id);
       }
       if (p.lineasNuevas && p.lineasNuevas.length) {
@@ -457,7 +510,7 @@ const API = {
         cantidad: l.cantidad, precio: l.precio,
       }));
       await SB.insert("cuenta_items", filas);
-      for (const l of lineas) await this.ajustarStock(l.codigo, l.talle, l.color, -l.cantidad);
+      for (const l of lineas) await this.ajustarStockPorVariante(l.codigo, l.talle, l.color, -l.cantidad);
       return { ok: true };
     } catch (e) { return { ok: false, error: String(e) }; }
   },
@@ -465,7 +518,7 @@ const API = {
     if (CONFIG.MODO_PRUEBA) return { ok: true };
     try {
       // reponer stock al quitar la prenda de la cuenta
-      if (item) await this.ajustarStock(item.codigo, item.talle, item.color, item.cantidad);
+      if (item) await this.ajustarStockPorVariante(item.codigo, item.talle, item.color, item.cantidad);
       await SB.remove("cuenta_items", "id=eq." + enc(itemId));
       return { ok: true };
     } catch (e) { return { ok: false, error: String(e) }; }

@@ -296,7 +296,10 @@ function abrirDetalleCuenta(cuentaId) {
       textoBoton: "Eliminar",
       onOk: async () => {
         // reponer stock de las prendas pendientes antes de borrar
-        for (const i of items) await API.ajustarStock(i.codigo, i.talle, i.color, i.cantidad);
+        for (const i of items) {
+          const fila = State.stock.find((s) => s.codigo === i.codigo && s.talle === i.talle && s.color === i.color);
+          if (fila) { fila.cantidad += i.cantidad; await API.ajustarStock(fila.id, i.cantidad); }
+        }
         await API.eliminarCuenta(cuentaId);
         toast("Cuenta eliminada");
         cerrarModal();

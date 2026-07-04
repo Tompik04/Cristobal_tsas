@@ -186,15 +186,18 @@ function bindFilaCarga(row) {
     if (cod.length >= 6) {
       const pConocido = precioConocido(cod);
       const cConocido = costoConocido(cod);
+      // autocompletar precio/costo si el código ya existe, PERO dejarlos editables
+      // (si se cambia el precio, se crea un lote nuevo con ese precio)
       if (cConocido != null) {
-        costoInput.value = cConocido; costoInput.disabled = true;
-        precioHint.textContent = "Costo del código";
-      } else { costoInput.disabled = false; precioHint.textContent = ""; }
-      if (pConocido != null) {
-        precioInput.value = pConocido; precioInput.disabled = true;
-      } else { precioInput.disabled = false; }
+        if (!costoInput.value) costoInput.value = cConocido;
+        costoInput.disabled = false;
+        precioHint.textContent = "Precio sugerido (editable)";
+      } else { precioHint.textContent = ""; }
+      if (pConocido != null && !precioInput.value) precioInput.value = pConocido;
+      precioInput.disabled = false;
     } else {
-      precioInput.disabled = false; precioHint.textContent = "";
+      precioHint.textContent = "";
+      precioInput.disabled = false;
       costoInput.disabled = false;
     }
     refrescarGanancia();
@@ -203,7 +206,10 @@ function bindFilaCarga(row) {
   codInput.oninput = () => {
     const cod = codInput.value.trim().toUpperCase();
     if (cod.length >= 3) {
-      const nombre = marcaDePrefijo(cod.substring(0, 3));
+      // marca: primero buscar si el código ya existe en stock (marca personalizada),
+      // sino por prefijo de marca conocida
+      const enStock = State.stock.find((s) => s.codigo === cod && s.marca);
+      const nombre = enStock ? enStock.marca : marcaDePrefijo(cod.substring(0, 3));
       if (nombre) { marcaInput.value = nombre; marcaInput.setAttribute("readonly", ""); }
       else marcaInput.removeAttribute("readonly");
     }
@@ -268,6 +274,7 @@ function bindFilaCarga(row) {
     if (!d.precio) return toast("Falta el precio de venta");
     if (!d.costo) return toast("Falta el precio de costo");
     if (d.costo > d.precio) return toast("El costo no puede ser mayor a la venta");
+    d.categoria = StockUI.categoria; // la categoría en la que se está cargando
     d._pid = "p" + _pendSeq++;
     StockUI.pendientes.push(d);
     addBtn.classList.add("confirmed");
@@ -382,14 +389,15 @@ function renderExistente(categoria) {
     return;
   }
 
-  // agrupar por código
-  const porCodigo = {};
+  // agrupar por código + precio (venta y costo): mismo código con distinto precio = fila separada (lote)
+  const porGrupo = {};
   items.forEach((s) => {
-    if (!porCodigo[s.codigo]) porCodigo[s.codigo] = { codigo: s.codigo, marca: s.marca, precio: s.precio, costo: s.costo, variantes: [] };
-    porCodigo[s.codigo].variantes.push(s);
+    const clave = s.codigo + "|" + s.precio + "|" + s.costo;
+    if (!porGrupo[clave]) porGrupo[clave] = { clave, codigo: s.codigo, marca: s.marca, precio: s.precio, costo: s.costo, categoria: s.categoria, variantes: [] };
+    porGrupo[clave].variantes.push(s);
   });
-  const productos = Object.values(porCodigo)
-    .sort((a, b) => (a.codigo).localeCompare(b.codigo));
+  const productos = Object.values(porGrupo)
+    .sort((a, b) => a.codigo.localeCompare(b.codigo) || a.precio - b.precio);
 
   // talles/colores disponibles para los filtros
   const tallesDisp = [...new Set(items.map((s) => s.talle))];
@@ -431,6 +439,7 @@ function renderExistente(categoria) {
   list.appendChild(cont);
 
   StockUI.seleccionadas = new Set();
+  StockUI.productos = productos;
   pintarStockExistente(productos, {});
 
   // acciones de la barra de selección
@@ -474,17 +483,17 @@ function pintarStockExistente(productos, f) {
     cont.innerHTML = `<div class="soon"><i class="ti ti-search-off"></i><p>Sin resultados.</p></div>`;
     return;
   }
-  cont.innerHTML = lista.map((p) => srowAgrupadaHTML(p, f)).join("");
-  lista.forEach((p) => bindSrowAgrupada(cont, p, f));
+  cont.innerHTML = lista.map((p, i) => srowAgrupadaHTML(p, f, i)).join("");
+  lista.forEach((p, i) => bindSrowAgrupada(cont, p, f, i));
   actualizarBarraSeleccion();
 }
 
-// fila de stock agrupada por código
-function srowAgrupadaHTML(p, f) {
+// fila de stock agrupada por código+precio (lote)
+function srowAgrupadaHTML(p, f, idx) {
   const talles = [...new Set(p.variantes.map((v) => v.talle))];
   const tallesOpt = talles.map((t) => `<option value="${t}">${t}</option>`).join("");
   return `
-    <div class="prow srow-agrup" data-cod="${escAttr(p.codigo)}">
+    <div class="prow srow-agrup" data-idx="${idx}">
       <div class="pcell">
         <div class="pimg-wrap">
           <img class="pimg zoomable" src="${imgPrenda(p.codigo)}" alt="" onerror="this.style.opacity=0.3">
@@ -508,7 +517,7 @@ function srowAgrupadaHTML(p, f) {
           <span class="eprice-val">${formatPrecio(p.precio)}</span>
           <span class="eprice-cost">Costo ${formatPrecio(p.costo)} · +${gananciaPct(p.precio, p.costo)}%</span>
         </div>
-        <button class="e-editprice" data-act="editprice" title="Editar precios del código"><i class="ti ti-pencil"></i></button>
+        <button class="e-editprice" data-act="editprice" title="Editar datos y precios"><i class="ti ti-pencil"></i></button>
       </div>
       <div class="stepper">
         <button class="step-btn" data-act="minus">&minus;</button>
@@ -516,12 +525,12 @@ function srowAgrupadaHTML(p, f) {
         <button class="step-btn" data-act="plus">+</button>
       </div>
       <button class="e-del" data-act="del" title="Eliminar esta variante"><i class="ti ti-trash"></i></button>
-      <label class="evar-check"><input type="checkbox" class="evar-chk" data-cod="${escAttr(p.codigo)}"></label>
+      <label class="evar-check"><input type="checkbox" class="evar-chk" data-idx="${idx}"></label>
     </div>`;
 }
 
-function bindSrowAgrupada(cont, p, f) {
-  const row = cont.querySelector(`.srow-agrup[data-cod="${cssEsc(p.codigo)}"]`);
+function bindSrowAgrupada(cont, p, f, idx) {
+  const row = cont.querySelector(`.srow-agrup[data-idx="${idx}"]`);
   if (!row) return;
   const selTalle = row.querySelector('[data-f="talle"]');
   const selColor = row.querySelector('[data-f="color"]');
@@ -551,40 +560,39 @@ function bindSrowAgrupada(cont, p, f) {
   selTalle.onchange = refrescarColores;
   selColor.onchange = refrescarCantidad;
 
+  // referencia a la fila real en State.stock (por id único)
   const refVar = () => {
     const v = varianteActual();
-    return v ? State.stock.find((s) => s.codigo === v.codigo && s.talle === v.talle && s.color === v.color) : null;
+    return v ? State.stock.find((s) => s.id === v.id) : null;
   };
 
   row.querySelector('[data-act="plus"]').onclick = async () => {
-    const v = varianteActual(); if (!v) return;
-    const r = refVar(); r.cantidad++; v.cantidad = r.cantidad; qtyEl.textContent = r.cantidad;
-    await API.ajustarStock(v.codigo, v.talle, v.color, +1);
+    const r = refVar(); if (!r) return;
+    r.cantidad++; qtyEl.textContent = r.cantidad;
+    await API.ajustarStock(r.id, +1);
   };
   row.querySelector('[data-act="minus"]').onclick = async () => {
-    const v = varianteActual(); if (!v) return;
-    const r = refVar(); if (r.cantidad <= 0) return;
-    r.cantidad--; v.cantidad = r.cantidad; qtyEl.textContent = r.cantidad;
-    await API.ajustarStock(v.codigo, v.talle, v.color, -1);
+    const r = refVar(); if (!r || r.cantidad <= 0) return;
+    r.cantidad--; qtyEl.textContent = r.cantidad;
+    await API.ajustarStock(r.id, -1);
   };
   row.querySelector('[data-act="del"]').onclick = () => {
-    const v = varianteActual(); if (!v) return;
+    const r = refVar(); if (!r) return;
     dobleConfirmacion({
       titulo: "Eliminar stock",
-      mensaje1: `Vas a eliminar el stock de ${v.codigo} (talle ${v.talle}, color ${v.color}).`,
+      mensaje1: `Vas a eliminar el stock de ${r.codigo} (talle ${r.talle}, color ${r.color}).`,
       mensaje2: "Se borra esa combinación del inventario. ¿Confirmás?",
       textoBoton: "Eliminar",
       onOk: async () => {
-        const r = refVar(); const idx = State.stock.indexOf(r);
+        const idx = State.stock.indexOf(r);
         if (idx >= 0) State.stock.splice(idx, 1);
-        await API.eliminarStock(v.codigo, v.talle, v.color);
-        toast(`${v.codigo} ${v.talle}/${v.color} eliminado`);
-        // re-renderizar la categoría completa para actualizar el contador y la agrupación
+        await API.eliminarStock(r.id);
+        toast(`${r.codigo} ${r.talle}/${r.color} eliminado`);
         renderStockCategoria(document.getElementById("view"), StockUI.categoria);
       },
     });
   };
-  row.querySelector('[data-act="editprice"]').onclick = () => abrirEditarPrecio(p.codigo);
+  row.querySelector('[data-act="editprice"]').onclick = () => abrirEditarPrecio(p);
   const imgEl = row.querySelector(".pimg.zoomable");
   if (imgEl) imgEl.onclick = () => verImagenAmpliada(p.codigo, p.marca);
   row.querySelector('[data-act="editimg"]').onclick = () => {
@@ -594,16 +602,15 @@ function bindSrowAgrupada(cont, p, f) {
     });
   };
 
-  // checkbox de selección múltiple
+  // checkbox de selección múltiple (opera sobre la clave del grupo)
   const chk = row.querySelector(".evar-chk");
   chk.onchange = () => {
-    if (chk.checked) StockUI.seleccionadas.add(p.codigo);
-    else StockUI.seleccionadas.delete(p.codigo);
+    if (chk.checked) StockUI.seleccionadas.add(p.clave);
+    else StockUI.seleccionadas.delete(p.clave);
     row.classList.toggle("row-sel", chk.checked);
     actualizarBarraSeleccion();
   };
-  // restaurar estado si ya estaba seleccionada
-  if (StockUI.seleccionadas.has(p.codigo)) { chk.checked = true; row.classList.add("row-sel"); }
+  if (StockUI.seleccionadas.has(p.clave)) { chk.checked = true; row.classList.add("row-sel"); }
 }
 
 // escapa para usar en selector CSS (querySelector con data-cod)
@@ -622,44 +629,54 @@ function actualizarBarraSeleccion() {
   bar.classList.toggle("hidden", n === 0);
 }
 
-// borra todas las prendas (códigos) seleccionados, con doble confirmación
+// borra los grupos (código+precio) seleccionados, con doble confirmación
 function borrarSeleccionadas() {
-  const cods = [...(StockUI.seleccionadas || [])];
-  if (!cods.length) return;
+  const claves = [...(StockUI.seleccionadas || [])];
+  if (!claves.length) return;
+  // reunir las variantes (filas con id) de cada grupo seleccionado
+  const grupos = (StockUI.productos || []).filter((p) => claves.includes(p.clave));
+  const codigosTxt = [...new Set(grupos.map((g) => g.codigo))].join(", ");
+  const totalFilas = grupos.reduce((a, g) => a + g.variantes.length, 0);
   dobleConfirmacion({
     titulo: "Borrar seleccionadas",
-    mensaje1: `Vas a eliminar TODO el stock de ${cods.length} código${cods.length === 1 ? "" : "s"}: ${cods.join(", ")}.`,
-    mensaje2: "Se borran todas las variantes (talles y colores) de esos códigos. ¿Confirmás?",
+    mensaje1: `Vas a eliminar ${totalFilas} variante${totalFilas === 1 ? "" : "s"} de: ${codigosTxt}.`,
+    mensaje2: "Se borran del inventario. ¿Confirmás?",
     textoBoton: "Borrar todo",
     onOk: async () => {
-      for (const cod of cods) {
-        // eliminar todas las variantes de ese código
-        const variantes = State.stock.filter((s) => s.codigo === cod);
-        for (const v of variantes) {
-          await API.eliminarStock(v.codigo, v.talle, v.color);
-        }
-        // quitar de memoria
-        for (let i = State.stock.length - 1; i >= 0; i--) {
-          if (State.stock[i].codigo === cod) State.stock.splice(i, 1);
+      for (const g of grupos) {
+        for (const v of g.variantes) {
+          await API.eliminarStock(v.id);
+          const idx = State.stock.findIndex((s) => s.id === v.id);
+          if (idx >= 0) State.stock.splice(idx, 1);
         }
       }
       StockUI.seleccionadas.clear();
-      toast(`${cods.length} código${cods.length === 1 ? "" : "s"} eliminado${cods.length === 1 ? "" : "s"}`);
+      toast(`${totalFilas} variante${totalFilas === 1 ? "" : "s"} eliminada${totalFilas === 1 ? "" : "s"}`);
       renderStockCategoria(document.getElementById("view"), StockUI.categoria);
     },
   });
 }
 
-// Editar precio y costo a nivel código (afecta todas las variantes)
-function abrirEditarPrecio(codigo) {
-  const precioAct = precioConocido(codigo) || 0;
-  const costoAct = costoConocido(codigo) || 0;
+// Editar datos (marca, código) y precios de un grupo (código+precio+categoría)
+function abrirEditarPrecio(p) {
+  const marcaAct = p.marca || "";
+  const codigoAct = p.codigo || "";
+  const precioAct = p.precio || 0;
+  const costoAct = p.costo || 0;
+  const categoria = p.categoria || StockUI.categoria;
   document.getElementById("modalRoot").innerHTML = `
     <div class="modal-overlay" id="ov"></div>
     <div class="modal">
-      <h2>Editar precios</h2>
-      <p class="modal-line"><span>Código</span><strong>${codigo}</strong></p>
-      <p class="login-sub" style="text-align:center">Se aplica a todas las variantes de este código</p>
+      <h2>Editar prenda</h2>
+      <p class="login-sub" style="text-align:center">Se aplica a todas las variantes (talles y colores) de este lote</p>
+      <div class="field">
+        <label>Marca / nombre</label>
+        <input class="sinput" id="newMarca" value="${escAttr(marcaAct)}" placeholder="Marca">
+      </div>
+      <div class="field">
+        <label>Código</label>
+        <input class="sinput" id="newCodigo" value="${escAttr(codigoAct)}" maxlength="7" style="text-transform:uppercase" placeholder="Código">
+      </div>
       <div class="field">
         <label>Precio de costo</label>
         <input class="price-input" id="newCost" type="number" min="0" value="${costoAct}" style="font-size:16px">
@@ -676,12 +693,14 @@ function abrirEditarPrecio(codigo) {
     </div>`;
   const pIn = document.getElementById("newPrice");
   const cIn = document.getElementById("newCost");
+  const mIn = document.getElementById("newMarca");
+  const codIn = document.getElementById("newCodigo");
   const prev = document.getElementById("gananciaPreview");
   const upd = () => {
-    const p = Number(pIn.value) || 0;
-    const c = Number(cIn.value) || 0;
-    if (c > p && p > 0) { prev.textContent = "Costo > venta"; prev.style.color = "var(--danger)"; }
-    else { prev.textContent = `+${gananciaPct(p, c)}%`; prev.style.color = ""; }
+    const pp = Number(pIn.value) || 0;
+    const cc = Number(cIn.value) || 0;
+    if (cc > pp && pp > 0) { prev.textContent = "Costo > venta"; prev.style.color = "var(--danger)"; }
+    else { prev.textContent = `+${gananciaPct(pp, cc)}%`; prev.style.color = ""; }
   };
   pIn.oninput = upd; cIn.oninput = upd;
   document.getElementById("ov").onclick = cerrarModal;
@@ -689,13 +708,27 @@ function abrirEditarPrecio(codigo) {
   document.getElementById("saveP").onclick = async () => {
     const nuevoP = Number(pIn.value) || 0;
     const nuevoC = Number(cIn.value) || 0;
+    const nuevaMarca = mIn.value.trim();
+    const nuevoCodigo = codIn.value.trim().toUpperCase();
     if (nuevoP <= 0) return toast("Precio de venta inválido");
     if (nuevoC <= 0) return toast("Precio de costo inválido");
     if (nuevoC > nuevoP) return toast("El costo no puede ser mayor a la venta");
-    State.stock.forEach((s) => { if (s.codigo === codigo) { s.precio = nuevoP; s.costo = nuevoC; } });
-    await API.actualizarPrecio(codigo, nuevoP, nuevoC);
+    if (!nuevaMarca) return toast("La marca no puede quedar vacía");
+    if (!nuevoCodigo) return toast("El código no puede quedar vacío");
+
+    // actualizar en memoria las variantes de este grupo (por id)
+    const idsGrupo = p.variantes.map((v) => v.id);
+    State.stock.forEach((s) => {
+      if (idsGrupo.includes(s.id)) {
+        s.precio = nuevoP; s.costo = nuevoC; s.marca = nuevaMarca; s.codigo = nuevoCodigo;
+      }
+    });
+    // actualizar en la base, fila por fila (por id, para no tocar otros lotes)
+    for (const id of idsGrupo) {
+      await API.editarStockFila(id, { marca: nuevaMarca, codigo: nuevoCodigo, precio: nuevoP, costo: nuevoC });
+    }
     cerrarModal();
-    toast(`Precios de ${codigo} actualizados`);
+    toast(`Prenda actualizada`);
     renderStockCategoria(document.getElementById("view"), StockUI.categoria);
   };
 }
