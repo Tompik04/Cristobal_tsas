@@ -737,6 +737,9 @@ button { font-family: inherit; }
 .s-rm { width: 42px; height: 42px; border-radius: 10px; border: 1px solid rgba(201,122,109,0.4); background: rgba(201,122,109,0.08); color: var(--danger); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
 .s-rm:hover { background: rgba(201,122,109,0.22); }
 .s-rm i { font-size: 20px; }
+.s-clear { width: 42px; height: 42px; border-radius: 10px; border: 1px solid var(--oak-35); background: var(--oak-08); color: var(--oak-60); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s, border-color 0.15s, color 0.15s; }
+.s-clear:hover { background: rgba(224,164,88,0.18); border-color: var(--amber); color: var(--amber); }
+.s-clear i { font-size: 20px; }
 .snew-trigger { display: flex; align-items: center; justify-content: center; gap: 12px; background: var(--oak-08); border: 1px dashed var(--oak-35); border-radius: var(--r); padding: 20px; cursor: pointer; transition: background 0.15s, border-color 0.15s; color: var(--oak-60); font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; }
 .snew-trigger:hover { background: var(--oak-20); border-color: var(--oak-55); color: var(--pale-oak); }
 .snew-trigger i { font-size: 26px; }

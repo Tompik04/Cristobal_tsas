@@ -105,6 +105,7 @@ function filaCargaHTML(id, datos) {
       </div>
       <div class="srow-acts">
         <button class="s-add" data-act="add" title="Agregar a pendientes"><i class="ti ti-plus"></i></button>
+        <button class="s-clear" data-act="clear" title="Limpiar campos"><i class="ti ti-eraser"></i></button>
         <button class="s-rm" data-act="remove" title="Eliminar fila"><i class="ti ti-x"></i></button>
       </div>
     </div>`;
@@ -284,6 +285,33 @@ function bindFilaCarga(row) {
     refrescarPrecio();
     actualizarBarraPendientes();
     toast(`${d.codigo} ${d.talle}/${d.color} agregado`);
+  };
+
+  // limpiar todos los campos de la fila (deja la fila, vacía los datos)
+  row.querySelector('[data-act="clear"]').onclick = () => {
+    codInput.value = "";
+    marcaInput.value = "";
+    marcaInput.removeAttribute("readonly");
+    precioInput.value = "";
+    precioInput.disabled = false;
+    costoInput.value = "";
+    costoInput.disabled = false;
+    const cantInp = row.querySelector('[data-f="cantidad"]');
+    if (cantInp) cantInp.value = 1;
+    const talleSel2 = row.querySelector('[data-f="talle"]');
+    const colorSel2 = row.querySelector('[data-f="color"]');
+    if (talleSel2) talleSel2.selectedIndex = 0;
+    if (colorSel2) colorSel2.value = "Negro";
+    // limpiar imagen de la preview
+    const simg = row.querySelector(".simg");
+    if (simg) { simg.src = ""; simg.style.opacity = ""; }
+    // resetear hints y botón de agregar
+    if (precioHint) precioHint.textContent = "";
+    if (gananciaHint) gananciaHint.textContent = "";
+    addBtn.classList.remove("confirmed");
+    addBtn.querySelector("i").className = "ti ti-plus";
+    codInput.focus();
+    toast("Campos limpiados");
   };
 
   // eliminar fila
