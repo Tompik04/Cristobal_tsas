@@ -69,9 +69,9 @@ function filaCargaHTML(id, datos) {
             <img class="simg" src="${d.imagen || ""}" alt="" onerror="this.style.opacity=0.3">
             <button class="simg-edit" data-act="img" title="Imagen"><i class="ti ti-camera"></i></button>
           </div>
-          <input class="sinput" data-f="codigo" placeholder="Código" maxlength="7" value="${d.codigo || ""}" style="text-transform:uppercase">
+          <input class="sinput" data-f="codigo" placeholder="Código" maxlength="7" value="${escAttr(d.codigo)}" style="text-transform:uppercase">
         </div>
-        <input class="sinput" data-f="marca" placeholder="Marca" value="${d.marca || ""}" readonly>
+        <input class="sinput" data-f="marca" placeholder="Marca" value="${escAttr(d.marca)}" readonly>
       </div>
       <div class="sfield">
         <label>Talle</label>
@@ -213,6 +213,19 @@ function bindFilaCarga(row) {
   };
   precioInput.oninput = refrescarGanancia;
   costoInput.oninput = refrescarGanancia;
+
+  // al cambiar talle, color o cantidad, el botón vuelve de check a "+"
+  // (es otra variante, hay que agregarla de nuevo)
+  const resetAdd = () => {
+    addBtn.classList.remove("confirmed");
+    addBtn.querySelector("i").className = "ti ti-plus";
+  };
+  const talleSel = row.querySelector('[data-f="talle"]');
+  const colorSel = row.querySelector('[data-f="color"]');
+  const cantInput = row.querySelector('[data-f="cantidad"]');
+  if (talleSel) talleSel.onchange = resetAdd;
+  if (colorSel) colorSel.onchange = resetAdd;
+  if (cantInput) cantInput.oninput = resetAdd;
 
   refrescarPrecio();
 
@@ -386,6 +399,11 @@ function renderExistente(categoria) {
   });
   list.innerHTML = "";
   list.appendChild(barra);
+  // contador de total de prendas (según filtro)
+  const totalEl = document.createElement("div");
+  totalEl.id = "stockTotal";
+  totalEl.className = "stock-total";
+  list.appendChild(totalEl);
   const cont = document.createElement("div");
   cont.id = "existCont";
   cont.className = "stock-list";
@@ -402,6 +420,14 @@ function pintarStockExistente(items, f) {
   if (f.talle) lista = lista.filter((s) => s.talle === f.talle);
   if (f.color) lista = lista.filter((s) => s.color === f.color);
   if (f.minCant) lista = lista.filter((s) => s.cantidad >= Number(f.minCant));
+
+  // actualizar el contador de total de prendas (suma de cantidades)
+  const totalEl = document.getElementById("stockTotal");
+  if (totalEl) {
+    const totalUnidades = lista.reduce((a, s) => a + (Number(s.cantidad) || 0), 0);
+    const hayFiltro = !!(f.q || f.talle || f.color || f.minCant);
+    totalEl.innerHTML = `<i class="ti ti-hanger"></i> ${totalUnidades} ${totalUnidades === 1 ? "prenda" : "prendas"}${hayFiltro ? " (filtrado)" : " en total"}`;
+  }
 
   if (!lista.length) {
     cont.innerHTML = `<div class="soon"><i class="ti ti-search-off"></i><p>Sin resultados.</p></div>`;
@@ -422,7 +448,7 @@ function erowHTML(it) {
           <img class="pimg" src="${imgPrenda(it.codigo)}" alt="" onerror="this.style.opacity=0.3">
           <button class="pimg-edit" data-act="editimg" title="Cambiar imagen"><i class="ti ti-camera"></i></button>
         </div>
-        <div class="pinfo"><span class="pmarca">${it.marca}</span><span class="pcod">${it.codigo}</span></div>
+        <div class="pinfo"><span class="pmarca">${escAttr(it.marca)}</span><span class="pcod">${escAttr(it.codigo)}</span></div>
       </div>
       <div class="evar">Talle <strong>${it.talle}</strong> · Color <strong>${it.color}</strong></div>
       <div class="eprice">

@@ -178,3 +178,13 @@ const MARCAS = [
   { prefijo: "FOW", nombre: "Fort Worth" },
   { prefijo: "KEV", nombre: "Kevingston" },
 ];
+
+// Escapa un valor para insertarlo de forma segura en un atributo HTML (comillas, <, >, &)
+function escAttr(v) {
+  return String(v == null ? "" : v)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}

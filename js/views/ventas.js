@@ -41,6 +41,7 @@ function renderListaProductos(root, categoria) {
   root.innerHTML = `
     <p class="view-title">${categoria.toUpperCase()} — VENTAS</p>
     <div id="ventasFiltros"></div>
+    <div id="ventasTotal" class="stock-total"></div>
     <div class="prod-list" id="ventasProdList"></div>
   `;
 
@@ -76,6 +77,20 @@ function pintarProductosVentas(root, productos, f) {
   if (f.minCant) {
     const min = Number(f.minCant);
     lista = lista.filter((p) => p.variantes.reduce((a, v) => a + v.cantidad, 0) >= min);
+  }
+
+  // total de prendas (suma de stock de las variantes visibles, según filtro)
+  const totalEl = document.getElementById("ventasTotal");
+  if (totalEl) {
+    const totalUnidades = lista.reduce((a, p) => {
+      return a + p.variantes.reduce((b, v) => {
+        if (f.talle && v.talle !== f.talle) return b;
+        if (f.color && v.color !== f.color) return b;
+        return b + (Number(v.cantidad) || 0);
+      }, 0);
+    }, 0);
+    const hayFiltro = !!(f.q || f.talle || f.color || f.minCant);
+    totalEl.innerHTML = `<i class="ti ti-hanger"></i> ${totalUnidades} ${totalUnidades === 1 ? "prenda" : "prendas"}${hayFiltro ? " (filtrado)" : " en total"}`;
   }
 
   if (!lista.length) {
