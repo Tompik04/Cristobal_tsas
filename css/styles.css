@@ -58,7 +58,7 @@ html, body {
 
 button { font-family: inherit; }
 
-/* ============ LOGIN ============ */
+/* ============ LOGIN =============== */
 .login-screen {
   position: fixed; inset: 0;
   background: var(--evergreen);
