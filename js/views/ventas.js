@@ -121,7 +121,7 @@ function filaProductoHTML(p) {
   return `
     <div class="prow" data-cod="${p.codigo}">
       <div class="pcell">
-        <img class="pimg" src="${imgPrenda(p.codigo)}" alt="">
+        <img class="pimg zoomable" src="${imgPrenda(p.codigo)}" alt="">
         <div class="pinfo">
           <span class="pmarca">${p.marca}</span>
           <span class="pcod">${p.codigo}</span>
@@ -157,6 +157,9 @@ function bindFila(root, p) {
   const selCant = row.querySelector('[data-f="cantidad"]');
   const lblCant = row.querySelector('[data-f="cantLabel"]');
   const selOferta = row.querySelector('[data-f="oferta"]');
+
+  const imgEl = row.querySelector(".pimg.zoomable");
+  if (imgEl) imgEl.onclick = () => verImagenAmpliada(p.codigo, p.marca);
 
   function coloresDeTalle(talle) {
     return p.variantes.filter((v) => v.talle === talle && v.cantidad > 0);

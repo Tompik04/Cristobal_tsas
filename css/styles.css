@@ -255,12 +255,12 @@ button { font-family: inherit; }
   background: var(--oak-08); border: 1px solid var(--oak-25); border-radius: var(--r); padding: 14px 16px;
 }
 .pcell { display: flex; align-items: center; gap: 12px; }
-.pimg-wrap { position: relative; width: 54px; height: 54px; flex-shrink: 0; }
-.pimg-wrap .pimg { width: 54px; height: 54px; }
+.pimg-wrap { position: relative; width: 72px; height: 72px; flex-shrink: 0; }
+.pimg-wrap .pimg { width: 72px; height: 72px; }
 .pimg-edit { position: absolute; bottom: -4px; right: -4px; width: 22px; height: 22px; border-radius: 50%; background: var(--pale-oak); color: var(--evergreen); border: 2px solid var(--evergreen); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 11px; padding: 0; }
 .pimg-edit:hover { background: var(--gold); }
 .pimg-edit i { font-size: 12px; }
-.pimg { width: 54px; height: 54px; border-radius: 8px; flex-shrink: 0; background: var(--oak-10); object-fit: contain; }
+.pimg { width: 72px; height: 72px; border-radius: 8px; flex-shrink: 0; background: var(--oak-10); object-fit: contain; }
 .pinfo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pmarca { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pcod { font-size: 11px; color: var(--oak-55); letter-spacing: 0.08em; }
@@ -491,8 +491,54 @@ button { font-family: inherit; }
 }
 .btn-del-multi:hover { filter: brightness(1.1); transform: translateY(-1px); }
 .evar-check { display: flex; align-items: center; margin-right: 6px; cursor: pointer; }
-.evar-chk { width: 18px; height: 18px; cursor: pointer; accent-color: var(--gold); }
+.evar-chk {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  width: 20px; height: 20px; border-radius: 6px; cursor: pointer;
+  border: 2px solid var(--oak-35); background: var(--oak-08);
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.12s ease;
+  position: relative; flex-shrink: 0;
+}
+.evar-chk:hover { border-color: var(--gold); transform: scale(1.05); }
+.evar-chk:checked { background: var(--grad-gold); border-color: var(--gold-bright); }
+.evar-chk:checked::after {
+  content: ""; width: 5px; height: 10px; margin-top: -2px;
+  border: solid var(--evergreen-deep); border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg);
+}
 .srow-agrup.row-sel { border-color: var(--gold); background: rgba(127,196,160,0.06); }
+/* distribución propia de la fila de stock agrupado */
+.srow-agrup {
+  grid-template-columns: 220px 1fr 1fr auto auto auto;
+  gap: 18px;
+}
+.srow-agrup .eprice { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
+.srow-agrup .stepper { justify-self: center; }
+.srow-agrup .e-del { justify-self: end; }
+@media (max-width: 860px) { .srow-agrup { grid-template-columns: 1fr; } }
+
+/* ===== Popup de imagen ampliada ===== */
+.img-zoom {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 60;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  max-width: min(92vw, 560px); max-height: 90vh;
+}
+.img-zoom-pic {
+  max-width: 100%; max-height: 78vh; object-fit: contain;
+  border-radius: 14px; border: 1px solid var(--oak-35); background: var(--evergreen-soft);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.img-zoom-cap { font-size: 14px; color: var(--pale-oak); letter-spacing: 0.06em; text-align: center; }
+.img-zoom-close {
+  position: absolute; top: -14px; right: -14px; width: 38px; height: 38px; border-radius: 50%;
+  background: var(--pale-oak); color: var(--evergreen-deep); border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 18px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4); transition: transform 0.15s ease, filter 0.2s ease;
+}
+.img-zoom-close:hover { transform: scale(1.08); filter: brightness(1.05); }
+/* cursor de lupa en las fotos ampliables */
+.pimg.zoomable { cursor: zoom-in; transition: transform 0.15s ease; }
+.pimg.zoomable:hover { transform: scale(1.05); }
 @media (max-width: 640px) { .resumen-cards { grid-template-columns: 1fr; } .gasto-row { grid-template-columns: 1fr; } }
 
 /* ============ CAJA ============ */

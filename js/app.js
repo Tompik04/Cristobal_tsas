@@ -254,6 +254,20 @@ function cerrarModal() {
   document.getElementById("modalRoot").innerHTML = "";
 }
 
+// Popup para ver una imagen de prenda ampliada (se abre tocando la foto)
+function verImagenAmpliada(codigo, marca) {
+  const src = imgPrenda(codigo);
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-overlay" id="imgOv"></div>
+    <div class="img-zoom">
+      <button class="img-zoom-close" id="imgClose" aria-label="Cerrar"><i class="ti ti-x"></i></button>
+      <img class="img-zoom-pic" src="${src}" alt="${escAttr(marca || codigo)}" onerror="this.style.opacity=0.3">
+      <div class="img-zoom-cap">${escAttr(marca || "")} ${marca ? "·" : ""} ${escAttr(codigo)}</div>
+    </div>`;
+  document.getElementById("imgOv").onclick = cerrarModal;
+  document.getElementById("imgClose").onclick = cerrarModal;
+}
+
 // Popup de DOBLE confirmación para acciones excepcionales/peligrosas.
 // Pide confirmar dos veces (segundo paso con texto distinto) antes de ejecutar onOk.
 function dobleConfirmacion(opts) {

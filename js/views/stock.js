@@ -488,7 +488,7 @@ function srowAgrupadaHTML(p, f) {
       <div class="pcell">
         <label class="evar-check"><input type="checkbox" class="evar-chk" data-cod="${escAttr(p.codigo)}"></label>
         <div class="pimg-wrap">
-          <img class="pimg" src="${imgPrenda(p.codigo)}" alt="" onerror="this.style.opacity=0.3">
+          <img class="pimg zoomable" src="${imgPrenda(p.codigo)}" alt="" onerror="this.style.opacity=0.3">
           <button class="pimg-edit" data-act="editimg" title="Cambiar imagen"><i class="ti ti-camera"></i></button>
         </div>
         <div class="pinfo">
@@ -587,6 +587,8 @@ function bindSrowAgrupada(cont, p, f) {
     });
   };
   row.querySelector('[data-act="editprice"]').onclick = () => abrirEditarPrecio(p.codigo);
+  const imgEl = row.querySelector(".pimg.zoomable");
+  if (imgEl) imgEl.onclick = () => verImagenAmpliada(p.codigo, p.marca);
   row.querySelector('[data-act="editimg"]').onclick = () => {
     seleccionarYSubirImagen(p.codigo, (url) => {
       const nueva = url + "?t=" + Date.now();
