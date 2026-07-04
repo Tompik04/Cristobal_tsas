@@ -408,14 +408,14 @@ function renderExistente(categoria) {
   list.innerHTML = "";
   list.appendChild(barra);
 
-  // barra de acciones de selección múltiple (oculta hasta que se seleccione algo)
+  // barra de acciones de selección múltiple (flotante, no empuja el contenido)
   const selBar = document.createElement("div");
   selBar.id = "selBar";
-  selBar.className = "sel-bar hidden";
+  selBar.className = "sel-fab hidden";
   selBar.innerHTML = `
-    <label class="sel-all"><input type="checkbox" id="selAll"> Seleccionar todo</label>
-    <span id="selCount">0 seleccionadas</span>
-    <button class="btn-del-multi" id="delMulti"><i class="ti ti-trash"></i> Borrar seleccionadas</button>`;
+    <label class="sel-all"><input type="checkbox" id="selAll" class="evar-chk"> Todo</label>
+    <span id="selCount">0</span>
+    <button class="btn-del-multi" id="delMulti"><i class="ti ti-trash"></i> Borrar</button>`;
   list.appendChild(selBar);
 
   // contador de total de prendas (según filtro)
@@ -620,7 +620,7 @@ function actualizarBarraSeleccion() {
   if (!bar) return;
   const n = StockUI.seleccionadas ? StockUI.seleccionadas.size : 0;
   const countEl = document.getElementById("selCount");
-  if (countEl) countEl.textContent = `${n} seleccionada${n === 1 ? "" : "s"}`;
+  if (countEl) countEl.textContent = `${n} sel.`;
   bar.classList.toggle("hidden", n === 0);
 }
 

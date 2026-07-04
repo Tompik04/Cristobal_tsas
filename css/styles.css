@@ -256,7 +256,7 @@ button { font-family: inherit; }
 }
 .pcell { display: flex; align-items: center; gap: 12px; }
 .pimg-wrap { position: relative; width: 72px; height: 72px; flex-shrink: 0; }
-.pimg-wrap .pimg { width: 72px; height: 72px; }
+.pimg-wrap .pimg { width: 72px; height: 72px; border-radius: 8px; background: var(--oak-10); object-fit: contain; }
 .pimg-edit { position: absolute; bottom: -4px; right: -4px; width: 22px; height: 22px; border-radius: 50%; background: var(--pale-oak); color: var(--evergreen); border: 2px solid var(--evergreen); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 11px; padding: 0; }
 .pimg-edit:hover { background: var(--gold); }
 .pimg-edit i { font-size: 12px; }
@@ -474,22 +474,28 @@ button { font-family: inherit; }
 }
 .stock-total i { font-size: 16px; }
 
-/* ===== Selección múltiple en stock ===== */
-.sel-bar {
-  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-  padding: 10px 16px; margin-bottom: 12px;
-  background: rgba(201,122,109,0.1); border: 1px solid rgba(201,122,109,0.3); border-radius: 10px;
+/* ===== Selección múltiple en stock (barra flotante) ===== */
+.sel-fab {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(calc(-50% + 180px)); z-index: 31;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px; border-radius: 12px;
+  background: var(--evergreen-soft); border: 1px solid rgba(201,122,109,0.4);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
 }
-.sel-bar.hidden { display: none; }
-.sel-all { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--pale-oak); cursor: pointer; }
-.sel-bar #selCount { font-size: 13px; color: var(--oak-60); }
+.sel-fab.hidden { display: none; }
+.sel-all { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--pale-oak); cursor: pointer; white-space: nowrap; }
+.sel-fab #selCount { font-size: 12px; color: var(--oak-60); white-space: nowrap; }
 .btn-del-multi {
-  margin-left: auto; display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 6px;
   background: var(--danger); color: #fff; border: none; border-radius: 8px;
   padding: 8px 14px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
-  transition: filter 0.2s ease, transform 0.15s ease;
+  transition: filter 0.2s ease, transform 0.15s ease; white-space: nowrap;
 }
 .btn-del-multi:hover { filter: brightness(1.1); transform: translateY(-1px); }
+/* en pantallas chicas, apilar la barra flotante centrada arriba del Agregar todo */
+@media (max-width: 860px) {
+  .sel-fab { left: 12px; right: 12px; bottom: 88px; transform: none; justify-content: space-between; }
+}
 .evar-check { display: flex; align-items: center; margin-right: 6px; cursor: pointer; }
 .evar-chk {
   appearance: none; -webkit-appearance: none; -moz-appearance: none;
