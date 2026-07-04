@@ -2,7 +2,7 @@
    VISTA STOCK — categorías → cargar nuevo + gestionar existente
    ============================================================ */
 
-const StockUI = { categoria: null, pendientes: [] };
+const StockUI = { categoria: null, pendientes: [], seleccionadas: new Set() };
 let _rowSeq = 0;
 let _pendSeq = 0;
 
@@ -373,18 +373,25 @@ async function confirmarPendientes() {
   }
 }
 
-// ---- Stock existente ----
+// ---- Stock existente (agrupado por código, como ventas) ----
 function renderExistente(categoria) {
   const list = document.getElementById("existList");
-  const items = State.stock
-    .filter((s) => s.categoria === categoria)
-    .sort((a, b) => (a.codigo + a.talle + a.color).localeCompare(b.codigo + b.talle + b.color));
+  const items = State.stock.filter((s) => s.categoria === categoria);
   if (!items.length) {
     list.innerHTML = `<div class="soon"><i class="ti ti-package-off"></i><p>Todavía no hay stock en ${categoria}.</p></div>`;
     return;
   }
 
-  // barra de filtros encima de la lista
+  // agrupar por código
+  const porCodigo = {};
+  items.forEach((s) => {
+    if (!porCodigo[s.codigo]) porCodigo[s.codigo] = { codigo: s.codigo, marca: s.marca, precio: s.precio, costo: s.costo, variantes: [] };
+    porCodigo[s.codigo].variantes.push(s);
+  });
+  const productos = Object.values(porCodigo)
+    .sort((a, b) => (a.codigo).localeCompare(b.codigo));
+
+  // talles/colores disponibles para los filtros
   const tallesDisp = [...new Set(items.map((s) => s.talle))];
   const coloresDisp = [...new Set(items.map((s) => s.color))];
 
@@ -395,36 +402,70 @@ function renderExistente(categoria) {
       { id: "color", label: "Color", tipo: "select", opciones: coloresDisp },
       { id: "minCant", label: "Cant. mín.", tipo: "number" },
     ],
-    onChange: (f) => pintarStockExistente(items, f),
+    onChange: (f) => pintarStockExistente(productos, f),
   });
+
   list.innerHTML = "";
   list.appendChild(barra);
+
+  // barra de acciones de selección múltiple (oculta hasta que se seleccione algo)
+  const selBar = document.createElement("div");
+  selBar.id = "selBar";
+  selBar.className = "sel-bar hidden";
+  selBar.innerHTML = `
+    <label class="sel-all"><input type="checkbox" id="selAll"> Seleccionar todo</label>
+    <span id="selCount">0 seleccionadas</span>
+    <button class="btn-del-multi" id="delMulti"><i class="ti ti-trash"></i> Borrar seleccionadas</button>`;
+  list.appendChild(selBar);
+
   // contador de total de prendas (según filtro)
   const totalEl = document.createElement("div");
   totalEl.id = "stockTotal";
   totalEl.className = "stock-total";
   list.appendChild(totalEl);
+
   const cont = document.createElement("div");
   cont.id = "existCont";
-  cont.className = "stock-list";
+  cont.className = "prod-list";
   cont.style.padding = "0";
   list.appendChild(cont);
 
-  pintarStockExistente(items, {});
+  StockUI.seleccionadas = new Set();
+  pintarStockExistente(productos, {});
+
+  // acciones de la barra de selección
+  document.getElementById("selAll").onchange = (e) => {
+    const marcar = e.target.checked;
+    document.querySelectorAll("#existCont .evar-chk").forEach((chk) => {
+      chk.checked = marcar;
+      chk.dispatchEvent(new Event("change", { bubbles: false }));
+    });
+  };
+  document.getElementById("delMulti").onclick = borrarSeleccionadas;
 }
 
-function pintarStockExistente(items, f) {
+// filtra los productos agrupados y los pinta
+function pintarStockExistente(productos, f) {
   const cont = document.getElementById("existCont");
-  let lista = items.slice();
-  if (f.q) lista = lista.filter((s) => coincideTexto(s, f.q, ["marca", "codigo"]));
-  if (f.talle) lista = lista.filter((s) => s.talle === f.talle);
-  if (f.color) lista = lista.filter((s) => s.color === f.color);
-  if (f.minCant) lista = lista.filter((s) => s.cantidad >= Number(f.minCant));
+  let lista = productos.slice();
 
-  // actualizar el contador de total de prendas (suma de cantidades)
+  if (f.q) lista = lista.filter((p) => coincideTexto({ marca: p.marca, codigo: p.codigo }, f.q, ["marca", "codigo"]));
+  // filtros de talle/color: dejan solo los productos que tengan esa variante
+  if (f.talle) lista = lista.filter((p) => p.variantes.some((v) => v.talle === f.talle));
+  if (f.color) lista = lista.filter((p) => p.variantes.some((v) => v.color === f.color));
+  if (f.minCant) {
+    const min = Number(f.minCant);
+    lista = lista.filter((p) => p.variantes.reduce((a, v) => a + v.cantidad, 0) >= min);
+  }
+
+  // total de prendas (según filtro)
   const totalEl = document.getElementById("stockTotal");
   if (totalEl) {
-    const totalUnidades = lista.reduce((a, s) => a + (Number(s.cantidad) || 0), 0);
+    const totalUnidades = lista.reduce((a, p) => a + p.variantes.reduce((b, v) => {
+      if (f.talle && v.talle !== f.talle) return b;
+      if (f.color && v.color !== f.color) return b;
+      return b + (Number(v.cantidad) || 0);
+    }, 0), 0);
     const hayFiltro = !!(f.q || f.talle || f.color || f.minCant);
     totalEl.innerHTML = `<i class="ti ti-hanger"></i> ${totalUnidades} ${totalUnidades === 1 ? "prenda" : "prendas"}${hayFiltro ? " (filtrado)" : " en total"}`;
   }
@@ -433,78 +474,180 @@ function pintarStockExistente(items, f) {
     cont.innerHTML = `<div class="soon"><i class="ti ti-search-off"></i><p>Sin resultados.</p></div>`;
     return;
   }
-  cont.innerHTML = lista.map(erowHTML).join("");
-  lista.forEach((it) => bindErow(cont, it));
+  cont.innerHTML = lista.map((p) => srowAgrupadaHTML(p, f)).join("");
+  lista.forEach((p) => bindSrowAgrupada(cont, p, f));
+  actualizarBarraSeleccion();
 }
 
-function erowKey(it) { return `${it.codigo}__${it.talle}__${it.color}`; }
-
-function erowHTML(it) {
-  const pct = gananciaPct(it.precio, it.costo);
+// fila de stock agrupada por código
+function srowAgrupadaHTML(p, f) {
+  const talles = [...new Set(p.variantes.map((v) => v.talle))];
+  const tallesOpt = talles.map((t) => `<option value="${t}">${t}</option>`).join("");
   return `
-    <div class="erow" data-key="${erowKey(it)}">
+    <div class="prow srow-agrup" data-cod="${escAttr(p.codigo)}">
       <div class="pcell">
+        <label class="evar-check"><input type="checkbox" class="evar-chk" data-cod="${escAttr(p.codigo)}"></label>
         <div class="pimg-wrap">
-          <img class="pimg" src="${imgPrenda(it.codigo)}" alt="" onerror="this.style.opacity=0.3">
+          <img class="pimg" src="${imgPrenda(p.codigo)}" alt="" onerror="this.style.opacity=0.3">
           <button class="pimg-edit" data-act="editimg" title="Cambiar imagen"><i class="ti ti-camera"></i></button>
         </div>
-        <div class="pinfo"><span class="pmarca">${escAttr(it.marca)}</span><span class="pcod">${escAttr(it.codigo)}</span></div>
+        <div class="pinfo">
+          <span class="pmarca">${escAttr(p.marca)}</span>
+          <span class="pcod">${escAttr(p.codigo)}</span>
+        </div>
       </div>
-      <div class="evar">Talle <strong>${it.talle}</strong> · Color <strong>${it.color}</strong></div>
+      <div class="field">
+        <label>Talle</label>
+        <select data-f="talle">${tallesOpt}</select>
+      </div>
+      <div class="field">
+        <label>Color</label>
+        <select data-f="color"></select>
+      </div>
       <div class="eprice">
         <div class="eprice-stack">
-          <span class="eprice-val">${formatPrecio(it.precio)}</span>
-          <span class="eprice-cost">Costo ${formatPrecio(it.costo)} · +${pct}%</span>
+          <span class="eprice-val">${formatPrecio(p.precio)}</span>
+          <span class="eprice-cost">Costo ${formatPrecio(p.costo)} · +${gananciaPct(p.precio, p.costo)}%</span>
         </div>
         <button class="e-editprice" data-act="editprice" title="Editar precios del código"><i class="ti ti-pencil"></i></button>
       </div>
       <div class="stepper">
         <button class="step-btn" data-act="minus">&minus;</button>
-        <span class="step-qty">${it.cantidad}</span>
+        <span class="step-qty" data-f="qty">0</span>
         <button class="step-btn" data-act="plus">+</button>
       </div>
-      <button class="e-del" data-act="del" title="Eliminar stock"><i class="ti ti-trash"></i></button>
+      <button class="e-del" data-act="del" title="Eliminar esta variante"><i class="ti ti-trash"></i></button>
     </div>`;
 }
 
-function bindErow(list, it) {
-  const row = list.querySelector(`.erow[data-key="${erowKey(it)}"]`);
-  const qtyEl = row.querySelector(".step-qty");
-  const ref = () => State.stock.find((s) => s.codigo === it.codigo && s.talle === it.talle && s.color === it.color);
+function bindSrowAgrupada(cont, p, f) {
+  const row = cont.querySelector(`.srow-agrup[data-cod="${cssEsc(p.codigo)}"]`);
+  if (!row) return;
+  const selTalle = row.querySelector('[data-f="talle"]');
+  const selColor = row.querySelector('[data-f="color"]');
+  const qtyEl = row.querySelector('[data-f="qty"]');
+
+  function coloresDeTalle(talle) {
+    return p.variantes.filter((v) => v.talle === talle);
+  }
+  function varianteActual() {
+    return p.variantes.find((v) => v.talle === selTalle.value && v.color === selColor.value);
+  }
+  function refrescarColores() {
+    const cols = coloresDeTalle(selTalle.value);
+    selColor.innerHTML = cols.map((v) => `<option value="${escAttr(v.color)}">${v.color}</option>`).join("");
+    refrescarCantidad();
+  }
+  function refrescarCantidad() {
+    const v = varianteActual();
+    qtyEl.textContent = v ? v.cantidad : 0;
+  }
+
+  // preseleccionar según filtro de talle/color si está puesto
+  if (f && f.talle && [...selTalle.options].some((o) => o.value === f.talle)) selTalle.value = f.talle;
+  refrescarColores();
+  if (f && f.color && [...selColor.options].some((o) => o.value === f.color)) { selColor.value = f.color; refrescarCantidad(); }
+
+  selTalle.onchange = refrescarColores;
+  selColor.onchange = refrescarCantidad;
+
+  const refVar = () => {
+    const v = varianteActual();
+    return v ? State.stock.find((s) => s.codigo === v.codigo && s.talle === v.talle && s.color === v.color) : null;
+  };
+
   row.querySelector('[data-act="plus"]').onclick = async () => {
-    const r = ref(); r.cantidad++; qtyEl.textContent = r.cantidad;
-    await API.ajustarStock(it.codigo, it.talle, it.color, +1);
+    const v = varianteActual(); if (!v) return;
+    const r = refVar(); r.cantidad++; v.cantidad = r.cantidad; qtyEl.textContent = r.cantidad;
+    await API.ajustarStock(v.codigo, v.talle, v.color, +1);
   };
   row.querySelector('[data-act="minus"]').onclick = async () => {
-    const r = ref(); if (r.cantidad <= 0) return;
-    r.cantidad--; qtyEl.textContent = r.cantidad;
-    await API.ajustarStock(it.codigo, it.talle, it.color, -1);
+    const v = varianteActual(); if (!v) return;
+    const r = refVar(); if (r.cantidad <= 0) return;
+    r.cantidad--; v.cantidad = r.cantidad; qtyEl.textContent = r.cantidad;
+    await API.ajustarStock(v.codigo, v.talle, v.color, -1);
   };
   row.querySelector('[data-act="del"]').onclick = () => {
+    const v = varianteActual(); if (!v) return;
     dobleConfirmacion({
       titulo: "Eliminar stock",
-      mensaje1: `Vas a eliminar todo el stock de ${it.codigo} (talle ${it.talle}, color ${it.color}).`,
-      mensaje2: "Se borra la combinación completa del inventario. ¿Confirmás?",
+      mensaje1: `Vas a eliminar el stock de ${v.codigo} (talle ${v.talle}, color ${v.color}).`,
+      mensaje2: "Se borra esa combinación del inventario. ¿Confirmás?",
       textoBoton: "Eliminar",
       onOk: async () => {
-        const r = ref(); const idx = State.stock.indexOf(r);
+        const r = refVar(); const idx = State.stock.indexOf(r);
         if (idx >= 0) State.stock.splice(idx, 1);
-        await API.eliminarStock(it.codigo, it.talle, it.color);
-        row.remove();
-        toast(`${it.codigo} ${it.talle}/${it.color} eliminado`);
+        // quitar de las variantes del producto en memoria
+        const vi = p.variantes.indexOf(v); if (vi >= 0) p.variantes.splice(vi, 1);
+        await API.eliminarStock(v.codigo, v.talle, v.color);
+        toast(`${v.codigo} ${v.talle}/${v.color} eliminado`);
+        if (!p.variantes.length) row.remove();
+        else refrescarColores();
       },
     });
   };
-  row.querySelector('[data-act="editprice"]').onclick = () => abrirEditarPrecio(it.codigo);
+  row.querySelector('[data-act="editprice"]').onclick = () => abrirEditarPrecio(p.codigo);
   row.querySelector('[data-act="editimg"]').onclick = () => {
-    seleccionarYSubirImagen(it.codigo, (url) => {
-      // refrescar todas las imágenes de ese código en pantalla (con cache-busting)
+    seleccionarYSubirImagen(p.codigo, (url) => {
       const nueva = url + "?t=" + Date.now();
-      document.querySelectorAll(".erow .pimg").forEach((img) => {
-        if (img.closest(".erow").querySelector(".pcod").textContent === it.codigo) img.src = nueva;
-      });
+      row.querySelector(".pimg").src = nueva;
     });
   };
+
+  // checkbox de selección múltiple
+  const chk = row.querySelector(".evar-chk");
+  chk.onchange = () => {
+    if (chk.checked) StockUI.seleccionadas.add(p.codigo);
+    else StockUI.seleccionadas.delete(p.codigo);
+    row.classList.toggle("row-sel", chk.checked);
+    actualizarBarraSeleccion();
+  };
+  // restaurar estado si ya estaba seleccionada
+  if (StockUI.seleccionadas.has(p.codigo)) { chk.checked = true; row.classList.add("row-sel"); }
+}
+
+// escapa para usar en selector CSS (querySelector con data-cod)
+function cssEsc(s) {
+  if (window.CSS && CSS.escape) return CSS.escape(s);
+  return String(s).replace(/["\\\]]/g, "\\$&");
+}
+
+// actualiza la barra de selección múltiple (contador + visibilidad)
+function actualizarBarraSeleccion() {
+  const bar = document.getElementById("selBar");
+  if (!bar) return;
+  const n = StockUI.seleccionadas ? StockUI.seleccionadas.size : 0;
+  const countEl = document.getElementById("selCount");
+  if (countEl) countEl.textContent = `${n} seleccionada${n === 1 ? "" : "s"}`;
+  bar.classList.toggle("hidden", n === 0);
+}
+
+// borra todas las prendas (códigos) seleccionados, con doble confirmación
+function borrarSeleccionadas() {
+  const cods = [...(StockUI.seleccionadas || [])];
+  if (!cods.length) return;
+  dobleConfirmacion({
+    titulo: "Borrar seleccionadas",
+    mensaje1: `Vas a eliminar TODO el stock de ${cods.length} código${cods.length === 1 ? "" : "s"}: ${cods.join(", ")}.`,
+    mensaje2: "Se borran todas las variantes (talles y colores) de esos códigos. ¿Confirmás?",
+    textoBoton: "Borrar todo",
+    onOk: async () => {
+      for (const cod of cods) {
+        // eliminar todas las variantes de ese código
+        const variantes = State.stock.filter((s) => s.codigo === cod);
+        for (const v of variantes) {
+          await API.eliminarStock(v.codigo, v.talle, v.color);
+        }
+        // quitar de memoria
+        for (let i = State.stock.length - 1; i >= 0; i--) {
+          if (State.stock[i].codigo === cod) State.stock.splice(i, 1);
+        }
+      }
+      StockUI.seleccionadas.clear();
+      toast(`${cods.length} código${cods.length === 1 ? "" : "s"} eliminado${cods.length === 1 ? "" : "s"}`);
+      renderStockCategoria(document.getElementById("view"), StockUI.categoria);
+    },
+  });
 }
 
 // Editar precio y costo a nivel código (afecta todas las variantes)
