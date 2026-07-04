@@ -90,7 +90,7 @@ function pintarProductosVentas(root, productos, f) {
       }, 0);
     }, 0);
     const hayFiltro = !!(f.q || f.talle || f.color || f.minCant);
-    totalEl.innerHTML = `<i class="ti ti-hanger"></i> ${totalUnidades} ${totalUnidades === 1 ? "prenda" : "prendas"}${hayFiltro ? " (filtrado)" : " en total"}`;
+    totalEl.innerHTML = `<i class="ti ti-hanger"></i> Total de prendas: ${totalUnidades}${hayFiltro ? " (filtrado)" : ""}`;
   }
 
   if (!lista.length) {

@@ -467,7 +467,7 @@ function pintarStockExistente(productos, f) {
       return b + (Number(v.cantidad) || 0);
     }, 0), 0);
     const hayFiltro = !!(f.q || f.talle || f.color || f.minCant);
-    totalEl.innerHTML = `<i class="ti ti-hanger"></i> ${totalUnidades} ${totalUnidades === 1 ? "prenda" : "prendas"}${hayFiltro ? " (filtrado)" : " en total"}`;
+    totalEl.innerHTML = `<i class="ti ti-hanger"></i> Total de prendas: ${totalUnidades}${hayFiltro ? " (filtrado)" : ""}`;
   }
 
   if (!lista.length) {
@@ -486,7 +486,6 @@ function srowAgrupadaHTML(p, f) {
   return `
     <div class="prow srow-agrup" data-cod="${escAttr(p.codigo)}">
       <div class="pcell">
-        <label class="evar-check"><input type="checkbox" class="evar-chk" data-cod="${escAttr(p.codigo)}"></label>
         <div class="pimg-wrap">
           <img class="pimg zoomable" src="${imgPrenda(p.codigo)}" alt="" onerror="this.style.opacity=0.3">
           <button class="pimg-edit" data-act="editimg" title="Cambiar imagen"><i class="ti ti-camera"></i></button>
@@ -517,6 +516,7 @@ function srowAgrupadaHTML(p, f) {
         <button class="step-btn" data-act="plus">+</button>
       </div>
       <button class="e-del" data-act="del" title="Eliminar esta variante"><i class="ti ti-trash"></i></button>
+      <label class="evar-check"><input type="checkbox" class="evar-chk" data-cod="${escAttr(p.codigo)}"></label>
     </div>`;
 }
 
@@ -577,12 +577,10 @@ function bindSrowAgrupada(cont, p, f) {
       onOk: async () => {
         const r = refVar(); const idx = State.stock.indexOf(r);
         if (idx >= 0) State.stock.splice(idx, 1);
-        // quitar de las variantes del producto en memoria
-        const vi = p.variantes.indexOf(v); if (vi >= 0) p.variantes.splice(vi, 1);
         await API.eliminarStock(v.codigo, v.talle, v.color);
         toast(`${v.codigo} ${v.talle}/${v.color} eliminado`);
-        if (!p.variantes.length) row.remove();
-        else refrescarColores();
+        // re-renderizar la categoría completa para actualizar el contador y la agrupación
+        renderStockCategoria(document.getElementById("view"), StockUI.categoria);
       },
     });
   };

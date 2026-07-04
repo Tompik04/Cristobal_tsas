@@ -515,12 +515,13 @@ button { font-family: inherit; }
 .srow-agrup.row-sel { border-color: var(--gold); background: rgba(127,196,160,0.06); }
 /* distribución propia de la fila de stock agrupado */
 .srow-agrup {
-  grid-template-columns: 220px 1fr 1fr auto auto auto;
+  grid-template-columns: 220px 1fr 1fr auto auto auto auto;
   gap: 18px;
 }
 .srow-agrup .eprice { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
 .srow-agrup .stepper { justify-self: center; }
 .srow-agrup .e-del { justify-self: end; }
+.srow-agrup .evar-check { justify-self: center; margin-right: 0; }
 @media (max-width: 860px) { .srow-agrup { grid-template-columns: 1fr; } }
 
 /* ===== Popup de imagen ampliada ===== */
