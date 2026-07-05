@@ -90,10 +90,10 @@ const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 337 333" 
 
 // Categorías (orden = número de categoría en el código)
 const CATEGORIAS = [
-  { num: "01", nombre: "Remeras" },
-  { num: "02", nombre: "Buzos" },
-  { num: "03", nombre: "Camperas" },
-  { num: "04", nombre: "Camisas" },
+  { num: "01", nombre: "Remeras M/Corta" },
+  { num: "02", nombre: "Buzos y Camperas" },
+  { num: "03", nombre: "Chaquetas" },
+  { num: "04", nombre: "Camisa M/Corta" },
   { num: "05", nombre: "Abrigos" },
   { num: "06", nombre: "Jeans" },
   { num: "07", nombre: "Cargos" },
@@ -105,16 +105,21 @@ const CATEGORIAS = [
   { num: "13", nombre: "Chombas" },
   { num: "14", nombre: "Chalecos" },
   { num: "15", nombre: "Camisacos" },
+  { num: "16", nombre: "Poleras-Remeras M/Larga" },
+  { num: "17", nombre: "Camisa M/Larga" },
+  { num: "18", nombre: "Pantalón Gabardina" },
+  { num: "19", nombre: "Pantalón de Lino" },
+  { num: "20", nombre: "Accesorios" },
 ];
 
 const OFERTAS = [0, 5, 10, 15, 20];
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito"];
 
 // Categorías de gastos del local
-const CATEGORIAS_GASTO = ["Alquiler", "Luz", "Internet", "Monotributo", "Sueldos", "Mercadería", "Mantenimiento", "Envíos", "Materiales", "Otros"];
+const CATEGORIAS_GASTO = ["Alquiler", "Luz", "Internet", "Monotributo", "Alarma", "Seguro", "Sueldos", "Mercadería", "Mantenimiento", "Envíos", "Materiales", "Otros"];
 
 // Checklist de control mensual: obligatorios (no deberían faltar) y opcionales
-const GASTOS_OBLIGATORIOS = ["Alquiler", "Luz", "Internet", "Monotributo"];
+const GASTOS_OBLIGATORIOS = ["Alquiler", "Luz", "Internet", "Monotributo", "Alarma", "Seguro"];
 const GASTOS_OPCIONALES = ["Sueldos", "Mercadería", "Mantenimiento", "Envíos", "Materiales", "Otros"];
 
 // Denominaciones de billetes que maneja la Caja
@@ -146,17 +151,17 @@ function metodoColoreado(metodo) {
 }
 
 // Listas fijas para cargar stock
-const TALLES = ["S", "M", "L", "XL", "XXL", "3XL", "36", "38", "40", "42", "44", "46", "48"];
-const COLORES = ["Negro", "Blanco", "Gris", "Verde", "Azul", "Rojo", "Beige", "Marrón", "Mostaza", "Celeste", "Violeta", "Rosa", "Naranja"];
+const TALLES = ["S", "M", "L", "XL", "XXL", "3XL", "36", "38", "40", "42", "44", "46", "48", "50", "52", "54"];
+const COLORES = ["Negro", "Blanco", "Gris", "Beige", "Azul", "Marrón", "Celeste", "Verde", "Rojo", "Rosa", "Naranja", "Violeta", "Mostaza"];
 
 // Talles según categoría (provisorio, se ajusta más adelante)
 const TALLES_LETRA = ["S", "M", "L", "XL", "XXL", "3XL", "50", "52", "54"];
 const TALLES_NUMERO = ["36", "38", "40", "42", "44", "46", "48"];
 const TALLES_POR_CATEGORIA = {
-  Remeras: TALLES_LETRA,
-  Buzos: TALLES_LETRA,
-  Camperas: TALLES_LETRA,
-  Camisas: TALLES_LETRA,
+  "Remeras M/Corta": TALLES_LETRA,
+  "Buzos y Camperas": TALLES_LETRA,
+  Chaquetas: TALLES_LETRA,
+  "Camisa M/Corta": TALLES_LETRA,
   Abrigos: TALLES_LETRA,
   Mayas: TALLES_LETRA,
   Musculosas: TALLES_LETRA,
@@ -164,10 +169,15 @@ const TALLES_POR_CATEGORIA = {
   Chombas: TALLES_LETRA,
   Chalecos: TALLES_LETRA,
   Camisacos: TALLES_LETRA,
+  "Poleras-Remeras M/Larga": TALLES_LETRA,
+  "Camisa M/Larga": TALLES_LETRA,
+  Accesorios: TALLES_LETRA,
   Jeans: TALLES_NUMERO,
   Cargos: TALLES_NUMERO,
   Babucha: TALLES_NUMERO,
   Shorts: TALLES_NUMERO,
+  "Pantalón Gabardina": TALLES_NUMERO,
+  "Pantalón de Lino": TALLES_NUMERO,
 };
 function tallesDeCategoria(cat) {
   return TALLES_POR_CATEGORIA[cat] || TALLES_LETRA;

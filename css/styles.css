@@ -6,7 +6,7 @@
   --platinum: #E9E9ED;
   --coffee: #0F060B;
 
-  /* acentosss que combinan con la paleta — JADE CLARO */
+  /* acentos que combinan con la paleta — JADE CLARO */
   --gold: #7FC4A0;          /* jade (acento principal) */
   --gold-bright: #9FD9BB;   /* jade luminoso */
   --terracotta: #B86A4B;    /* terracota suave */
@@ -58,7 +58,7 @@ html, body {
 
 button { font-family: inherit; }
 
-/* ============ LOGIN =============== */
+/* ============ LOGIN ============ */
 .login-screen {
   position: fixed; inset: 0;
   background: var(--evergreen);
@@ -472,6 +472,8 @@ button { font-family: inherit; }
   background: rgba(127,196,160,0.08); border: 1px solid rgba(127,196,160,0.25); border-radius: 8px;
   width: fit-content;
 }
+/* en ventas el contenedor no tiene padding lateral, así que separamos del borde */
+#ventasTotal { margin-right: 16px; }
 .stock-total i { font-size: 16px; }
 
 /* ===== Selección múltiple en stock (barra flotante) ===== */
