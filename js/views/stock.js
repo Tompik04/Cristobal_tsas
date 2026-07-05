@@ -41,6 +41,9 @@ function renderStockCategoria(root, categoria) {
     <div class="stock-list" id="loadList">
       <div class="snew-trigger" id="newTrigger"><i class="ti ti-plus"></i> Nueva prenda</div>
     </div>
+    <div class="load-actions-bar" id="loadActionsBar" style="display:none">
+      <button class="add-all-rows" id="addAllRows"><i class="ti ti-checks"></i> Agregar todas las filas</button>
+    </div>
     <p class="stock-section-title">Stock existente</p>
     <div class="stock-list" id="existList"></div>
     <button class="pending-bar" id="pendingBar" disabled>
@@ -50,8 +53,48 @@ function renderStockCategoria(root, categoria) {
   `;
   document.getElementById("newTrigger").onclick = () => agregarFilaCarga(true);
   document.getElementById("pendingBar").onclick = togglePendientes;
+  const addAllBtn = document.getElementById("addAllRows");
+  if (addAllBtn) addAllBtn.onclick = agregarTodasLasFilas;
   renderExistente(categoria);
   actualizarBarraPendientes();
+  actualizarBarraFilasCarga();
+}
+
+// muestra u oculta la barra "Agregar todas las filas" según si hay filas de carga escritas
+function actualizarBarraFilasCarga() {
+  const bar = document.getElementById("loadActionsBar");
+  if (!bar) return;
+  const filas = document.querySelectorAll("#loadList .srow.is-new");
+  bar.style.display = filas.length >= 2 ? "flex" : "none";
+}
+
+// recorre todas las filas de carga y agrega a pendientes las que estén completas
+function agregarTodasLasFilas() {
+  const filas = [...document.querySelectorAll("#loadList .srow.is-new")];
+  if (!filas.length) return;
+  let agregadas = 0, incompletas = 0;
+  filas.forEach((row) => {
+    const d = leerFila(row);
+    // completar precio/costo desde lo conocido si falta
+    if (!d.precio) { const p = precioConocido(d.codigo); if (p != null) d.precio = p; }
+    if (!d.costo) { const c = costoConocido(d.codigo); if (c != null) d.costo = c; }
+    // validar
+    if (!d.codigo || d.codigo.length < 6 || !d.marca || !d.precio || !d.costo || d.costo > d.precio) {
+      incompletas++;
+      return;
+    }
+    d.categoria = StockUI.categoria;
+    d._pid = "p" + _pendSeq++;
+    StockUI.pendientes.push(d);
+    // marcar la fila como agregada (check verde)
+    const addBtn = row.querySelector('[data-act="add"]');
+    if (addBtn) { addBtn.classList.add("confirmed"); addBtn.querySelector("i").className = "ti ti-check"; }
+    agregadas++;
+  });
+  actualizarBarraPendientes();
+  if (agregadas && incompletas) toast(`${agregadas} agregadas, ${incompletas} incompletas`);
+  else if (agregadas) toast(`${agregadas} prenda${agregadas === 1 ? "" : "s"} agregada${agregadas === 1 ? "" : "s"}`);
+  else toast("No hay filas completas para agregar");
 }
 
 function selectHTML(opciones, sel) {
@@ -111,16 +154,22 @@ function filaCargaHTML(id, datos) {
     </div>`;
 }
 
-function agregarFilaCarga(focus, datos) {
+function agregarFilaCarga(focus, datos, despuesDe) {
   const id = "r" + _rowSeq++;
   const list = document.getElementById("loadList");
   const trigger = document.getElementById("newTrigger");
   const tmp = document.createElement("div");
   tmp.innerHTML = filaCargaHTML(id, datos);
   const row = tmp.firstElementChild;
-  list.insertBefore(row, trigger);
+  if (despuesDe && despuesDe.nextSibling) {
+    // insertar justo debajo de la fila indicada
+    list.insertBefore(row, despuesDe.nextSibling);
+  } else {
+    list.insertBefore(row, trigger);
+  }
   bindFilaCarga(row);
   if (focus) row.querySelector('[data-f="codigo"]').focus();
+  actualizarBarraFilasCarga();
   return row;
 }
 
@@ -250,16 +299,18 @@ function bindFilaCarga(row) {
   row.querySelector('[data-act="all-talle"]').onclick = () => {
     const base = leerFila(row);
     const talles = tallesDeCategoria(StockUI.categoria);
-    talles.filter((t) => t !== base.talle).forEach((t) => agregarFilaCarga(false, { ...base, talle: t }));
+    let ref = row;
+    talles.filter((t) => t !== base.talle).forEach((t) => { ref = agregarFilaCarga(false, { ...base, talle: t }, ref); });
     toast(`Duplicado en ${talles.length - 1} talles`);
   };
   row.querySelector('[data-act="all-color"]').onclick = () => {
     const base = leerFila(row);
-    COLORES.filter((c) => c !== base.color).forEach((c) => agregarFilaCarga(false, { ...base, color: c }));
+    let ref = row;
+    COLORES.filter((c) => c !== base.color).forEach((c) => { ref = agregarFilaCarga(false, { ...base, color: c }, ref); });
     toast(`Duplicado en ${COLORES.length - 1} colores`);
   };
-  row.querySelector('[data-act="dup-talle"]').onclick = () => { agregarFilaCarga(false, leerFila(row)); toast("Fila duplicada"); };
-  row.querySelector('[data-act="dup-color"]').onclick = () => { agregarFilaCarga(false, leerFila(row)); toast("Fila duplicada"); };
+  row.querySelector('[data-act="dup-talle"]').onclick = () => { agregarFilaCarga(false, leerFila(row), row); toast("Fila duplicada"); };
+  row.querySelector('[data-act="dup-color"]').onclick = () => { agregarFilaCarga(false, leerFila(row), row); toast("Fila duplicada"); };
 
   // agregar a pendientes — la fila NO desaparece
   addBtn.onclick = () => {
@@ -315,7 +366,7 @@ function bindFilaCarga(row) {
   };
 
   // eliminar fila
-  row.querySelector('[data-act="remove"]').onclick = () => row.remove();
+  row.querySelector('[data-act="remove"]').onclick = () => { row.remove(); actualizarBarraFilasCarga(); };
 }
 
 function actualizarBarraPendientes() {
@@ -597,6 +648,15 @@ function bindSrowAgrupada(cont, p, f, idx) {
   };
   row.querySelector('[data-act="minus"]').onclick = async () => {
     const r = refVar(); if (!r || r.cantidad <= 0) return;
+    if (r.cantidad === 1) {
+      // al bajar de 1 a 0, se elimina esa variante para que no quede el talle en 0
+      const idx = State.stock.indexOf(r);
+      if (idx >= 0) State.stock.splice(idx, 1);
+      await API.eliminarStock(r.id);
+      toast(`${r.codigo} ${r.talle}/${r.color} agotado, se quitó`);
+      renderStockCategoria(document.getElementById("view"), StockUI.categoria);
+      return;
+    }
     r.cantidad--; qtyEl.textContent = r.cantidad;
     await API.ajustarStock(r.id, -1);
   };

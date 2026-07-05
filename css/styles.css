@@ -742,6 +742,15 @@ button { font-family: inherit; }
 .s-clear { width: 42px; height: 42px; border-radius: 10px; border: 1px solid var(--oak-35); background: var(--oak-08); color: var(--oak-60); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s, border-color 0.15s, color 0.15s; }
 .s-clear:hover { background: rgba(224,164,88,0.18); border-color: var(--amber); color: var(--amber); }
 .s-clear i { font-size: 20px; }
+.load-actions-bar { display: flex; justify-content: center; margin: 4px 0 8px; }
+.add-all-rows {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(95,168,106,0.15); color: var(--success); border: 1px solid rgba(95,168,106,0.4);
+  border-radius: 10px; padding: 10px 20px; font-family: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: background 0.18s ease, transform 0.15s ease;
+}
+.add-all-rows:hover { background: rgba(95,168,106,0.28); transform: translateY(-1px); }
+.add-all-rows i { font-size: 18px; }
 .snew-trigger { display: flex; align-items: center; justify-content: center; gap: 12px; background: var(--oak-08); border: 1px dashed var(--oak-35); border-radius: var(--r); padding: 20px; cursor: pointer; transition: background 0.15s, border-color 0.15s; color: var(--oak-60); font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; }
 .snew-trigger:hover { background: var(--oak-20); border-color: var(--oak-55); color: var(--pale-oak); }
 .snew-trigger i { font-size: 26px; }
