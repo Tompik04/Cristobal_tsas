@@ -5,6 +5,7 @@
 const State = {
   stock: [],          // todo el stock cargado
   carrito: [],        // líneas agregadas { codigo, marca, talle, color, oferta, cantidad, precio }
+  descuentoCarrito: 0, // % de descuento general aplicado a todo el carrito
   vistaActual: "home",
   dentroCategoria: false, // true cuando estás dentro de una categoría (Ventas/Stock)
   privadoHasta: 0,    // timestamp hasta el cual el modo privado está activo

@@ -229,6 +229,13 @@ function bindFila(root, p) {
 
 // ---- Carrito ---- (el FAB y el badge ahora son globales en app.js)
 
+// total del carrito con el descuento general aplicado
+function totalConDescuentoCarrito() {
+  const base = State.carrito.reduce((a, l) => a + precioLinea(l), 0);
+  const desc = State.descuentoCarrito || 0;
+  return base * (1 - desc / 100);
+}
+
 function abrirCarrito() {
   const items = State.carrito.length
     ? State.carrito
@@ -248,13 +255,26 @@ function abrirCarrito() {
 
   const total = State.carrito.reduce((a, l) => a + precioLinea(l), 0);
   const enModoCuenta = !!State.cuentaDestino;
+  // aviso si alguna prenda ya trae oferta propia
+  const algunaConOferta = State.carrito.some((l) => l.oferta > 0);
 
   document.getElementById("modalRoot").innerHTML = `
     <div class="modal-overlay" id="ov"></div>
     <aside class="drawer">
-      <h2>${enModoCuenta ? "Agregar a cuenta" : "Carrito"}</h2>
+      <div class="drawer-head">
+        <h2>${enModoCuenta ? "Agregar a cuenta" : "Carrito"}</h2>
+        ${State.carrito.length ? `<button class="drawer-clear" id="vaciarCarrito"><i class="ti ti-trash"></i> Vaciar</button>` : ""}
+      </div>
       <div class="drawer-items">${items}</div>
-      <div class="modal-total"><span>Total</span><span>${formatPrecio(total)}</span></div>
+      ${!enModoCuenta && State.carrito.length ? `
+        <div class="drawer-desc">
+          <div class="field">
+            <label>Descuento a toda la compra (%)</label>
+            <input type="number" id="descGeneral" class="sinput" min="0" max="100" placeholder="0" value="${State.descuentoCarrito || ""}">
+          </div>
+          ${algunaConOferta ? `<p class="desc-aviso"><i class="ti ti-alert-triangle"></i> Algunas prendas ya tienen descuento propio</p>` : ""}
+        </div>` : ""}
+      <div class="modal-total"><span>Total</span><span id="carritoTotal">${formatPrecio(totalConDescuentoCarrito())}</span></div>
       <div class="modal-actions">
         <button class="btn-ghost" id="cerrar">Seguir</button>
         ${enModoCuenta
@@ -265,10 +285,44 @@ function abrirCarrito() {
 
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("cerrar").onclick = cerrarModal;
+
+  // descuento general del carrito
+  const descInput = document.getElementById("descGeneral");
+  if (descInput) descInput.oninput = () => {
+    let v = Number(descInput.value) || 0;
+    if (v < 0) v = 0; if (v > 100) v = 100;
+    State.descuentoCarrito = v;
+    document.getElementById("carritoTotal").textContent = formatPrecio(totalConDescuentoCarrito());
+  };
+
+  // vaciar carrito completo (confirma solo si hay varias prendas)
+  const btnVaciar = document.getElementById("vaciarCarrito");
+  if (btnVaciar) btnVaciar.onclick = () => {
+    const vaciar = () => {
+      State.carrito = [];
+      State.descuentoCarrito = 0;
+      actualizarBadge();
+      renderCartFab();
+      cerrarModal();
+      toast("Carrito vaciado");
+    };
+    if (State.carrito.length > 1) {
+      dobleConfirmacion({
+        titulo: "Vaciar carrito",
+        mensaje1: `Vas a quitar las ${State.carrito.length} prendas del carrito.`,
+        mensaje2: "¿Confirmás?",
+        textoBoton: "Vaciar todo",
+        onOk: vaciar,
+      });
+    } else {
+      vaciar();
+    }
+  };
+
   const btnCobrar = document.getElementById("cobrar");
   if (btnCobrar) btnCobrar.onclick = () => {
     cerrarModal();
-    abrirPopupVenta(State.carrito.slice());
+    abrirPopupVenta(State.carrito.slice(), { descuentoCarrito: State.descuentoCarrito || 0, esCarrito: true });
   };
   const btnCuenta = document.getElementById("aCuenta");
   if (btnCuenta) btnCuenta.onclick = async () => {
@@ -328,14 +382,22 @@ function hoyInput() {
   return d.toISOString().slice(0, 10);
 }
 
-function abrirPopupVenta(lineas) {
+function abrirPopupVenta(lineas, opts) {
+  opts = opts || {};
+  const descuentoCarrito = opts.descuentoCarrito || 0;
+  const esCarrito = !!opts.esCarrito;
   // estado de pago: simple o dividido
   let modoDividido = false;
   let metodo1 = null, metodo2 = null;
   let montoTarjetaManual = null;
   let voucherSel = null; // voucher aplicado
+  // estado del descuento manual del popup
+  let descActivo = false;
+  let descMontoFinal = null; // monto final ingresado (si se usa esa forma)
 
-  const base = lineas.reduce((a, l) => a + precioLinea(l), 0);
+  const subtotalLineas = lineas.reduce((a, l) => a + precioLinea(l), 0);
+  // el base ya considera el descuento general del carrito
+  const base = subtotalLineas * (1 - descuentoCarrito / 100);
 
   const detalle = lineas
     .map((l) => `<div class="modal-line"><span>${l.codigo} · ${l.talle}/${l.color} · x${l.cantidad}</span><strong>${formatPrecio(precioLinea(l))}</strong></div>`)
@@ -401,6 +463,26 @@ function abrirPopupVenta(lineas) {
         </div>
       </div>
 
+      <div class="desc-pago-box">
+        <label class="desc-check-row">
+          <input type="checkbox" id="descCheck" class="evar-chk">
+          <span>Aplicar descuento</span>
+        </label>
+        <div id="descCampos" class="desc-campos" style="display:none">
+          <div class="split-row">
+            <div class="field">
+              <label>Nuevo monto a cobrar ($)</label>
+              <input type="number" id="descMonto" class="sinput" min="0" placeholder="$">
+            </div>
+            <div class="field">
+              <label>Descuento (%)</label>
+              <input type="number" id="descPct" class="sinput" min="0" max="100" placeholder="%">
+            </div>
+          </div>
+          <p class="desc-info" id="descInfo"></p>
+        </div>
+      </div>
+
       <div class="swap-diff" style="border-top:1px solid var(--oak-20);padding-top:1rem">
         <div class="modal-line descuento-line" id="descLine" style="display:none"><span id="descLabel">Voucher</span><strong id="descVal">$0</strong></div>
         <div class="modal-line" id="recargoLine" style="display:none"><span>Recargo tarjeta (20%)</span><strong id="recargoVal">$0</strong></div>
@@ -439,7 +521,57 @@ function abrirPopupVenta(lineas) {
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("cancelar").onclick = cerrarModal;
 
-  // cargar vouchers disponibles en el selector
+  // --- descuento manual del popup ---
+  const descCheck = document.getElementById("descCheck");
+  const descCampos = document.getElementById("descCampos");
+  const descMontoInput = document.getElementById("descMonto");
+  const descPctInput = document.getElementById("descPct");
+  const descInfo = document.getElementById("descInfo");
+
+  function refrescarDescInfo() {
+    if (!descActivo || descMontoFinal == null || descMontoFinal >= base) {
+      descInfo.textContent = "";
+      return;
+    }
+    const ahorro = base - descMontoFinal;
+    const pct = base > 0 ? Math.round((ahorro / base) * 100) : 0;
+    descInfo.innerHTML = `Se descuentan <strong>${formatPrecio(ahorro)}</strong> (${pct}%) sobre ${formatPrecio(base)}`;
+  }
+
+  descCheck.onchange = () => {
+    descActivo = descCheck.checked;
+    descCampos.style.display = descActivo ? "block" : "none";
+    if (!descActivo) {
+      descMontoFinal = null;
+      descMontoInput.value = "";
+      descPctInput.value = "";
+      descInfo.textContent = "";
+    }
+    recalcular();
+  };
+
+  // ingresar nuevo monto → calcula el %
+  descMontoInput.oninput = () => {
+    let m = Number(descMontoInput.value);
+    if (isNaN(m) || descMontoInput.value === "") { descMontoFinal = null; descPctInput.value = ""; refrescarDescInfo(); recalcular(); return; }
+    if (m < 0) m = 0; if (m > base) m = base;
+    descMontoFinal = m;
+    const pct = base > 0 ? ((base - m) / base) * 100 : 0;
+    descPctInput.value = Math.round(pct * 100) / 100;
+    refrescarDescInfo();
+    recalcular();
+  };
+  // ingresar % → calcula el nuevo monto
+  descPctInput.oninput = () => {
+    let p = Number(descPctInput.value);
+    if (isNaN(p) || descPctInput.value === "") { descMontoFinal = null; descMontoInput.value = ""; refrescarDescInfo(); recalcular(); return; }
+    if (p < 0) p = 0; if (p > 100) p = 100;
+    descMontoFinal = base * (1 - p / 100);
+    descMontoInput.value = Math.round(descMontoFinal);
+    refrescarDescInfo();
+    recalcular();
+  };
+
   let vouchersDisp = [];
   API.getVouchers().then((res) => {
     if (res.ok) {
@@ -460,19 +592,29 @@ function abrirPopupVenta(lineas) {
   };
 
   // descuento del voucher sobre la base
-  function descuentoVoucher() {
+  function descuentoVoucher(baseRef) {
+    const b = baseRef != null ? baseRef : base;
     if (!voucherSel) return 0;
-    if (voucherSel.tipo === "descuento") return base * (voucherSel.descuento / 100);
-    return Math.min(voucherSel.monto, base); // monto, tope = base
+    if (voucherSel.tipo === "descuento") return b * (voucherSel.descuento / 100);
+    return Math.min(voucherSel.monto, b); // monto, tope = base
   }
 
   function recargoDe(monto, met) {
     return MEDIOS_CON_RECARGO.includes(met) ? monto * CONFIG.RECARGO_TARJETA : 0;
   }
 
+  // base efectivo: base con el descuento manual del popup aplicado (si está activo)
+  function baseEfectivo() {
+    if (descActivo && descMontoFinal != null && descMontoFinal >= 0 && descMontoFinal < base) {
+      return descMontoFinal;
+    }
+    return base;
+  }
+
   function recalcular() {
-    const desc = descuentoVoucher();
-    const baseConDesc = base - desc; // voucher primero
+    const baseUsado = baseEfectivo();
+    const desc = descuentoVoucher(baseUsado);
+    const baseConDesc = baseUsado - desc; // voucher primero
     let recargo = 0, valido = false;
 
     if (desc > 0) {
@@ -485,13 +627,11 @@ function abrirPopupVenta(lineas) {
       if (metodo1) { recargo = recargoDe(baseConDesc, metodo1); valido = true; }
     } else {
       const m1 = selM1.value, m2 = selM2.value;
-      // En modo dividido, el monto1 que escribe la empleada es LO QUE SE COBRA en el método 1
-      // (ya con recargo si es tarjeta). Calculamos hacia atrás la parte del producto que cubre.
       const cobra1 = Number(montoM1.value) || 0;
       const factor1 = MEDIOS_CON_RECARGO.includes(m1) ? (1 + CONFIG.RECARGO_TARJETA) : 1;
-      const productoM1 = cobra1 / factor1; // parte del producto cubierta por el método 1
-      const productoM2 = baseConDesc - productoM1; // parte del producto que cubre el método 2
-      const cobra2 = productoM2 + recargoDe(productoM2, m2); // lo que se cobra en el método 2
+      const productoM1 = cobra1 / factor1;
+      const productoM2 = baseConDesc - productoM1;
+      const cobra2 = productoM2 + recargoDe(productoM2, m2);
       montoM2.value = productoM2 >= 0 ? formatPrecio(cobra2) : "—";
       if (productoM1 > 0 && productoM1 < baseConDesc && combinacionPagoValida(m1, m2)) {
         recargo = recargoDe(productoM1, m1) + recargoDe(productoM2, m2);
@@ -505,7 +645,7 @@ function abrirPopupVenta(lineas) {
     btnConf.disabled = !valido;
 
     actualizarVuelto(baseConDesc, recargo);
-    return { desc, baseConDesc, recargo };
+    return { desc, baseConDesc, recargo, baseUsado };
   }
 
   // muestra el campo de vuelto si la venta tiene parte en efectivo
@@ -616,6 +756,7 @@ function abrirPopupVenta(lineas) {
       });
       if (lineas === State.carrito || lineas.length === State.carrito.length) {
         State.carrito = [];
+        State.descuentoCarrito = 0;
       }
       cerrarModal();
       actualizarBadge();
