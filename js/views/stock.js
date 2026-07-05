@@ -11,23 +11,31 @@ function renderStock(root) {
   StockUI.pendientes = [];
   State.dentroCategoria = false;
   refrescarHeader();
-  const cards = CATEGORIAS.map(
-    (c) => `
-    <div class="cat" data-cat="${c.nombre}">
-      <span class="cat-num">${c.num}</span>
-      <div class="cat-img"><img src="img/cat_${c.num}.png" alt="${c.nombre}"></div>
-      <span class="cat-name">${c.nombre.toUpperCase()}</span>
-    </div>`
-  ).join("");
-  root.innerHTML = `<p class="view-title">STOCK</p><div class="cat-grid">${cards}</div>`;
+  root.innerHTML = `<p class="view-title">STOCK</p>${gridCategoriasHTML(true)}`;
   root.querySelectorAll("[data-cat]").forEach((el) => {
-    el.onclick = () => renderStockCategoria(root, el.dataset.cat);
+    el.onclick = () => {
+      if (el.dataset.cat === "__TODOS__") renderStockTodos(root);
+      else renderStockCategoria(root, el.dataset.cat);
+    };
   });
 }
 
 function marcaDePrefijo(prefijo) {
   const m = MARCAS.find((x) => x.prefijo === prefijo);
   return m ? m.nombre : "";
+}
+
+// Vista de TODO el stock junto (solo lectura, sin cargar prendas)
+function renderStockTodos(root) {
+  State.dentroCategoria = true;
+  StockUI.categoria = "__TODOS__";
+  refrescarHeader();
+  root.innerHTML = `
+    <p class="view-title">TODO EL STOCK</p>
+    <p class="cat-num-label">Todas las categorías juntas</p>
+    <div class="stock-list" id="existList"></div>
+  `;
+  renderExistente("__TODOS__");
 }
 
 // 2) Pantalla de carga/gestión
@@ -530,16 +538,20 @@ async function confirmarPendientes() {
 // ---- Stock existente (agrupado por código, como ventas) ----
 function renderExistente(categoria) {
   const list = document.getElementById("existList");
-  const items = State.stock.filter((s) => s.categoria === categoria);
+  const esTodos = categoria === "__TODOS__";
+  const items = esTodos ? State.stock.slice() : State.stock.filter((s) => s.categoria === categoria);
   if (!items.length) {
-    list.innerHTML = `<div class="soon"><i class="ti ti-package-off"></i><p>Todavía no hay stock en ${categoria}.</p></div>`;
+    const msg = esTodos ? "Todavía no hay stock cargado." : `Todavía no hay stock en ${categoria}.`;
+    list.innerHTML = `<div class="soon"><i class="ti ti-package-off"></i><p>${msg}</p></div>`;
     return;
   }
 
-  // agrupar por código + precio (venta y costo): mismo código con distinto precio = fila separada (lote)
+  // agrupar por código + precio (+categoría si es TODOS): mismo código con distinto precio = fila separada (lote)
   const porGrupo = {};
   items.forEach((s) => {
-    const clave = s.codigo + "|" + s.precio + "|" + s.costo;
+    const clave = esTodos
+      ? s.codigo + "|" + s.categoria + "|" + s.precio + "|" + s.costo
+      : s.codigo + "|" + s.precio + "|" + s.costo;
     if (!porGrupo[clave]) porGrupo[clave] = { clave, codigo: s.codigo, marca: s.marca, precio: s.precio, costo: s.costo, categoria: s.categoria, variantes: [] };
     porGrupo[clave].variantes.push(s);
   });

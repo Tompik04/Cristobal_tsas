@@ -112,6 +112,26 @@ const CATEGORIAS = [
   { num: "20", nombre: "Accesorios" },
 ];
 
+// Agrupación de categorías en cuadrantes 2x2 para la grilla de ventas/stock
+const GRUPOS_CATEGORIA = [
+  {
+    titulo: "Remeras y similares",
+    categorias: ["Remeras M/Corta", "Poleras-Remeras M/Larga", "Camisa M/Corta", "Camisa M/Larga", "Chombas", "Musculosas"],
+  },
+  {
+    titulo: "Abrigo",
+    categorias: ["Buzos y Camperas", "Chaquetas", "Abrigos", "Sweater", "Chalecos", "Camisacos"],
+  },
+  {
+    titulo: "Pantalones",
+    categorias: ["Jeans", "Cargos", "Pantalón de Lino", "Pantalón Gabardina", "Babucha", "Shorts"],
+  },
+  {
+    titulo: "Otros",
+    categorias: ["Accesorios", "Mayas"],
+  },
+];
+
 const OFERTAS = [0, 5, 10, 15, 20];
 const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito"];
 
@@ -187,6 +207,37 @@ function tallesDeCategoria(cat) {
 function numDeCategoria(nombre) {
   const c = CATEGORIAS.find((x) => x.nombre === nombre);
   return c ? c.num : "—";
+}
+
+// arma el HTML de la grilla de categorías en 4 cuadrantes 2x2.
+// Si incluirTodos=true, agrega la tarjeta "Todos" en el último cuadrante.
+function gridCategoriasHTML(incluirTodos) {
+  const tarjeta = (nombre) => {
+    const num = numDeCategoria(nombre);
+    return `
+      <div class="cat cat-mini" data-cat="${nombre}">
+        <span class="cat-num">${num}</span>
+        <div class="cat-img"><img src="img/cat_${num}.png" alt="${nombre}" onerror="this.style.opacity=0.25"></div>
+        <span class="cat-name">${nombre.toUpperCase()}</span>
+      </div>`;
+  };
+  const cuadrantes = GRUPOS_CATEGORIA.map((g, i) => {
+    let cards = g.categorias.map(tarjeta).join("");
+    // en el último cuadrante ("Otros"), agregar la tarjeta "Todos"
+    if (incluirTodos && i === GRUPOS_CATEGORIA.length - 1) {
+      cards += `
+        <div class="cat cat-mini cat-todos" data-cat="__TODOS__">
+          <div class="cat-img"><i class="ti ti-layout-grid"></i></div>
+          <span class="cat-name">TODOS</span>
+        </div>`;
+    }
+    return `
+      <div class="cat-cuadrante">
+        <p class="cuadrante-titulo">${g.titulo}</p>
+        <div class="cat-mini-grid">${cards}</div>
+      </div>`;
+  }).join("");
+  return `<div class="cuadrantes-2x2">${cuadrantes}</div>`;
 }
 
 // Marcas conocidas (prefijo del código → nombre)

@@ -6,41 +6,39 @@
 function renderVentasCategorias(root) {
   State.dentroCategoria = false;
   refrescarHeader();
-  const cards = CATEGORIAS.map(
-    (c) => `
-    <div class="cat" data-cat="${c.nombre}">
-      <span class="cat-num">${c.num}</span>
-      <div class="cat-img"><img src="img/cat_${c.num}.png" alt="${c.nombre}"></div>
-      <span class="cat-name">${c.nombre.toUpperCase()}</span>
-    </div>`
-  ).join("");
-
   root.innerHTML = `
     <p class="view-title">VENTAS</p>
-    <div class="cat-grid">${cards}</div>
+    ${gridCategoriasHTML(true)}
   `;
   root.querySelectorAll("[data-cat]").forEach((el) => {
-    el.onclick = () => renderListaProductos(root, el.dataset.cat);
+    el.onclick = () => {
+      if (el.dataset.cat === "__TODOS__") renderListaProductos(root, "__TODOS__");
+      else renderListaProductos(root, el.dataset.cat);
+    };
   });
 }
 
-// 2) Lista de productos de una categoría
+// 2) Lista de productos de una categoría (o de TODAS si categoria === "__TODOS__")
 function renderListaProductos(root, categoria) {
   State.dentroCategoria = true;
   refrescarHeader();
-  // agrupar stock por código dentro de la categoría
-  const items = State.stock.filter((s) => s.categoria === categoria);
+  const esTodos = categoria === "__TODOS__";
+  // agrupar stock por código dentro de la categoría (o todo el stock si es TODOS)
+  const items = esTodos ? State.stock.slice() : State.stock.filter((s) => s.categoria === categoria);
   const porCodigo = {};
   items.forEach((s) => {
-    if (!porCodigo[s.codigo]) {
-      porCodigo[s.codigo] = { codigo: s.codigo, marca: s.marca, precio: s.precio, categoria: categoria, variantes: [] };
+    // en "TODOS" agrupo por código+categoría para no mezclar el mismo código de distintas categorías
+    const clave = esTodos ? s.codigo + "|" + s.categoria : s.codigo;
+    if (!porCodigo[clave]) {
+      porCodigo[clave] = { codigo: s.codigo, marca: s.marca, precio: s.precio, categoria: s.categoria, variantes: [] };
     }
-    porCodigo[s.codigo].variantes.push(s);
+    porCodigo[clave].variantes.push(s);
   });
   const productos = Object.values(porCodigo);
 
+  const titulo = esTodos ? "TODAS — VENTAS" : `${categoria.toUpperCase()} — VENTAS`;
   root.innerHTML = `
-    <p class="view-title">${categoria.toUpperCase()} — VENTAS</p>
+    <p class="view-title">${titulo}</p>
     <div id="ventasFiltros"></div>
     <div id="ventasTotal" class="stock-total"></div>
     <div class="prod-list" id="ventasProdList"></div>
