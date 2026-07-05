@@ -6,7 +6,7 @@
   --platinum: #E9E9ED;
   --coffee: #0F060B;
 
-  /* acentosss que combinan con la paleta — JADE CLARO */
+  /* acentos que combinan con la paleta — JADE CLARO */
   --gold: #7FC4A0;          /* jade (acento principal) */
   --gold-bright: #9FD9BB;   /* jade luminoso */
   --terracotta: #B86A4B;    /* terracota suave */
@@ -249,7 +249,7 @@ button { font-family: inherit; }
 .cat-name { font-size: clamp(15px, 2vw, 20px); font-weight: 600; letter-spacing: 0.12em; text-align: center; }
 
 /* ============ LISTA DE PRODUCTOS ============ */
-.prod-list { padding: 0 2.5% 7rem; display: flex; flex-direction: column; gap: 12px; }
+.prod-list { padding: 0 1.5% 7rem; display: flex; flex-direction: column; gap: 12px; }
 .prow {
   display: grid; grid-template-columns: 260px minmax(120px, 1.1fr) minmax(120px, 1.1fr) 90px 100px auto; gap: 14px; align-items: center;
   background: var(--oak-08); border: 1px solid var(--oak-25); border-radius: var(--r); padding: 14px 16px;
@@ -702,7 +702,7 @@ button { font-family: inherit; }
   padding: 1.2rem 2.5% 0.4rem; font-size: 14px; letter-spacing: 0.16em;
   color: var(--oak-60); text-transform: uppercase;
 }
-.stock-list { padding: 0 2.5% 7rem; display: flex; flex-direction: column; gap: 12px; }
+.stock-list { padding: 0 1.5% 7rem; display: flex; flex-direction: column; gap: 12px; }
 
 .srow {
   display: grid; grid-template-columns: 180px 1fr 1fr 80px 100px 100px auto;
@@ -760,35 +760,35 @@ button { font-family: inherit; }
 
 /* ===== Grilla de categorías en cuadrantes 2x2 ===== */
 .cuadrantes-2x2 {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
-  max-width: 1100px; margin: 0 auto; padding: 0 8px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+  max-width: 1700px; margin: 0 auto; padding: 0 16px;
 }
 .cat-cuadrante {
   background: var(--grad-card); border: 1px solid var(--oak-20);
-  border-radius: 16px; padding: 16px 16px 18px; box-shadow: var(--shadow-card);
+  border-radius: 16px; padding: 14px 16px 16px; box-shadow: var(--shadow-card);
 }
 .cuadrante-titulo {
   font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--gold-bright); margin: 0 0 14px; padding-bottom: 8px;
+  color: var(--gold-bright); margin: 0 0 12px; padding-bottom: 8px;
   border-bottom: 1px solid var(--oak-20); font-weight: 600;
 }
 .cat-mini-grid {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
 }
-/* tarjeta de categoría chica */
+/* tarjeta de categoría chica — compacta, sin fondo en la imagen */
 .cat-mini {
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px;
   background: var(--oak-08); border: 1px solid var(--oak-20); border-radius: 10px;
-  padding: 10px 6px; cursor: pointer;
+  padding: 8px 6px 10px; cursor: pointer;
   transition: transform 0.15s ease, border-color 0.2s ease, background 0.2s ease;
 }
 .cat-mini:hover { transform: translateY(-3px); border-color: var(--gold); background: rgba(127,196,160,0.08); }
 .cat-mini .cat-img {
-  width: 52px; height: 52px; border-radius: 8px; overflow: hidden;
-  display: flex; align-items: center; justify-content: center; background: var(--oak-10);
+  width: 92px; height: 92px; border-radius: 8px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; background: transparent;
 }
-.cat-mini .cat-img img { width: 100%; height: 100%; object-fit: cover; }
-.cat-mini .cat-img i { font-size: 26px; color: var(--gold); }
+.cat-mini .cat-img img { width: 100%; height: 100%; object-fit: contain; }
+.cat-mini .cat-img i { font-size: 34px; color: var(--gold); }
 .cat-mini .cat-num { position: absolute; top: 5px; left: 7px; font-size: 10px; }
 .cat-mini .cat-name {
   font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-align: center;
