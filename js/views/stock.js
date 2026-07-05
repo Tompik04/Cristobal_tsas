@@ -38,11 +38,11 @@ function renderStockCategoria(root, categoria) {
   root.innerHTML = `
     <p class="view-title">${categoria.toUpperCase()} — STOCK</p>
     <p class="stock-section-title">Cargar prendas</p>
-    <div class="stock-list" id="loadList">
-      <div class="snew-trigger" id="newTrigger"><i class="ti ti-plus"></i> Nueva prenda</div>
-    </div>
     <div class="load-actions-bar" id="loadActionsBar" style="display:none">
       <button class="add-all-rows" id="addAllRows"><i class="ti ti-checks"></i> Agregar todas las filas</button>
+    </div>
+    <div class="stock-list" id="loadList">
+      <div class="snew-trigger" id="newTrigger"><i class="ti ti-plus"></i> Nueva prenda</div>
     </div>
     <p class="stock-section-title">Stock existente</p>
     <div class="stock-list" id="existList"></div>
@@ -269,8 +269,30 @@ function bindFilaCarga(row) {
     addBtn.classList.remove("confirmed");
     addBtn.querySelector("i").className = "ti ti-plus";
   };
-  precioInput.oninput = refrescarGanancia;
-  costoInput.oninput = refrescarGanancia;
+  // autocompletado costo↔venta:
+  // - si escribo costo y venta está vacía → venta = costo * 2 (editable)
+  // - si escribo venta y costo está vacío → costo = venta / 2 (editable)
+  // Se marcan como "auto" para poder sobrescribirlas si el usuario las edita después.
+  costoInput.oninput = () => {
+    const c = Number(costoInput.value) || 0;
+    // si la venta está vacía o fue autocompletada, la recalculo
+    if (c > 0 && (precioInput.value === "" || precioInput.dataset.auto === "1")) {
+      precioInput.value = c * 2;
+      precioInput.dataset.auto = "1";
+    }
+    costoInput.dataset.auto = ""; // lo que escribo a mano ya no es auto
+    refrescarGanancia();
+  };
+  precioInput.oninput = () => {
+    const v = Number(precioInput.value) || 0;
+    // si el costo está vacío o fue autocompletado, lo recalculo
+    if (v > 0 && (costoInput.value === "" || costoInput.dataset.auto === "1")) {
+      costoInput.value = Math.round(v / 2);
+      costoInput.dataset.auto = "1";
+    }
+    precioInput.dataset.auto = ""; // lo que escribo a mano ya no es auto
+    refrescarGanancia();
+  };
 
   // al cambiar talle, color o cantidad, el botón vuelve de check a "+"
   // (es otra variante, hay que agregarla de nuevo)
@@ -312,6 +334,18 @@ function bindFilaCarga(row) {
   row.querySelector('[data-act="dup-talle"]').onclick = () => { agregarFilaCarga(false, leerFila(row), row); toast("Fila duplicada"); };
   row.querySelector('[data-act="dup-color"]').onclick = () => { agregarFilaCarga(false, leerFila(row), row); toast("Fila duplicada"); };
 
+  // agrega la prenda a pendientes (tras validar). Se separa para poder llamarla tras confirmar advertencia.
+  function confirmarAgregar(d) {
+    d.categoria = StockUI.categoria;
+    d._pid = "p" + _pendSeq++;
+    StockUI.pendientes.push(d);
+    addBtn.classList.add("confirmed");
+    addBtn.querySelector("i").className = "ti ti-check";
+    refrescarPrecio();
+    actualizarBarraPendientes();
+    toast(`${d.codigo} ${d.talle}/${d.color} agregado`);
+  }
+
   // agregar a pendientes — la fila NO desaparece
   addBtn.onclick = () => {
     const d = leerFila(row);
@@ -328,14 +362,23 @@ function bindFilaCarga(row) {
     if (!d.precio) return toast("Falta el precio de venta");
     if (!d.costo) return toast("Falta el precio de costo");
     if (d.costo > d.precio) return toast("El costo no puede ser mayor a la venta");
-    d.categoria = StockUI.categoria; // la categoría en la que se está cargando
-    d._pid = "p" + _pendSeq++;
-    StockUI.pendientes.push(d);
-    addBtn.classList.add("confirmed");
-    addBtn.querySelector("i").className = "ti ti-check";
-    refrescarPrecio();
-    actualizarBarraPendientes();
-    toast(`${d.codigo} ${d.talle}/${d.color} agregado`);
+
+    // advertencia: el número del código (dígitos 4-5) no coincide con la categoría actual
+    const numCodigo = d.codigo.substring(3, 5);
+    const catActual = CATEGORIAS.find((c) => c.nombre === StockUI.categoria);
+    if (catActual && numCodigo !== catActual.num) {
+      const catDelNum = CATEGORIAS.find((c) => c.num === numCodigo);
+      const nombreNum = catDelNum ? catDelNum.nombre : "otra categoría";
+      dobleConfirmacion({
+        titulo: "Número de categoría distinto",
+        mensaje1: `El código ${d.codigo} tiene el número ${numCodigo} (${nombreNum}), pero lo estás cargando en ${StockUI.categoria} (${catActual.num}).`,
+        mensaje2: "¿Querés agregarlo igual?",
+        textoBoton: "Agregar igual",
+        onOk: () => confirmarAgregar(d),
+      });
+      return;
+    }
+    confirmarAgregar(d);
   };
 
   // limpiar todos los campos de la fila (deja la fila, vacía los datos)
