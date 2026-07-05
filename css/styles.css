@@ -751,6 +751,12 @@ button { font-family: inherit; }
 }
 .add-all-rows:hover { background: rgba(95,168,106,0.28); transform: translateY(-1px); }
 .add-all-rows i { font-size: 18px; }
+/* número de categoría (tenue) en las tarjetas */
+.cat { position: relative; }
+.cat-num { position: absolute; top: 8px; left: 10px; font-size: 12px; color: var(--oak-55); letter-spacing: 0.1em; z-index: 2; font-weight: 600; }
+/* etiqueta del código de categoría en el encabezado de stock */
+.cat-num-label { text-align: center; font-size: 13px; color: var(--oak-55); margin: -8px 0 16px; letter-spacing: 0.06em; }
+.cat-num-label strong { color: var(--gold-bright); }
 .snew-trigger { display: flex; align-items: center; justify-content: center; gap: 12px; background: var(--oak-08); border: 1px dashed var(--oak-35); border-radius: var(--r); padding: 20px; cursor: pointer; transition: background 0.15s, border-color 0.15s; color: var(--oak-60); font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; }
 .snew-trigger:hover { background: var(--oak-20); border-color: var(--oak-55); color: var(--pale-oak); }
 .snew-trigger i { font-size: 26px; }

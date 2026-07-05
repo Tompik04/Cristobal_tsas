@@ -183,6 +183,12 @@ function tallesDeCategoria(cat) {
   return TALLES_POR_CATEGORIA[cat] || TALLES_LETRA;
 }
 
+// número (2 dígitos) asignado a una categoría por su nombre
+function numDeCategoria(nombre) {
+  const c = CATEGORIAS.find((x) => x.nombre === nombre);
+  return c ? c.num : "—";
+}
+
 // Marcas conocidas (prefijo del código → nombre)
 const MARCAS = [
   { prefijo: "FOW", nombre: "Fort Worth" },

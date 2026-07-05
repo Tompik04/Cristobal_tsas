@@ -9,6 +9,7 @@ function renderVentasCategorias(root) {
   const cards = CATEGORIAS.map(
     (c) => `
     <div class="cat" data-cat="${c.nombre}">
+      <span class="cat-num">${c.num}</span>
       <div class="cat-img"><img src="img/cat_${c.num}.png" alt="${c.nombre}"></div>
       <span class="cat-name">${c.nombre.toUpperCase()}</span>
     </div>`

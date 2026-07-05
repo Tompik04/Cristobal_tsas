@@ -14,6 +14,7 @@ function renderStock(root) {
   const cards = CATEGORIAS.map(
     (c) => `
     <div class="cat" data-cat="${c.nombre}">
+      <span class="cat-num">${c.num}</span>
       <div class="cat-img"><img src="img/cat_${c.num}.png" alt="${c.nombre}"></div>
       <span class="cat-name">${c.nombre.toUpperCase()}</span>
     </div>`
@@ -37,6 +38,7 @@ function renderStockCategoria(root, categoria) {
   refrescarHeader();
   root.innerHTML = `
     <p class="view-title">${categoria.toUpperCase()} — STOCK</p>
+    <p class="cat-num-label">Código de categoría: <strong>${numDeCategoria(categoria)}</strong></p>
     <p class="stock-section-title">Cargar prendas</p>
     <div class="load-actions-bar" id="loadActionsBar" style="display:none">
       <button class="add-all-rows" id="addAllRows"><i class="ti ti-checks"></i> Agregar todas las filas</button>
@@ -72,29 +74,55 @@ function actualizarBarraFilasCarga() {
 function agregarTodasLasFilas() {
   const filas = [...document.querySelectorAll("#loadList .srow.is-new")];
   if (!filas.length) return;
-  let agregadas = 0, incompletas = 0;
+
+  // recolectar filas válidas (con su row para marcar el check después)
+  const validas = [];
+  let incompletas = 0;
   filas.forEach((row) => {
     const d = leerFila(row);
-    // completar precio/costo desde lo conocido si falta
     if (!d.precio) { const p = precioConocido(d.codigo); if (p != null) d.precio = p; }
     if (!d.costo) { const c = costoConocido(d.codigo); if (c != null) d.costo = c; }
-    // validar
     if (!d.codigo || d.codigo.length < 6 || !d.marca || !d.precio || !d.costo || d.costo > d.precio) {
       incompletas++;
       return;
     }
-    d.categoria = StockUI.categoria;
-    d._pid = "p" + _pendSeq++;
-    StockUI.pendientes.push(d);
-    // marcar la fila como agregada (check verde)
-    const addBtn = row.querySelector('[data-act="add"]');
-    if (addBtn) { addBtn.classList.add("confirmed"); addBtn.querySelector("i").className = "ti ti-check"; }
-    agregadas++;
+    validas.push({ d, row });
   });
-  actualizarBarraPendientes();
-  if (agregadas && incompletas) toast(`${agregadas} agregadas, ${incompletas} incompletas`);
-  else if (agregadas) toast(`${agregadas} prenda${agregadas === 1 ? "" : "s"} agregada${agregadas === 1 ? "" : "s"}`);
-  else toast("No hay filas completas para agregar");
+
+  if (!validas.length) return toast("No hay filas completas para agregar");
+
+  // detectar las que tienen número de categoría distinto al actual
+  const catActual = CATEGORIAS.find((c) => c.nombre === StockUI.categoria);
+  const conNumDistinto = catActual
+    ? validas.filter(({ d }) => d.codigo.substring(3, 5) !== catActual.num)
+    : [];
+
+  const hacerAgregado = () => {
+    validas.forEach(({ d, row }) => {
+      d.categoria = StockUI.categoria;
+      d._pid = "p" + _pendSeq++;
+      StockUI.pendientes.push(d);
+      const addBtn = row.querySelector('[data-act="add"]');
+      if (addBtn) { addBtn.classList.add("confirmed"); addBtn.querySelector("i").className = "ti ti-check"; }
+    });
+    actualizarBarraPendientes();
+    if (incompletas) toast(`${validas.length} agregadas, ${incompletas} incompletas`);
+    else toast(`${validas.length} prenda${validas.length === 1 ? "" : "s"} agregada${validas.length === 1 ? "" : "s"}`);
+  };
+
+  // si hay filas con número distinto, advertir una sola vez con la lista
+  if (conNumDistinto.length) {
+    const cods = conNumDistinto.map(({ d }) => `${d.codigo} (${d.codigo.substring(3, 5)})`).join(", ");
+    dobleConfirmacion({
+      titulo: "Números de categoría distintos",
+      mensaje1: `${conNumDistinto.length} código${conNumDistinto.length === 1 ? "" : "s"} no coincide${conNumDistinto.length === 1 ? "" : "n"} con ${StockUI.categoria} (${catActual.num}): ${cods}.`,
+      mensaje2: "¿Agregar todas igual?",
+      textoBoton: "Agregar igual",
+      onOk: hacerAgregado,
+    });
+    return;
+  }
+  hacerAgregado();
 }
 
 function selectHTML(opciones, sel) {
@@ -273,6 +301,11 @@ function bindFilaCarga(row) {
   // - si escribo costo y venta está vacía → venta = costo * 2 (editable)
   // - si escribo venta y costo está vacío → costo = venta / 2 (editable)
   // Se marcan como "auto" para poder sobrescribirlas si el usuario las edita después.
+  // resetAdd: al modificar cualquier dato de la fila, el botón vuelve de check a "+"
+  const resetAdd = () => {
+    addBtn.classList.remove("confirmed");
+    addBtn.querySelector("i").className = "ti ti-plus";
+  };
   costoInput.oninput = () => {
     const c = Number(costoInput.value) || 0;
     // si la venta está vacía o fue autocompletada, la recalculo
@@ -282,6 +315,7 @@ function bindFilaCarga(row) {
     }
     costoInput.dataset.auto = ""; // lo que escribo a mano ya no es auto
     refrescarGanancia();
+    resetAdd();
   };
   precioInput.oninput = () => {
     const v = Number(precioInput.value) || 0;
@@ -292,14 +326,9 @@ function bindFilaCarga(row) {
     }
     precioInput.dataset.auto = ""; // lo que escribo a mano ya no es auto
     refrescarGanancia();
+    resetAdd();
   };
 
-  // al cambiar talle, color o cantidad, el botón vuelve de check a "+"
-  // (es otra variante, hay que agregarla de nuevo)
-  const resetAdd = () => {
-    addBtn.classList.remove("confirmed");
-    addBtn.querySelector("i").className = "ti ti-plus";
-  };
   const talleSel = row.querySelector('[data-f="talle"]');
   const colorSel = row.querySelector('[data-f="color"]');
   const cantInput = row.querySelector('[data-f="cantidad"]');
