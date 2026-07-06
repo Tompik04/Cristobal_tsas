@@ -21,7 +21,7 @@ async function cargarCambios() {
   const desde = new Date(); desde.setDate(desde.getDate() - limiteDias);
 
   _ventasCambios = res.ventas
-    .filter((v) => new Date(v.fechaHora) >= desde)
+    .filter((v) => !v.restaurada && new Date(v.fechaHora) >= desde)
     .sort((a, b) => new Date(b.fechaHora) - new Date(a.fechaHora));
 
   // barra de filtros

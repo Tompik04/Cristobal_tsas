@@ -255,8 +255,6 @@ function abrirCarrito() {
 
   const total = State.carrito.reduce((a, l) => a + precioLinea(l), 0);
   const enModoCuenta = !!State.cuentaDestino;
-  // aviso si alguna prenda ya trae oferta propia
-  const algunaConOferta = State.carrito.some((l) => l.oferta > 0);
 
   document.getElementById("modalRoot").innerHTML = `
     <div class="modal-overlay" id="ov"></div>
@@ -266,15 +264,7 @@ function abrirCarrito() {
         ${State.carrito.length ? `<button class="drawer-clear" id="vaciarCarrito"><i class="ti ti-trash"></i> Vaciar</button>` : ""}
       </div>
       <div class="drawer-items">${items}</div>
-      ${!enModoCuenta && State.carrito.length ? `
-        <div class="drawer-desc">
-          <div class="field">
-            <label>Descuento a toda la compra (%)</label>
-            <input type="number" id="descGeneral" class="sinput" min="0" max="100" placeholder="0" value="${State.descuentoCarrito || ""}">
-          </div>
-          ${algunaConOferta ? `<p class="desc-aviso"><i class="ti ti-alert-triangle"></i> Algunas prendas ya tienen descuento propio</p>` : ""}
-        </div>` : ""}
-      <div class="modal-total"><span>Total</span><span id="carritoTotal">${formatPrecio(totalConDescuentoCarrito())}</span></div>
+      <div class="modal-total"><span>Total</span><span id="carritoTotal">${formatPrecio(total)}</span></div>
       <div class="modal-actions">
         <button class="btn-ghost" id="cerrar">Seguir</button>
         ${enModoCuenta
@@ -285,15 +275,6 @@ function abrirCarrito() {
 
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("cerrar").onclick = cerrarModal;
-
-  // descuento general del carrito
-  const descInput = document.getElementById("descGeneral");
-  if (descInput) descInput.oninput = () => {
-    let v = Number(descInput.value) || 0;
-    if (v < 0) v = 0; if (v > 100) v = 100;
-    State.descuentoCarrito = v;
-    document.getElementById("carritoTotal").textContent = formatPrecio(totalConDescuentoCarrito());
-  };
 
   // vaciar carrito completo (confirma solo si hay varias prendas)
   const btnVaciar = document.getElementById("vaciarCarrito");

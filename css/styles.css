@@ -6,7 +6,7 @@
   --platinum: #E9E9ED;
   --coffee: #0F060B;
 
-  /* acentoss que combinan con la paleta — JADE CLARO */
+  /* acentos que combinan con la paleta — JADE CLARO */
   --gold: #7FC4A0;          /* jade (acento principal) */
   --gold-bright: #9FD9BB;   /* jade luminoso */
   --terracotta: #B86A4B;    /* terracota suave */
@@ -695,6 +695,10 @@ button { font-family: inherit; }
 .desc-pago-box { margin: 12px 0; padding: 12px; background: var(--oak-08); border-radius: 10px; border: 1px solid var(--oak-20); }
 .desc-check-row { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; color: var(--pale-oak); }
 .desc-campos { margin-top: 12px; }
+/* alinear los dos inputs del descuento aunque una label ocupe 2 líneas */
+.desc-campos .split-row { align-items: end; }
+.desc-campos .field { display: flex; flex-direction: column; }
+.desc-campos .field label { min-height: 2.4em; display: flex; align-items: flex-end; }
 .desc-info { margin-top: 8px; font-size: 13px; color: var(--gold-bright); text-align: center; }
 .desc-info strong { color: var(--gold-bright); }
 .drawer-items { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
