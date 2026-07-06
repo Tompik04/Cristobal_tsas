@@ -654,6 +654,7 @@ function srowAgrupadaHTML(p, f, idx) {
   return `
     <div class="prow srow-agrup" data-idx="${idx}">
       <div class="pcell">
+        <button class="e-repo" data-act="repo" title="Reponer: cargar esta prenda"><i class="ti ti-plus"></i></button>
         <div class="pimg-wrap">
           <img class="pimg zoomable" src="${imgPrenda(p.codigo, p.categoria)}" alt="" onerror="if(!this.dataset.fb){this.dataset.fb=1;this.src='${imgPrenda(p.codigo)}';}else{this.style.opacity=0.3;}">
           <button class="pimg-edit" data-act="editimg" title="Cambiar imagen"><i class="ti ti-camera"></i></button>
@@ -761,6 +762,24 @@ function bindSrowAgrupada(cont, p, f, idx) {
     });
   };
   row.querySelector('[data-act="editprice"]').onclick = () => abrirEditarPrecio(p);
+  // botón "+" reponer: crea una fila de carga con los datos de esta prenda
+  row.querySelector('[data-act="repo"]').onclick = () => {
+    // en la vista "Todos" no hay sección de carga
+    if (!document.getElementById("loadList")) {
+      return toast("Entrá a la categoría para reponer");
+    }
+    const datos = {
+      codigo: p.codigo,
+      marca: p.marca,
+      talle: selTalle.value || (p.variantes[0] && p.variantes[0].talle) || "",
+      color: selColor.value || (p.variantes[0] && p.variantes[0].color) || "",
+      precio: p.precio,
+      costo: p.costo,
+    };
+    agregarFilaCarga(false, datos);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    toast(`${p.codigo} listo para reponer`);
+  };
   const imgEl = row.querySelector(".pimg.zoomable");
   if (imgEl) imgEl.onclick = () => verImagenAmpliada(p.codigo, p.marca, p.categoria);
   row.querySelector('[data-act="editimg"]').onclick = () => {

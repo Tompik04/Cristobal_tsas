@@ -6,7 +6,7 @@
   --platinum: #E9E9ED;
   --coffee: #0F060B;
 
-  /* acentos que combinan con la paleta — JADE CLARO */
+  /* acentoss que combinan con la paleta — JADE CLARO */
   --gold: #7FC4A0;          /* jade (acento principal) */
   --gold-bright: #9FD9BB;   /* jade luminoso */
   --terracotta: #B86A4B;    /* terracota suave */
@@ -255,6 +255,14 @@ button { font-family: inherit; }
   background: var(--oak-08); border: 1px solid var(--oak-25); border-radius: var(--r); padding: 14px 16px;
 }
 .pcell { display: flex; align-items: center; gap: 12px; }
+.e-repo {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 8px;
+  background: rgba(95,168,106,0.15); color: var(--success); border: 1px solid rgba(95,168,106,0.4);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.18s ease, transform 0.12s ease;
+}
+.e-repo:hover { background: rgba(95,168,106,0.3); transform: scale(1.08); }
+.e-repo i { font-size: 18px; }
 .pimg-wrap { position: relative; width: 72px; height: 72px; flex-shrink: 0; }
 .pimg-wrap .pimg { width: 72px; height: 72px; border-radius: 8px; background: var(--oak-10); object-fit: contain; }
 .pimg-edit { position: absolute; bottom: -4px; right: -4px; width: 22px; height: 22px; border-radius: 50%; background: var(--pale-oak); color: var(--evergreen); border: 2px solid var(--evergreen); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 11px; padding: 0; }
