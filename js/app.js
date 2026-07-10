@@ -241,6 +241,20 @@ function abrirGestionPrivado() {
   };
 }
 
+// banda distintiva de sección con ícono grande y color propio (para diferenciar ventas de stock, etc.)
+function bandaSeccion(seccion, titulo, subtitulo) {
+  const iconos = { ventas: "ti-shopping-cart", stock: "ti-stack-2", cambios: "ti-arrows-exchange", vouchers: "ti-ticket", cuentas: "ti-users" };
+  const ic = iconos[seccion] || "ti-tag";
+  return `
+    <div class="section-band band-${seccion}">
+      <i class="ti ${ic} band-icon"></i>
+      <div class="band-text">
+        <span class="band-title">${titulo}</span>
+        ${subtitulo ? `<span class="band-sub">${subtitulo}</span>` : ""}
+      </div>
+    </div>`;
+}
+
 // Toast simple
 function toast(msg) {
   const t = document.createElement("div");

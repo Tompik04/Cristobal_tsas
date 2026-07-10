@@ -7,7 +7,7 @@ function renderVentasCategorias(root) {
   State.dentroCategoria = false;
   refrescarHeader();
   root.innerHTML = `
-    <p class="view-title">VENTAS</p>
+    ${bandaSeccion("ventas", "VENTAS")}
     ${gridCategoriasHTML(true)}
   `;
   root.querySelectorAll("[data-cat]").forEach((el) => {
@@ -36,9 +36,9 @@ function renderListaProductos(root, categoria) {
   });
   const productos = Object.values(porCodigo);
 
-  const titulo = esTodos ? "TODAS — VENTAS" : `${categoria.toUpperCase()} — VENTAS`;
+  const nombreCat = esTodos ? "Todas las categorías" : categoria;
   root.innerHTML = `
-    <p class="view-title">${titulo}</p>
+    ${bandaSeccion("ventas", "VENTAS", nombreCat)}
     <div id="ventasFiltros"></div>
     <div id="ventasTotal" class="stock-total"></div>
     <div class="prod-list" id="ventasProdList"></div>

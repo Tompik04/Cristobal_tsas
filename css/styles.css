@@ -234,6 +234,44 @@ button { font-family: inherit; }
   background: var(--grad-gold); -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent; color: var(--gold);
 }
+
+/* ===== Banda distintiva de sección (diferencia ventas / stock) ===== */
+.section-band {
+  display: flex; align-items: center; gap: 18px;
+  max-width: 1700px; margin: 1.2rem auto 1.4rem; padding: 16px 26px;
+  border-radius: 16px; border: 1px solid var(--oak-20);
+  border-left-width: 6px; position: relative; overflow: hidden;
+}
+.section-band .band-icon { font-size: 42px; flex-shrink: 0; }
+.section-band .band-text { display: flex; flex-direction: column; gap: 2px; }
+.section-band .band-title { font-size: clamp(22px, 3vw, 32px); font-weight: 700; letter-spacing: 0.18em; line-height: 1; }
+.section-band .band-sub { font-size: 13px; letter-spacing: 0.06em; color: var(--oak-60); text-transform: uppercase; }
+/* marca de agua del ícono al fondo */
+.section-band::after {
+  content: ""; position: absolute; right: -20px; top: 50%; transform: translateY(-50%);
+  width: 160px; height: 160px; opacity: 0.06; pointer-events: none;
+  background-repeat: no-repeat; background-position: center; background-size: contain;
+}
+
+/* VENTAS — cálido (jade/dorado) */
+.band-ventas {
+  background: linear-gradient(100deg, rgba(127,196,160,0.16) 0%, rgba(127,196,160,0.04) 60%);
+  border-color: rgba(127,196,160,0.3); border-left-color: var(--gold);
+}
+.band-ventas .band-icon { color: var(--gold-bright); }
+.band-ventas .band-title { color: var(--gold-bright); }
+
+/* STOCK — frío (teal/turquesa) */
+.band-stock {
+  background: linear-gradient(100deg, rgba(87,176,171,0.16) 0%, rgba(87,176,171,0.04) 60%);
+  border-color: rgba(87,176,171,0.3); border-left-color: var(--teal-bright);
+}
+.band-stock .band-icon { color: var(--teal-bright); }
+.band-stock .band-title { color: var(--teal-bright); }
+
+/* otras secciones por si se usan */
+.band-cambios { background: linear-gradient(100deg, rgba(184,106,75,0.14) 0%, rgba(184,106,75,0.03) 60%); border-color: rgba(184,106,75,0.3); border-left-color: var(--terracotta); }
+.band-cambios .band-icon, .band-cambios .band-title { color: var(--terracotta); }
 .cat-grid {
   display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; padding: 0.5rem 2.5% 2rem;
 }

@@ -11,7 +11,7 @@ function renderStock(root) {
   StockUI.pendientes = [];
   State.dentroCategoria = false;
   refrescarHeader();
-  root.innerHTML = `<p class="view-title">STOCK</p>${gridCategoriasHTML(true)}`;
+  root.innerHTML = `${bandaSeccion("stock", "STOCK")}${gridCategoriasHTML(true)}`;
   root.querySelectorAll("[data-cat]").forEach((el) => {
     el.onclick = () => {
       if (el.dataset.cat === "__TODOS__") renderStockTodos(root);
@@ -31,8 +31,7 @@ function renderStockTodos(root) {
   StockUI.categoria = "__TODOS__";
   refrescarHeader();
   root.innerHTML = `
-    <p class="view-title">TODO EL STOCK</p>
-    <p class="cat-num-label">Todas las categorías juntas</p>
+    ${bandaSeccion("stock", "STOCK", "Todas las categorías")}
     <div class="stock-list" id="existList"></div>
   `;
   renderExistente("__TODOS__");
@@ -45,8 +44,7 @@ function renderStockCategoria(root, categoria) {
   State.dentroCategoria = true;
   refrescarHeader();
   root.innerHTML = `
-    <p class="view-title">${categoria.toUpperCase()} — STOCK</p>
-    <p class="cat-num-label">Código de categoría: <strong>${numDeCategoria(categoria)}</strong></p>
+    ${bandaSeccion("stock", "STOCK", `${categoria} · código ${numDeCategoria(categoria)}`)}
     <p class="stock-section-title">Cargar prendas</p>
     <div class="load-actions-bar" id="loadActionsBar" style="display:none">
       <button class="add-all-rows" id="addAllRows"><i class="ti ti-checks"></i> Agregar todas las filas</button>
@@ -83,8 +81,8 @@ function chequearBorrador(categoria) {
       <h2>Prendas sin subir</h2>
       <p class="dc-msg">Tenés <strong>${n}</strong> prenda${n === 1 ? "" : "s"} que estabas cargando en ${categoria} y no llegaste a subir.</p>
       <div class="modal-actions">
-        <button class="btn-ghost" id="brDescartar">Descartar</button>
         <button class="btn-primary" id="brRecuperar">Recuperar</button>
+        <button class="btn-ghost" id="brDescartar">Descartar</button>
       </div>
     </div>`;
   document.getElementById("brOv").onclick = cerrarModal; // cerrar sin decidir: quedan guardadas
@@ -95,9 +93,24 @@ function chequearBorrador(categoria) {
     toast(`${n} prenda${n === 1 ? "" : "s"} recuperada${n === 1 ? "" : "s"}`);
   };
   document.getElementById("brDescartar").onclick = () => {
-    limpiarBorrador(categoria);
-    cerrarModal();
-    toast("Borrador descartado");
+    // confirmar antes de descartar (para no perder el borrador por error)
+    document.getElementById("modalRoot").innerHTML = `
+      <div class="modal-overlay" id="brOv2"></div>
+      <div class="modal">
+        <h2>¿Descartar el borrador?</h2>
+        <p class="dc-msg dc-warn">Se van a perder ${n} prenda${n === 1 ? "" : "s"} sin subir. Esta acción no se puede deshacer.</p>
+        <div class="modal-actions">
+          <button class="btn-ghost" id="brVolver">No, volver</button>
+          <button class="btn-danger" id="brConfirmarDesc">Sí, descartar</button>
+        </div>
+      </div>`;
+    document.getElementById("brOv2").onclick = cerrarModal;
+    document.getElementById("brVolver").onclick = () => chequearBorrador(categoria); // vuelve al aviso
+    document.getElementById("brConfirmarDesc").onclick = () => {
+      limpiarBorrador(categoria);
+      cerrarModal();
+      toast("Borrador descartado");
+    };
   };
 }
 
