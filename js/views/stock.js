@@ -68,6 +68,37 @@ function renderStockCategoria(root, categoria) {
   renderExistente(categoria);
   actualizarBarraPendientes();
   actualizarBarraFilasCarga();
+  // si hay un borrador guardado de esta categoría, avisar para restaurar o descartar
+  chequearBorrador(categoria);
+}
+
+// si hay filas sin subir guardadas, ofrece restaurarlas o descartarlas
+function chequearBorrador(categoria) {
+  const filas = leerBorrador(categoria);
+  if (!filas || !filas.length) return;
+  const n = filas.length;
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-overlay" id="brOv"></div>
+    <div class="modal">
+      <h2>Prendas sin subir</h2>
+      <p class="dc-msg">Tenés <strong>${n}</strong> prenda${n === 1 ? "" : "s"} que estabas cargando en ${categoria} y no llegaste a subir.</p>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="brDescartar">Descartar</button>
+        <button class="btn-primary" id="brRecuperar">Recuperar</button>
+      </div>
+    </div>`;
+  document.getElementById("brOv").onclick = cerrarModal; // cerrar sin decidir: quedan guardadas
+  document.getElementById("brRecuperar").onclick = () => {
+    cerrarModal();
+    filas.forEach((d) => agregarFilaCarga(false, d));
+    actualizarBarraFilasCarga();
+    toast(`${n} prenda${n === 1 ? "" : "s"} recuperada${n === 1 ? "" : "s"}`);
+  };
+  document.getElementById("brDescartar").onclick = () => {
+    limpiarBorrador(categoria);
+    cerrarModal();
+    toast("Borrador descartado");
+  };
 }
 
 // muestra u oculta la barra "Agregar todas las filas" según si hay filas de carga escritas
@@ -206,6 +237,7 @@ function agregarFilaCarga(focus, datos, despuesDe) {
   bindFilaCarga(row);
   if (focus) row.querySelector('[data-f="codigo"]').focus();
   actualizarBarraFilasCarga();
+  guardarBorrador();
   return row;
 }
 
@@ -220,6 +252,40 @@ function leerFila(row) {
     costo: Number(row.querySelector('[data-f="costo"]').value) || 0,
     imagen: row.querySelector(".simg").getAttribute("src") || "",
   };
+}
+
+// ===== BORRADOR DE CARGA (persiste filas sin subir, por categoría) =====
+const BORRADOR_PREFIX = "cristobal_borrador_stock_";
+
+function claveBorrador(categoria) {
+  return BORRADOR_PREFIX + (categoria || StockUI.categoria || "");
+}
+
+// guarda en localStorage todas las filas de carga actuales (incluso a medio escribir)
+function guardarBorrador() {
+  try {
+    if (!StockUI.categoria || StockUI.categoria === "__TODOS__") return;
+    const filas = [...document.querySelectorAll("#loadList .srow.is-new")].map(leerFila);
+    const clave = claveBorrador();
+    // guardar solo si hay alguna fila con algún dato; si no, limpiar
+    const hayDatos = filas.some((f) => f.codigo || f.marca || f.precio || f.costo);
+    if (hayDatos) localStorage.setItem(clave, JSON.stringify(filas));
+    else localStorage.removeItem(clave);
+  } catch (e) { /* si localStorage falla (modo privado del navegador, etc.), se ignora */ }
+}
+
+// devuelve las filas guardadas de una categoría, o null si no hay
+function leerBorrador(categoria) {
+  try {
+    const raw = localStorage.getItem(claveBorrador(categoria));
+    if (!raw) return null;
+    const filas = JSON.parse(raw);
+    return Array.isArray(filas) && filas.length ? filas : null;
+  } catch (e) { return null; }
+}
+
+function limpiarBorrador(categoria) {
+  try { localStorage.removeItem(claveBorrador(categoria)); } catch (e) { /* ignore */ }
 }
 
 // busca el precio de venta ya conocido de un código
@@ -446,7 +512,11 @@ function bindFilaCarga(row) {
   };
 
   // eliminar fila
-  row.querySelector('[data-act="remove"]').onclick = () => { row.remove(); actualizarBarraFilasCarga(); };
+  row.querySelector('[data-act="remove"]').onclick = () => { row.remove(); actualizarBarraFilasCarga(); guardarBorrador(); };
+
+  // auto-guardar el borrador ante cualquier cambio en la fila (input o select)
+  row.addEventListener("input", guardarBorrador);
+  row.addEventListener("change", guardarBorrador);
 }
 
 function actualizarBarraPendientes() {
@@ -526,6 +596,7 @@ async function confirmarPendientes() {
     if (rec.ok) State.stock = rec.stock;
     StockUI.pendientes = [];
     _pendAbierto = false;
+    limpiarBorrador(StockUI.categoria); // ya se subieron, el borrador se descarta
     cerrarModal();
     toast("Stock actualizado");
     renderStockCategoria(document.getElementById("view"), StockUI.categoria);
