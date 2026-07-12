@@ -57,7 +57,7 @@ async function cargarHistorial() {
     campos: [
       { id: "talle", label: "Talle", tipo: "select", opciones: tallesDisp },
       { id: "pago", label: "Pago", tipo: "select", opciones: ["Efectivo", "Tarjeta", "Transferencia"] },
-      { id: "estado", label: "Estado", tipo: "select", opciones: ["Activas", "Restauradas"] },
+      { id: "estado", label: "Ver restauradas", tipo: "select", opciones: ["Restauradas", "Todas"] },
       campoFecha,
     ],
     onChange: (f) => pintarHistorial(f),
@@ -100,8 +100,10 @@ function pintarHistorial(f) {
   if (f.q) lista = lista.filter((v) => coincideTexto(v, f.q, ["marca", "codigo"]));
   if (f.talle) lista = lista.filter((v) => v.talle === f.talle);
   if (f.pago) lista = lista.filter((v) => ventaUsaPago(v, f.pago));
-  if (f.estado === "Activas") lista = lista.filter((v) => !v.restaurada);
+  // por defecto las restauradas se ocultan (no molestan).
+  // "Restauradas" muestra solo esas; "Todas" muestra activas + restauradas.
   if (f.estado === "Restauradas") lista = lista.filter((v) => v.restaurada);
+  else if (f.estado !== "Todas") lista = lista.filter((v) => !v.restaurada);
   if (f.fecha) lista = lista.filter((v) => fechaLocalISO(v.fechaHora) === f.fecha);
 
   if (!lista.length) {
