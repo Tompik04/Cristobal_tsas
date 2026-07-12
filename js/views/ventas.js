@@ -964,9 +964,13 @@ function abrirPopupVenta(lineas, opts) {
       btnConf.disabled = true;
       btnConf.textContent = "Registrando...";
 
+      // usar la fecha elegida en el popup (puede ser de un día anterior), no la de hoy
+      const fSena = document.getElementById("fechaVenta").value;
+      const fechaSena = fSena ? new Date(fSena).toISOString() : new Date().toISOString();
+
       const idSena = "SE-" + Date.now();
       const res = await API.crearSena(
-        { id: idSena, nombre, telefono, fecha: new Date().toISOString() },
+        { id: idSena, nombre, telefono, fecha: fechaSena },
         lineas,
         { monto: entrega, metodoPago: modoDividido ? selM1.value : metodo1 }
       );

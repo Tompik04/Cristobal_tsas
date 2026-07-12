@@ -470,11 +470,11 @@ const API = {
     } catch (e) { return { ok: false, error: String(e) }; }
   },
 
-  async pagarSena(senaId, monto, metodoPago) {
+  async pagarSena(senaId, monto, metodoPago, fecha) {
     if (CONFIG.MODO_PRUEBA) return { ok: true };
     try {
       await SB.insert("sena_pagos", [{
-        sena_id: senaId, fecha: new Date().toISOString(),
+        sena_id: senaId, fecha: fecha || new Date().toISOString(),
         monto: Number(monto) || 0, metodo_pago: metodoPago || "",
       }]);
       return { ok: true };

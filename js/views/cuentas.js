@@ -633,6 +633,10 @@ function abrirPagoSena(s, saldo) {
         <label>Método de pago</label>
         <select class="sinput" id="spMetodo">${MEDIOS_PAGO.map((m) => `<option value="${m}">${m}</option>`).join("")}</select>
       </div>
+      <div class="field">
+        <label>Fecha del pago</label>
+        <input class="sinput" type="datetime-local" id="spFecha" value="${ahoraLocalInput()}">
+      </div>
       <p class="sena-info" id="spInfo"></p>
       <div class="modal-actions">
         <button class="btn-ghost" id="spCancel">Cancelar</button>
@@ -663,7 +667,11 @@ function abrirPagoSena(s, saldo) {
     const btn = document.getElementById("spSave");
     btn.disabled = true; btn.textContent = "Guardando...";
 
-    await API.pagarSena(s.id, monto, metodo);
+    // usar la fecha elegida (puede ser de un día anterior)
+    const fVal = document.getElementById("spFecha").value;
+    const fecha = fVal ? new Date(fVal).toISOString() : new Date().toISOString();
+
+    await API.pagarSena(s.id, monto, metodo, fecha);
     // si completó el total, la seña queda completada (la prenda ya salió del stock al señar)
     const completa = (monto >= saldo);
     if (completa) await API.actualizarEstadoSena(s.id, "completada");
