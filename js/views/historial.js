@@ -57,14 +57,14 @@ async function cargarHistorial() {
     campos: [
       { id: "talle", label: "Talle", tipo: "select", opciones: tallesDisp },
       { id: "pago", label: "Pago", tipo: "select", opciones: ["Efectivo", "Tarjeta", "Transferencia"] },
-      { id: "estado", label: "Ver ventas", tipo: "select", opciones: ["Solo restauradas", "Todo (con restauradas)"] },
+      { id: "estado", label: "Ventas", tipo: "select", opciones: ["Realizadas", "Todas", "Restauradas"], porDefecto: "Realizadas" },
       campoFecha,
     ],
     onChange: (f) => pintarHistorial(f),
   });
   fcont.appendChild(barra);
 
-  pintarHistorial({});
+  pintarHistorial({ estado: "Realizadas" });
 }
 
 // detecta si una venta incluye cierto tipo de pago (sirve para pagos divididos)
@@ -102,8 +102,9 @@ function pintarHistorial(f) {
   if (f.pago) lista = lista.filter((v) => ventaUsaPago(v, f.pago));
   // por defecto las restauradas se ocultan (no molestan).
   // "Restauradas" muestra solo esas; "Todas" muestra activas + restauradas.
-  if (f.estado === "Solo restauradas") lista = lista.filter((v) => v.restaurada);
-  else if (f.estado !== "Todo (con restauradas)") lista = lista.filter((v) => !v.restaurada);
+  // Realizadas (por defecto) = solo las no restauradas; Restauradas = solo anuladas; Todas = ambas
+  if (f.estado === "Restauradas") lista = lista.filter((v) => v.restaurada);
+  else if (f.estado !== "Todas") lista = lista.filter((v) => !v.restaurada);
   if (f.fecha) lista = lista.filter((v) => fechaLocalISO(v.fechaHora) === f.fecha);
 
   if (!lista.length) {
@@ -186,11 +187,17 @@ function histRowHTML(v, filtroPago, colorCarrito) {
         <span class="c-vars">Talle <strong>${v.talle}</strong> · Color <strong>${v.color}</strong> · x${v.cantidad}${ofertaTxt}</span>
         <span class="c-fecha">${fmtFechaHora(v.fechaHora)}${pago}</span>
         ${v.restaurada ? `<span class="c-estado vencido">Restaurada</span>` : ""}
+        ${v.voucherGenerado ? `<span class="c-estado c-estado-voucher"><i class="ti ti-ticket"></i> Voucher generado</span>` : ""}
       </div>
       ${precioHTML}
-      <button class="c-swap" data-act="restore" ${v.restaurada || v.esPagoCuenta ? "disabled" : ""} title="${v.esPagoCuenta ? "Pago de cuenta corriente" : (v.restaurada ? "Ya restaurada" : "Restaurar compra")}">
-        <i class="ti ti-arrow-back-up"></i>
-      </button>
+      <div class="c-acts">
+        <button class="c-swap c-voucher" data-act="voucher" ${v.restaurada || v.esPagoCuenta || v.voucherGenerado ? "disabled" : ""} title="${v.voucherGenerado ? "Ya generó voucher (" + v.voucherGenerado + ")" : (v.restaurada ? "Venta restaurada" : "Generar voucher por esta venta")}">
+          <i class="ti ti-ticket"></i>
+        </button>
+        <button class="c-swap" data-act="restore" ${v.restaurada || v.esPagoCuenta || v.voucherGenerado ? "disabled" : ""} title="${v.esPagoCuenta ? "Pago de cuenta corriente" : (v.voucherGenerado ? "Ya generó voucher" : (v.restaurada ? "Ya restaurada" : "Restaurar compra"))}">
+          <i class="ti ti-arrow-back-up"></i>
+        </button>
+      </div>
     </div>`;
 }
 
@@ -221,4 +228,82 @@ function bindHistRow(list, v) {
       });
     };
   }
+
+  const btnVou = row.querySelector('[data-act="voucher"]');
+  if (btnVou && !btnVou.disabled) {
+    btnVou.onclick = () => abrirVoucherDesdeVenta(v);
+  }
+}
+
+// Genera un voucher a partir de una venta: la prenda vuelve al stock,
+// la venta NO se anula (el valor del día se mantiene) y el cliente recibe
+// un voucher por el monto que pagó.
+function abrirVoucherDesdeVenta(v) {
+  const monto = v.precioFinal != null ? v.precioFinal : (v.precioBase || 0);
+  const venceDefault = (() => {
+    const d = new Date(); d.setDate(d.getDate() + CONFIG.DIAS_VENCIMIENTO_VOUCHER);
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 10);
+  })();
+
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-overlay" id="gvOv"></div>
+    <div class="modal">
+      <h2>Generar voucher</h2>
+      <p class="dc-msg">Por la venta de <strong>${escAttr(v.marca || v.codigo)}</strong> (${v.talle}/${v.color}).</p>
+      <div class="gv-monto">
+        <span>Valor del voucher</span>
+        <strong>${formatPrecio(monto)}</strong>
+      </div>
+      <div class="field"><label>Nombre</label><input class="sinput" id="gvNom" placeholder="Nombre y apellido"></div>
+      <div class="field"><label>Teléfono</label><input class="sinput" id="gvTel" placeholder="Ej. 2915551234" inputmode="numeric"></div>
+      <div class="field"><label>Vencimiento</label><input class="sinput" type="date" id="gvVence" value="${venceDefault}"></div>
+      <p class="gv-aviso"><i class="ti ti-info-circle"></i> La prenda vuelve al stock y la venta sigue contando en el día.</p>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="gvCancel">Cancelar</button>
+        <button class="btn-primary" id="gvSave">Generar voucher</button>
+      </div>
+    </div>`;
+
+  document.getElementById("gvOv").onclick = cerrarModal;
+  document.getElementById("gvCancel").onclick = cerrarModal;
+
+  document.getElementById("gvSave").onclick = async () => {
+    const nombre = document.getElementById("gvNom").value.trim();
+    const telefono = document.getElementById("gvTel").value.trim();
+    const vencimiento = document.getElementById("gvVence").value;
+    if (!nombre) return toast("Falta el nombre");
+    if (!telefono) return toast("Falta el teléfono");
+    if (monto <= 0) return toast("La venta no tiene monto para generar voucher");
+
+    const btn = document.getElementById("gvSave");
+    btn.disabled = true; btn.textContent = "Generando...";
+
+    const idVoucher = "VCH-" + Date.now();
+    const res = await API.crearVoucher({
+      id: idVoucher, tipo: "monto", monto,
+      fecha: new Date().toISOString(), vencimiento,
+      nombre, telefono,
+      origen: `Devolución de ${v.codigo}`,
+      avisado: false, usado: false, comprado: false,
+    });
+    if (!res.ok) {
+      btn.disabled = false; btn.textContent = "Generar voucher";
+      return toast("No se pudo crear el voucher");
+    }
+
+    // la prenda vuelve al stock (es una devolución)
+    await API.ajustarStockPorVariante(v.codigo, v.talle, v.color, v.cantidad);
+    const s = State.stock.find((x) => x.codigo === v.codigo && x.talle === v.talle && x.color === v.color);
+    if (s) s.cantidad += v.cantidad;
+
+    // marcar la venta: ya generó voucher (no se puede volver a generar ni restaurar)
+    await API.marcarVoucherGenerado(v.id, idVoucher);
+    v.voucherGenerado = idVoucher;
+
+    cerrarModal();
+    toast(`Voucher de ${formatPrecio(monto)} generado · Prenda repuesta`);
+    cargarHistorial();
+    actualizarCampanitaVouchers();
+  };
 }

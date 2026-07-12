@@ -109,6 +109,7 @@ function ventaDeDB(r) {
     pagos: r.pagos || null,
     inicioCambio: r.inicio_cambio, limiteCambio: r.limite_cambio,
     restaurada: !!r.restaurada,
+    voucherGenerado: r.voucher_generado || null,
   };
 }
 // Supabase devuelve timestamps como "2026-06-22 00:55:00+00" (con espacio).
@@ -414,6 +415,15 @@ const API = {
   },
 
   // ---------- VOUCHERS ----------
+  // marca una venta como que ya generó un voucher (evita duplicar)
+  async marcarVoucherGenerado(idVenta, idVoucher) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try {
+      await SB.update("ventas", "id=eq." + enc(idVenta), { voucher_generado: idVoucher });
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
   // ===== FACTURAS =====
   async getFacturas() {
     if (CONFIG.MODO_PRUEBA) return { ok: true, facturas: [] };
