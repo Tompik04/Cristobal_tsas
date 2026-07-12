@@ -40,9 +40,15 @@ const Router = {
     gastos: renderGastos,
     caja: renderCaja,
     cuentas: renderCuentas,
+    informes: renderInformes,
   },
 
   ir(vista, params = {}) {
+    // la sección informes es privada: sin código, se pide y no se entra
+    if (vista === "informes" && !modoPrivadoActivo()) {
+      abrirCodigoPrivado();
+      return;
+    }
     State.vistaActual = vista;
     State.dentroCategoria = false;
     const viewEl = document.getElementById("view");
@@ -132,6 +138,7 @@ function headerHTML(actual) {
     </div>
     <nav class="h-nav">${nav}</nav>
     <div class="h-right">
+      ${modoPrivadoActivo() ? `<button class="h-informes" id="hInformes" aria-label="Informes" title="Informes de ventas"><i class="ti ti-chart-histogram"></i></button>` : ""}
       <div class="h-logo" id="hLogo" title="Cristóbal">${LOGO_SVG}</div>
     </div>
   `;
@@ -144,6 +151,8 @@ function bindHeader() {
   if (caja) caja.onclick = () => Router.ir("caja");
   const gastos = document.getElementById("hGastos");
   if (gastos) gastos.onclick = () => Router.ir("gastos");
+  const informes = document.getElementById("hInformes");
+  if (informes) informes.onclick = () => Router.ir("informes");
   const logo = document.getElementById("hLogo");
   if (logo) logo.onclick = () => {
     if (modoPrivadoActivo()) {
@@ -243,7 +252,7 @@ function abrirGestionPrivado() {
 
 // banda distintiva de sección con ícono grande y color propio (para diferenciar ventas de stock, etc.)
 function bandaSeccion(seccion, titulo, subtitulo) {
-  const iconos = { ventas: "ti-shopping-cart", stock: "ti-stack-2", cambios: "ti-arrows-exchange", vouchers: "ti-ticket", cuentas: "ti-users" };
+  const iconos = { ventas: "ti-shopping-cart", stock: "ti-stack-2", cambios: "ti-arrows-exchange", vouchers: "ti-ticket", cuentas: "ti-users", informes: "ti-chart-histogram" };
   const ic = iconos[seccion] || "ti-tag";
   return `
     <div class="section-band band-${seccion}">
