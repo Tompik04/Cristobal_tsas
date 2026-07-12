@@ -22,7 +22,8 @@ function crearBarraFiltros(config) {
       const sel = document.createElement("select");
       sel.className = "filter-field";
       sel.dataset.filter = c.id;
-      sel.innerHTML = `<option value="">${c.label}</option>` +
+      // la opción vacía significa "sin filtrar" → se muestra como "Todo"
+      sel.innerHTML = `<option value="">${c.label}: Todo</option>` +
         c.opciones.map((o) => `<option value="${o}">${o}</option>`).join("");
       wrap.appendChild(sel);
     } else if (c.tipo === "date") {

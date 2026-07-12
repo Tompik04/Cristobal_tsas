@@ -57,7 +57,7 @@ async function cargarHistorial() {
     campos: [
       { id: "talle", label: "Talle", tipo: "select", opciones: tallesDisp },
       { id: "pago", label: "Pago", tipo: "select", opciones: ["Efectivo", "Tarjeta", "Transferencia"] },
-      { id: "estado", label: "Ver restauradas", tipo: "select", opciones: ["Restauradas", "Todas"] },
+      { id: "estado", label: "Ver ventas", tipo: "select", opciones: ["Solo restauradas", "Todo (con restauradas)"] },
       campoFecha,
     ],
     onChange: (f) => pintarHistorial(f),
@@ -90,8 +90,8 @@ function montoPorTipo(v, tipo) {
   if (v.pagos && v.pagos.length) {
     return v.pagos.filter((p) => metodoEsTipo(p.metodo, tipo)).reduce((a, p) => a + (Number(p.monto) || 0), 0);
   }
-  // ventas viejas sin desglose: si el método coincide, se asume el total
-  return ventaUsaPago(v, tipo) ? (v.precioBase || 0) : 0;
+  // ventas viejas sin desglose: si el método coincide, se asume lo realmente cobrado
+  return ventaUsaPago(v, tipo) ? (v.precioFinal != null ? v.precioFinal : (v.precioBase || 0)) : 0;
 }
 
 function pintarHistorial(f) {
@@ -102,8 +102,8 @@ function pintarHistorial(f) {
   if (f.pago) lista = lista.filter((v) => ventaUsaPago(v, f.pago));
   // por defecto las restauradas se ocultan (no molestan).
   // "Restauradas" muestra solo esas; "Todas" muestra activas + restauradas.
-  if (f.estado === "Restauradas") lista = lista.filter((v) => v.restaurada);
-  else if (f.estado !== "Todas") lista = lista.filter((v) => !v.restaurada);
+  if (f.estado === "Solo restauradas") lista = lista.filter((v) => v.restaurada);
+  else if (f.estado !== "Todo (con restauradas)") lista = lista.filter((v) => !v.restaurada);
   if (f.fecha) lista = lista.filter((v) => fechaLocalISO(v.fechaHora) === f.fecha);
 
   if (!lista.length) {
@@ -122,32 +122,62 @@ function pintarHistorial(f) {
       total = activas.reduce((a, v) => a + montoPorTipo(v, f.pago), 0);
       etiqueta = `Total en ${f.pago.toLowerCase()} (${lista.length})`;
     } else {
-      total = activas.reduce((a, v) => a + (v.precioBase || 0), 0);
+      // usar precioFinal (lo realmente cobrado, ya con descuento/regalo/adicional),
+      // NO precioBase (el precio original de lista)
+      total = activas.reduce((a, v) => a + (v.precioFinal != null ? v.precioFinal : (v.precioBase || 0)), 0);
       etiqueta = `Total filtrado (${lista.length})`;
     }
     totalHTML = `<div class="hist-total"><span>${etiqueta}</span><strong>${formatPrecio(total)}</strong></div>`;
   }
 
-  list.innerHTML = totalHTML + lista.map((v) => histRowHTML(v, f.pago)).join("");
+  // Ventas de carrito: las líneas de una misma venta comparten el prefijo del id (V-123456-0, -1...).
+  // Se les asigna un color de fondo distinto por venta, para distinguirlas visualmente.
+  const grupos = {};
+  lista.forEach((v) => {
+    const pref = prefijoVenta(v.id);
+    if (!grupos[pref]) grupos[pref] = 0;
+    grupos[pref]++;
+  });
+  // solo las ventas con más de una línea (carrito) reciben color
+  const colorPorVenta = {};
+  let idxColor = 0;
+  Object.keys(grupos).forEach((pref) => {
+    if (grupos[pref] > 1) { colorPorVenta[pref] = (idxColor % 6) + 1; idxColor++; }
+  });
+
+  list.innerHTML = totalHTML + lista.map((v) => histRowHTML(v, f.pago, colorPorVenta[prefijoVenta(v.id)])).join("");
   lista.forEach((v) => bindHistRow(list, v));
 }
 
-function histRowHTML(v, filtroPago) {
+// prefijo de una venta (sin el índice de línea): "V-123456-0" → "V-123456"
+function prefijoVenta(id) {
+  const s = String(id || "");
+  const i = s.lastIndexOf("-");
+  return i > 0 ? s.substring(0, i) : s;
+}
+
+function histRowHTML(v, filtroPago, colorCarrito) {
   const ofertaTxt = v.oferta ? ` · ${v.oferta}% off` : "";
   const pago = v.metodoPago ? ` · ${metodoColoreado(v.metodoPago)}` : "";
+  // precio realmente cobrado (con descuento/regalo/adicional aplicado)
+  const cobrado = v.precioFinal != null ? v.precioFinal : (v.precioBase || 0);
   // si se filtra por un método y la venta fue mixta, mostrar la parte de ese método
   let precioHTML;
   if (filtroPago) {
     const parcial = montoPorTipo(v, filtroPago);
     const esMixta = (v.pagos && v.pagos.length > 1);
     precioHTML = esMixta
-      ? `<div class="c-precio"><span class="c-precio-parcial">${formatPrecio(parcial)}</span><span class="c-precio-total">de ${formatPrecio(v.precioBase)}</span></div>`
+      ? `<div class="c-precio"><span class="c-precio-parcial">${formatPrecio(parcial)}</span><span class="c-precio-total">de ${formatPrecio(cobrado)}</span></div>`
       : `<div class="c-precio">${formatPrecio(parcial)}</div>`;
   } else {
-    precioHTML = `<div class="c-precio">${formatPrecio(v.precioBase)}</div>`;
+    // si hubo descuento/regalo, mostrar el cobrado y tachado el original
+    const huboAjuste = v.precioBase && Math.abs(cobrado - v.precioBase) > 1;
+    precioHTML = huboAjuste
+      ? `<div class="c-precio"><span class="c-precio-parcial">${formatPrecio(cobrado)}</span><span class="c-precio-total c-tachado">${formatPrecio(v.precioBase)}</span></div>`
+      : `<div class="c-precio">${formatPrecio(cobrado)}</div>`;
   }
   return `
-    <div class="crow ${v.restaurada ? "expirado" : ""}" data-id="${v.id}">
+    <div class="crow ${v.restaurada ? "expirado" : ""} ${colorCarrito ? "carrito-" + colorCarrito : ""}" data-id="${v.id}">
       <div class="pcell">
         <img class="pimg${v.esPagoCuenta ? "" : " zoomable"}" src="${imgPrenda(v.codigo, categoriaDeStock(v.codigo))}" alt="" onerror="this.style.opacity=0.3">
         <div class="pinfo"><span class="pmarca">${v.marca}</span><span class="pcod">${v.codigo}</span></div>
