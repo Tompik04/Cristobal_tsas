@@ -116,7 +116,7 @@ function headerHTML(actual) {
     { id: "stock", label: "STOCK" },
     { id: "cambios", label: "CAMBIOS" },
     { id: "vouchers", label: "VOUCHERS" },
-    { id: "cuentas", label: "CTA CTE" },
+    { id: "cuentas", label: "CTA CTE / SEÑA" },
   ];
   const nav = links
     .map((l) => {

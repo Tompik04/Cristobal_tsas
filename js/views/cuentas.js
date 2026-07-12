@@ -9,13 +9,38 @@ let _cuentaAbierta = null; // id de la cuenta cuyo detalle se ve
 
 function renderCuentas(root) {
   root.innerHTML = `
-    <p class="view-title">CUENTA CORRIENTE</p>
-    <div class="vouchers-top">
-      <button class="btn-primary v-new-btn" id="ccNewBtn"><i class="ti ti-user-plus"></i> Nueva cuenta</button>
+    <p class="view-title">CUENTA CORRIENTE / SEÑAS</p>
+    <div class="cc-tabs">
+      <button class="cc-tab selected" id="tabCuentas"><i class="ti ti-users"></i> Cuenta corriente</button>
+      <button class="cc-tab" id="tabSenas"><i class="ti ti-bookmark"></i> Señas</button>
     </div>
-    <div id="ccFiltros"></div>
-    <div class="cambios-list" id="ccList"><div class="soon"><i class="ti ti-loader"></i><p>Cargando...</p></div></div>`;
+    <div id="paneCuentas">
+      <div class="vouchers-top">
+        <button class="btn-primary v-new-btn" id="ccNewBtn"><i class="ti ti-user-plus"></i> Nueva cuenta</button>
+      </div>
+      <div id="ccFiltros"></div>
+      <div class="cambios-list" id="ccList"><div class="soon"><i class="ti ti-loader"></i><p>Cargando...</p></div></div>
+    </div>
+    <div id="paneSenas" style="display:none">
+      <div id="senaFiltros"></div>
+      <div class="cambios-list" id="senaList"><div class="soon"><i class="ti ti-loader"></i><p>Cargando...</p></div></div>
+    </div>`;
   document.getElementById("ccNewBtn").onclick = abrirNuevaCuenta;
+
+  const tabC = document.getElementById("tabCuentas");
+  const tabS = document.getElementById("tabSenas");
+  const paneC = document.getElementById("paneCuentas");
+  const paneS = document.getElementById("paneSenas");
+  tabC.onclick = () => {
+    tabC.classList.add("selected"); tabS.classList.remove("selected");
+    paneC.style.display = ""; paneS.style.display = "none";
+  };
+  tabS.onclick = () => {
+    tabS.classList.add("selected"); tabC.classList.remove("selected");
+    paneS.style.display = ""; paneC.style.display = "none";
+    cargarSenas();
+  };
+
   cargarCuentas();
 }
 
@@ -427,5 +452,224 @@ function abrirPagoCuenta(cuentaId, deuda) {
     await API.registrarPagoCuenta(cuentaId, Math.round(cobradoFinal), metodo, Math.round(saldaFinal));
     toast(`Pago registrado · saldó ${formatPrecio(Math.round(saldaFinal))}`);
     await recargarYReabrir(cuentaId);
+  };
+}
+
+/* ============================================================
+   SEÑAS
+   Prendas reservadas: salen del stock al señar y el cliente
+   paga en cuotas hasta completar. Si no retira, se cancela y
+   las prendas vuelven al stock.
+   ============================================================ */
+
+let _senas = [], _senaItems = [], _senaPagos = [];
+
+async function cargarSenas() {
+  const res = await API.getSenas();
+  if (!res.ok) {
+    document.getElementById("senaList").innerHTML = `<div class="soon"><i class="ti ti-alert-triangle"></i><p>No se pudieron cargar las señas.</p></div>`;
+    return;
+  }
+  _senas = res.senas; _senaItems = res.items; _senaPagos = res.pagos;
+
+  const fcont = document.getElementById("senaFiltros");
+  fcont.innerHTML = "";
+  const barra = crearBarraFiltros({
+    placeholder: "Buscar por nombre o teléfono...",
+    campos: [{ id: "estado", label: "Estado", tipo: "select", opciones: ["Activas", "Completadas", "Canceladas"], porDefecto: "Activas" }],
+    onChange: (f) => pintarSenas(f),
+  });
+  fcont.appendChild(barra);
+
+  pintarSenas({ estado: "Activas" });
+}
+
+// pagado y saldo de una seña
+function pagadoSena(senaId) {
+  return _senaPagos.filter((p) => p.senaId === senaId).reduce((a, p) => a + p.monto, 0);
+}
+function saldoSena(s) {
+  return Math.max(0, s.total - pagadoSena(s.id));
+}
+
+function pintarSenas(f) {
+  const list = document.getElementById("senaList");
+  let lista = _senas.slice();
+
+  if (f.q) {
+    const q = f.q.toLowerCase();
+    lista = lista.filter((s) => (s.nombre || "").toLowerCase().includes(q) || (s.telefono || "").includes(q));
+  }
+  const mapa = { Activas: "activa", Completadas: "completada", Canceladas: "cancelada" };
+  const estadoBuscado = mapa[f.estado] || "activa";
+  lista = lista.filter((s) => s.estado === estadoBuscado);
+
+  if (!lista.length) {
+    list.innerHTML = `<div class="soon"><i class="ti ti-bookmark-off"></i><p>No hay señas ${(f.estado || "activas").toLowerCase()}.</p></div>`;
+    return;
+  }
+
+  list.innerHTML = lista.map(senaHTML).join("");
+  lista.forEach((s) => {
+    const row = list.querySelector(`.sena-card[data-id="${s.id}"]`);
+    if (row) row.onclick = () => abrirDetalleSena(s.id);
+  });
+}
+
+function senaHTML(s) {
+  const items = _senaItems.filter((i) => i.senaId === s.id);
+  const pagado = pagadoSena(s.id);
+  const saldo = saldoSena(s);
+  const pct = s.total > 0 ? Math.min(100, Math.round((pagado / s.total) * 100)) : 0;
+  const prendas = items.map((i) => `${escAttr(i.marca || i.codigo)} (${i.talle}/${i.color})`).join(", ");
+
+  return `
+    <div class="sena-card estado-${s.estado}" data-id="${s.id}">
+      <div class="sena-head">
+        <div>
+          <span class="sena-nombre">${escAttr(s.nombre || "—")}</span>
+          <span class="sena-tel">${escAttr(s.telefono || "")}</span>
+        </div>
+        <span class="sena-estado sena-${s.estado}">${s.estado}</span>
+      </div>
+      <p class="sena-prendas">${prendas || "—"}</p>
+      <div class="sena-barra"><div class="sena-barra-fill" style="width:${pct}%"></div></div>
+      <div class="sena-montos">
+        <span>Pagó <strong>${formatPrecio(pagado)}</strong> de ${formatPrecio(s.total)}</span>
+        ${s.estado === "activa" ? `<span class="sena-saldo">Debe ${formatPrecio(saldo)}</span>` : ""}
+      </div>
+    </div>`;
+}
+
+function abrirDetalleSena(senaId) {
+  const s = _senas.find((x) => x.id === senaId);
+  if (!s) return;
+  const items = _senaItems.filter((i) => i.senaId === senaId);
+  const pagos = _senaPagos.filter((p) => p.senaId === senaId);
+  const pagado = pagadoSena(senaId);
+  const saldo = saldoSena(s);
+
+  const itemsHTML = items.map((i) => `
+    <div class="sd-item">
+      <span>${escAttr(i.marca || i.codigo)} · ${i.talle}/${i.color} · x${i.cantidad}</span>
+      <strong>${formatPrecio(i.precio * i.cantidad * (1 - (i.oferta || 0) / 100))}</strong>
+    </div>`).join("");
+
+  const pagosHTML = pagos.length
+    ? pagos.map((p) => `
+      <div class="sd-pago">
+        <span>${new Date(p.fecha).toLocaleDateString("es-AR")} · ${escAttr(p.metodoPago)}</span>
+        <strong>${formatPrecio(p.monto)}</strong>
+      </div>`).join("")
+    : `<p class="sd-vacio">Sin pagos registrados.</p>`;
+
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-overlay" id="sdOv"></div>
+    <div class="modal modal-wide">
+      <h2>Seña de ${escAttr(s.nombre || "—")}</h2>
+      <p class="dc-msg">${escAttr(s.telefono || "")} · ${new Date(s.fecha).toLocaleDateString("es-AR")}</p>
+
+      <p class="sd-titulo">Prendas reservadas</p>
+      <div class="sd-lista">${itemsHTML}</div>
+
+      <p class="sd-titulo">Pagos</p>
+      <div class="sd-lista">${pagosHTML}</div>
+
+      <div class="sd-resumen">
+        <div><span>Total</span><strong>${formatPrecio(s.total)}</strong></div>
+        <div><span>Pagado</span><strong class="sd-ok">${formatPrecio(pagado)}</strong></div>
+        <div><span>Saldo</span><strong class="sd-deuda">${formatPrecio(saldo)}</strong></div>
+      </div>
+
+      <div class="modal-actions sd-acts">
+        <button class="btn-ghost" id="sdCerrar">Cerrar</button>
+        ${s.estado === "activa" ? `
+          <button class="btn-ghost sd-cancelar" id="sdCancelar">Cancelar seña</button>
+          <button class="btn-primary" id="sdPagar">Registrar pago</button>` : ""}
+      </div>
+    </div>`;
+
+  document.getElementById("sdOv").onclick = cerrarModal;
+  document.getElementById("sdCerrar").onclick = cerrarModal;
+
+  if (s.estado !== "activa") return;
+
+  // registrar un pago (si completa el total, la seña se completa y el cliente se lleva la prenda)
+  document.getElementById("sdPagar").onclick = () => abrirPagoSena(s, saldo);
+
+  // cancelar: las prendas vuelven al stock
+  document.getElementById("sdCancelar").onclick = () => {
+    dobleConfirmacion({
+      titulo: "Cancelar seña",
+      mensaje1: `Las ${items.length} prenda${items.length === 1 ? "" : "s"} vuelven al stock. Lo que el cliente ya pagó (${formatPrecio(pagado)}) queda registrado como ingreso.`,
+      mensaje2: "¿Confirmás la cancelación?",
+      textoBoton: "Cancelar seña",
+      onOk: async () => {
+        await API.cancelarSena(s.id, items);
+        // reponer en memoria
+        items.forEach((i) => {
+          const st = State.stock.find((x) => x.codigo === i.codigo && x.talle === i.talle && x.color === i.color);
+          if (st) st.cantidad += i.cantidad;
+        });
+        cerrarModal();
+        toast("Seña cancelada · Prendas repuestas al stock");
+        cargarSenas();
+      },
+    });
+  };
+}
+
+function abrirPagoSena(s, saldo) {
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-overlay" id="spOv"></div>
+    <div class="modal">
+      <h2>Registrar pago</h2>
+      <p class="dc-msg">Saldo pendiente: <strong>${formatPrecio(saldo)}</strong></p>
+      <div class="field">
+        <label>Monto que paga ($)</label>
+        <input class="sinput" type="number" id="spMonto" min="0" value="${Math.round(saldo)}">
+      </div>
+      <div class="field">
+        <label>Método de pago</label>
+        <select class="sinput" id="spMetodo">${MEDIOS_PAGO.map((m) => `<option value="${m}">${m}</option>`).join("")}</select>
+      </div>
+      <p class="sena-info" id="spInfo"></p>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="spCancel">Cancelar</button>
+        <button class="btn-primary" id="spSave">Registrar pago</button>
+      </div>
+    </div>`;
+
+  const inp = document.getElementById("spMonto");
+  const info = document.getElementById("spInfo");
+  const refrescar = () => {
+    const m = Number(inp.value) || 0;
+    if (m >= saldo && saldo > 0) info.innerHTML = `<i class="ti ti-circle-check"></i> Completa la seña: el cliente se lleva la prenda.`;
+    else if (m > 0) info.innerHTML = `Quedaría debiendo ${formatPrecio(saldo - m)}`;
+    else info.textContent = "";
+  };
+  inp.oninput = refrescar;
+  refrescar();
+
+  document.getElementById("spOv").onclick = cerrarModal;
+  document.getElementById("spCancel").onclick = () => abrirDetalleSena(s.id);
+
+  document.getElementById("spSave").onclick = async () => {
+    const monto = Number(inp.value) || 0;
+    const metodo = document.getElementById("spMetodo").value;
+    if (monto <= 0) return toast("Monto inválido");
+    if (monto > saldo) return toast(`El saldo es ${formatPrecio(saldo)}`);
+
+    const btn = document.getElementById("spSave");
+    btn.disabled = true; btn.textContent = "Guardando...";
+
+    await API.pagarSena(s.id, monto, metodo);
+    // si completó el total, la seña queda completada (la prenda ya salió del stock al señar)
+    const completa = (monto >= saldo);
+    if (completa) await API.actualizarEstadoSena(s.id, "completada");
+
+    cerrarModal();
+    toast(completa ? "Seña completada · El cliente se lleva la prenda" : `Pago registrado · ${formatPrecio(monto)}`);
+    cargarSenas();
   };
 }

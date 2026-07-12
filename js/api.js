@@ -415,6 +415,90 @@ const API = {
   },
 
   // ---------- VOUCHERS ----------
+  // ===== SEÑAS =====
+  // Trae las señas con sus prendas y pagos
+  async getSenas() {
+    if (CONFIG.MODO_PRUEBA) return { ok: true, senas: [], items: [], pagos: [] };
+    try {
+      const [senas, items, pagos] = await Promise.all([
+        SB.select("senas", "select=*&order=fecha.desc"),
+        SB.select("sena_items", "select=*"),
+        SB.select("sena_pagos", "select=*&order=fecha"),
+      ]);
+      return {
+        ok: true,
+        senas: senas.map((r) => ({
+          id: r.id, fecha: normalizarFechaISO(r.fecha), nombre: r.nombre || "",
+          telefono: r.telefono || "", total: Number(r.total) || 0, estado: r.estado || "activa",
+        })),
+        items: items.map((r) => ({
+          id: r.id, senaId: r.sena_id, codigo: r.codigo, marca: r.marca,
+          talle: String(r.talle), color: r.color, cantidad: Number(r.cantidad) || 0,
+          precio: Number(r.precio) || 0, oferta: Number(r.oferta) || 0,
+        })),
+        pagos: pagos.map((r) => ({
+          id: r.id, senaId: r.sena_id, fecha: normalizarFechaISO(r.fecha),
+          monto: Number(r.monto) || 0, metodoPago: r.metodo_pago || "",
+        })),
+      };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
+  // Crea la seña: guarda cabecera, prendas y el primer pago, y descuenta el stock
+  async crearSena(sena, lineas, pagoInicial) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try {
+      const total = lineas.reduce((a, l) => a + l.precio * l.cantidad * (1 - (l.oferta || 0) / 100), 0);
+      await SB.insert("senas", [{
+        id: sena.id, fecha: sena.fecha || new Date().toISOString(),
+        nombre: sena.nombre || "", telefono: sena.telefono || "",
+        total, estado: "activa",
+      }]);
+      await SB.insert("sena_items", lineas.map((l) => ({
+        sena_id: sena.id, codigo: l.codigo, marca: l.marca, talle: l.talle, color: l.color,
+        cantidad: l.cantidad, precio: l.precio, oferta: l.oferta || 0,
+      })));
+      if (pagoInicial && pagoInicial.monto > 0) {
+        await SB.insert("sena_pagos", [{
+          sena_id: sena.id, fecha: sena.fecha || new Date().toISOString(),
+          monto: pagoInicial.monto, metodo_pago: pagoInicial.metodoPago || "",
+        }]);
+      }
+      // las prendas salen del stock (quedan reservadas para el cliente)
+      for (const l of lineas) await this.ajustarStockPorVariante(l.codigo, l.talle, l.color, -l.cantidad);
+      return { ok: true, total };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
+  async pagarSena(senaId, monto, metodoPago) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try {
+      await SB.insert("sena_pagos", [{
+        sena_id: senaId, fecha: new Date().toISOString(),
+        monto: Number(monto) || 0, metodo_pago: metodoPago || "",
+      }]);
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
+  async actualizarEstadoSena(senaId, estado) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try {
+      await SB.update("senas", "id=eq." + enc(senaId), { estado });
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
+  // Cancela la seña: las prendas vuelven al stock
+  async cancelarSena(senaId, items) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try {
+      for (const i of items) await this.ajustarStockPorVariante(i.codigo, i.talle, i.color, i.cantidad);
+      await SB.update("senas", "id=eq." + enc(senaId), { estado: "cancelada" });
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
   // marca una venta como que ya generó un voucher (evita duplicar)
   async marcarVoucherGenerado(idVenta, idVoucher) {
     if (CONFIG.MODO_PRUEBA) return { ok: true };

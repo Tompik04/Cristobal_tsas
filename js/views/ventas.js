@@ -381,6 +381,8 @@ function abrirPopupVenta(lineas, opts) {
   // estado del panel de factura
   let facturaAbierta = false;
   let bancosDisponibles = [];
+  // estado de la seña
+  let senaActiva = false;
 
   const subtotalLineas = lineas.reduce((a, l) => a + precioLinea(l), 0);
   // el base ya considera el descuento general del carrito
@@ -487,6 +489,30 @@ function abrirPopupVenta(lineas, opts) {
             </div>
           </div>
           <p class="desc-info adic-info" id="adicInfo"></p>
+        </div>
+      </div>
+
+      <div class="desc-pago-box sena-box">
+        <label class="desc-check-row">
+          <input type="checkbox" id="senaCheck" class="evar-chk">
+          <span>Seña (reservar y pagar en cuotas)</span>
+        </label>
+        <div id="senaCampos" class="desc-campos" style="display:none">
+          <div class="split-row">
+            <div class="field">
+              <label>Nombre y apellido</label>
+              <input type="text" id="senaNom" class="sinput" placeholder="Nombre del cliente">
+            </div>
+            <div class="field">
+              <label>Teléfono</label>
+              <input type="text" id="senaTel" class="sinput" placeholder="Teléfono" inputmode="numeric">
+            </div>
+          </div>
+          <div class="field">
+            <label>Monto que entrega ahora ($)</label>
+            <input type="number" id="senaMonto" class="sinput" min="0" placeholder="$">
+          </div>
+          <p class="desc-info sena-info" id="senaInfo"></p>
         </div>
       </div>
 
@@ -868,6 +894,34 @@ function abrirPopupVenta(lineas, opts) {
     };
   }
 
+  // --- seña (reservar prendas y pagar en cuotas) ---
+  const senaCheck = document.getElementById("senaCheck");
+  const senaCampos = document.getElementById("senaCampos");
+  const senaMontoInput = document.getElementById("senaMonto");
+  const senaInfo = document.getElementById("senaInfo");
+
+  function refrescarSenaInfo() {
+    const entrega = Number(senaMontoInput.value) || 0;
+    if (!senaActiva || entrega <= 0) { senaInfo.textContent = ""; return; }
+    const totalPrendas = baseEfectivo();
+    const saldo = totalPrendas - entrega;
+    if (entrega >= totalPrendas) {
+      senaInfo.innerHTML = `Entrega el total (${formatPrecio(totalPrendas)}): no hace falta seña.`;
+      return;
+    }
+    senaInfo.innerHTML = `Entrega <strong>${formatPrecio(entrega)}</strong> · Queda debiendo <strong>${formatPrecio(saldo)}</strong> de ${formatPrecio(totalPrendas)}`;
+  }
+
+  senaCheck.onchange = () => {
+    senaActiva = senaCheck.checked;
+    senaCampos.style.display = senaActiva ? "block" : "none";
+    // en seña se cobra solo una parte: el botón cambia de texto
+    btnConf.textContent = senaActiva ? "Registrar seña" : "Confirmar venta";
+    refrescarSenaInfo();
+    recalcular();
+  };
+  senaMontoInput.oninput = () => { refrescarSenaInfo(); recalcular(); };
+
   document.querySelectorAll("[data-m1]").forEach((b) => {
     b.onclick = () => {
       const metodo = b.dataset.m1;
@@ -894,6 +948,51 @@ function abrirPopupVenta(lineas, opts) {
   [selM1, selM2].forEach((el) => el.addEventListener("change", recalcular));
 
   btnConf.onclick = async () => {
+    // ---- SEÑA: en vez de una venta, se registra una reserva con pago parcial ----
+    if (senaActiva) {
+      const nombre = document.getElementById("senaNom").value.trim();
+      const telefono = document.getElementById("senaTel").value.trim();
+      const entrega = Number(senaMontoInput.value) || 0;
+      const totalPrendas = baseEfectivo();
+
+      if (!nombre) return toast("Falta el nombre del cliente");
+      if (!telefono) return toast("Falta el teléfono");
+      if (entrega <= 0) return toast("Ingresá el monto que entrega");
+      if (entrega >= totalPrendas) return toast("Entrega el total: cobrá como venta normal, no como seña");
+      if (!metodo1 && !modoDividido) return toast("Elegí el método de pago de la seña");
+
+      btnConf.disabled = true;
+      btnConf.textContent = "Registrando...";
+
+      const idSena = "SE-" + Date.now();
+      const res = await API.crearSena(
+        { id: idSena, nombre, telefono, fecha: new Date().toISOString() },
+        lineas,
+        { monto: entrega, metodoPago: modoDividido ? selM1.value : metodo1 }
+      );
+
+      if (!res.ok) {
+        btnConf.disabled = false;
+        btnConf.textContent = "Registrar seña";
+        return toast("No se pudo registrar la seña");
+      }
+
+      // descontar del stock en memoria (ya se descontó en la base)
+      lineas.forEach((l) => {
+        const s = State.stock.find((x) => x.codigo === l.codigo && x.talle === l.talle && x.color === l.color);
+        if (s) s.cantidad -= l.cantidad;
+      });
+      if (lineas === State.carrito || lineas.length === State.carrito.length) {
+        State.carrito = [];
+        State.descuentoCarrito = 0;
+      }
+      cerrarModal();
+      actualizarBadge();
+      toast(`Seña registrada · Entregó ${formatPrecio(entrega)} de ${formatPrecio(totalPrendas)}`);
+      Router.ir("cuentas");
+      return;
+    }
+
     // la factura es obligatoria para débito y crédito
     const metodosUsados = modoDividido ? [selM1.value, selM2.value] : [metodo1];
     const necesitaFactura = metodosUsados.some((m) => m === "Débito" || m === "Crédito");

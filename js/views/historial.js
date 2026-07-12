@@ -13,7 +13,7 @@ function renderHistorial(root) {
 }
 
 async function cargarHistorial() {
-  const [res, resCC] = await Promise.all([API.getVentas(), API.getCuentas()]);
+  const [res, resCC, resSE] = await Promise.all([API.getVentas(), API.getCuentas(), API.getSenas()]);
   if (!res.ok) {
     document.getElementById("histList").innerHTML = `<div class="soon"><i class="ti ti-alert-triangle"></i><p>No se pudieron cargar las ventas.</p></div>`;
     return;
@@ -38,7 +38,21 @@ async function cargarHistorial() {
     }));
   }
 
-  _ventasHist = res.ventas.concat(pagosCC)
+  // pagos de seña como "ingresos" (la plata cuenta el día que se cobra)
+  let pagosSE = [];
+  if (resSE && resSE.ok) {
+    const nombrePorSena = {};
+    resSE.senas.forEach((s) => { nombrePorSena[s.id] = s.nombre || ""; });
+    pagosSE = resSE.pagos.map((p) => ({
+      id: "SP-" + p.id, fechaHora: p.fecha, codigo: "SEÑA", marca: "Pago seña",
+      talle: "—", color: nombrePorSena[p.senaId] || "", cantidad: 1, oferta: 0,
+      precioBase: p.monto, precioFinal: p.monto, metodoPago: p.metodoPago,
+      pagos: [{ metodo: p.metodoPago, monto: p.monto }],
+      restaurada: false, esPagoCuenta: true, esPagoSena: true,
+    }));
+  }
+
+  _ventasHist = res.ventas.concat(pagosCC).concat(pagosSE)
     .filter((v) => new Date(v.fechaHora) >= desde)
     .sort((a, b) => new Date(b.fechaHora) - new Date(a.fechaHora));
 
