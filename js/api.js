@@ -121,6 +121,16 @@ function normalizarFechaISO(s) {
   if (!/[zZ]|[+-]\d{2}:\d{2}$/.test(v)) v += "Z";
   return v;
 }
+function facturaDeDB(r) {
+  return {
+    id: r.id, numero: r.numero, fecha: normalizarFechaISO(r.fecha),
+    ventaId: r.venta_id, nombre: r.nombre || "", dni: r.dni || "", telefono: r.telefono || "",
+    tipoTarjeta: r.tipo_tarjeta || "", banco: r.banco || "",
+    cuotas: Number(r.cuotas) || 1, monto: Number(r.monto) || 0,
+    metodoPago: r.metodo_pago || "", facturada: !!r.facturada,
+  };
+}
+
 function voucherDeDB(r) {
   return {
     id: r.id, tipo: r.tipo, monto: Number(r.monto) || 0, descuento: Number(r.descuento) || 0,
@@ -404,6 +414,84 @@ const API = {
   },
 
   // ---------- VOUCHERS ----------
+  // ===== FACTURAS =====
+  async getFacturas() {
+    if (CONFIG.MODO_PRUEBA) return { ok: true, facturas: [] };
+    try {
+      const rows = await SB.select("facturas", "select=*&order=fecha.desc");
+      return { ok: true, facturas: rows.map(facturaDeDB) };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
+  async crearFactura(f) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try {
+      await SB.insert("facturas", [{
+        numero: f.numero, venta_id: f.ventaId || null,
+        nombre: f.nombre || "", dni: f.dni || "", telefono: f.telefono || "",
+        tipo_tarjeta: f.tipoTarjeta || "", banco: f.banco || "",
+        cuotas: Number(f.cuotas) || 1, monto: Number(f.monto) || 0,
+        metodo_pago: f.metodoPago || "", facturada: false,
+        fecha: f.fecha || new Date().toISOString(),
+      }]);
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
+  // marcar una factura como ya facturada (o desmarcarla)
+  async marcarFacturada(id, valor) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try {
+      await SB.update("facturas", "id=eq." + enc(id), { facturada: !!valor });
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
+  async eliminarFactura(id) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try {
+      await SB.remove("facturas", "id=eq." + enc(id));
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
+  // siguiente número de factura (el mayor guardado + 1, con ceros a la izquierda)
+  async siguienteNumeroFactura() {
+    if (CONFIG.MODO_PRUEBA) return { ok: true, numero: "0001" };
+    try {
+      const rows = await SB.select("facturas", "select=numero");
+      let max = 0;
+      rows.forEach((r) => {
+        const n = parseInt(String(r.numero).replace(/\D/g, ""), 10);
+        if (!isNaN(n) && n > max) max = n;
+      });
+      return { ok: true, numero: String(max + 1).padStart(4, "0") };
+    } catch (e) { return { ok: false, numero: "0001" }; }
+  },
+
+  // ===== BANCOS (se retroalimentan) =====
+  async getBancos() {
+    if (CONFIG.MODO_PRUEBA) return { ok: true, bancos: [] };
+    try {
+      const rows = await SB.select("bancos", "select=nombre&order=nombre");
+      return { ok: true, bancos: rows.map((r) => r.nombre) };
+    } catch (e) { return { ok: false, bancos: [] }; }
+  },
+
+  // guarda un banco nuevo si no existe (para que aparezca en próximas facturas)
+  async agregarBanco(nombre) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    const n = String(nombre || "").trim();
+    if (!n) return { ok: false };
+    try {
+      await SB.insert("bancos", [{ nombre: n }]);
+      return { ok: true };
+    } catch (e) {
+      // si ya existe (unique), no es error real
+      return { ok: true };
+    }
+  },
+
   async getVouchers() {
     if (CONFIG.MODO_PRUEBA) return this._mock("getVouchers", {});
     try {

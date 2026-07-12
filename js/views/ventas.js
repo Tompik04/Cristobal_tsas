@@ -378,6 +378,9 @@ function abrirPopupVenta(lineas, opts) {
   // estado del adicional (cobrar por encima del precio real)
   let adicActivo = false;
   let adicMontoFinal = null;
+  // estado del panel de factura
+  let facturaAbierta = false;
+  let bancosDisponibles = [];
 
   const subtotalLineas = lineas.reduce((a, l) => a + precioLinea(l), 0);
   // el base ya considera el descuento general del carrito
@@ -769,11 +772,120 @@ function abrirPopupVenta(lineas, opts) {
     recalcular();
   };
 
+  // ===== PANEL DE FACTURA (lateral, tipo papel) =====
+  async function abrirPanelFactura(metodo) {
+    if (facturaAbierta) {
+      // ya está abierto: solo actualizar el método
+      const mp = document.getElementById("facMetodo");
+      if (mp) mp.textContent = metodo;
+      // los campos de tarjeta solo aplican a débito/crédito
+      const zonaTarjeta = document.getElementById("facZonaTarjeta");
+      if (zonaTarjeta) zonaTarjeta.style.display = (metodo === "Transferencia") ? "none" : "block";
+      return;
+    }
+    facturaAbierta = true;
+
+    // cargar bancos y el próximo número de factura
+    const [resB, resN] = await Promise.all([API.getBancos(), API.siguienteNumeroFactura()]);
+    bancosDisponibles = resB.ok ? resB.bancos : [];
+    const numero = resN.numero || "0001";
+
+    const panel = document.createElement("aside");
+    panel.className = "factura-panel";
+    panel.id = "facturaPanel";
+    panel.innerHTML = `
+      <div class="factura-head">
+        <h3>Factura</h3>
+        <button class="factura-close" id="facCerrar" title="Cerrar"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="factura-body">
+        <div class="fac-row">
+          <label>N° Factura</label>
+          <input type="text" id="facNumero" value="${numero}">
+        </div>
+        <div class="fac-row">
+          <label>Nombre y apellido</label>
+          <input type="text" id="facNombre" placeholder="Nombre del cliente">
+        </div>
+        <div class="fac-row">
+          <label>DNI</label>
+          <input type="text" id="facDni" placeholder="DNI">
+        </div>
+        <div class="fac-row">
+          <label>Teléfono</label>
+          <input type="text" id="facTel" placeholder="Teléfono">
+        </div>
+        <div id="facZonaTarjeta" style="display:${metodo === "Transferencia" ? "none" : "block"}">
+          <div class="fac-row">
+            <label>Tipo de tarjeta</label>
+            <input type="text" id="facTarjeta" list="listaTarjetas" placeholder="Visa, Mastercard...">
+            <datalist id="listaTarjetas">
+              <option value="Visa"><option value="Mastercard"><option value="American Express">
+              <option value="Cabal"><option value="Naranja"><option value="Maestro">
+            </datalist>
+          </div>
+          <div class="fac-row">
+            <label>Banco</label>
+            <input type="text" id="facBanco" list="listaBancos" placeholder="Escribí o elegí un banco">
+            <datalist id="listaBancos">${bancosDisponibles.map((b) => `<option value="${escAttr(b)}">`).join("")}</datalist>
+          </div>
+          <div class="fac-row">
+            <label>Cantidad de cuotas</label>
+            <input type="number" id="facCuotas" min="1" value="1">
+          </div>
+        </div>
+        <p class="fac-metodo">Pago: <strong id="facMetodo">${metodo}</strong></p>
+      </div>`;
+    document.getElementById("modalRoot").appendChild(panel);
+    requestAnimationFrame(() => panel.classList.add("abierto"));
+    document.getElementById("facCerrar").onclick = () => {
+      // si es débito/crédito la factura es obligatoria: avisar
+      if (metodo1 === "Débito" || metodo1 === "Crédito") {
+        toast("La factura es obligatoria para débito y crédito");
+        return;
+      }
+      cerrarPanelFactura();
+    };
+  }
+
+  function cerrarPanelFactura() {
+    const p = document.getElementById("facturaPanel");
+    if (p) p.remove();
+    facturaAbierta = false;
+  }
+
+  // lee los datos del panel de factura (o null si no está abierto)
+  function leerFactura() {
+    if (!facturaAbierta) return null;
+    return {
+      numero: (document.getElementById("facNumero") || {}).value || "",
+      nombre: (document.getElementById("facNombre") || {}).value || "",
+      dni: (document.getElementById("facDni") || {}).value || "",
+      telefono: (document.getElementById("facTel") || {}).value || "",
+      tipoTarjeta: (document.getElementById("facTarjeta") || {}).value || "",
+      banco: (document.getElementById("facBanco") || {}).value || "",
+      cuotas: Number((document.getElementById("facCuotas") || {}).value) || 1,
+    };
+  }
+
   document.querySelectorAll("[data-m1]").forEach((b) => {
     b.onclick = () => {
+      const metodo = b.dataset.m1;
+      const yaEstaba = (metodo1 === metodo);
       document.querySelectorAll(".pay-opt").forEach((x) => x.classList.remove("selected"));
       b.classList.add("selected");
-      metodo1 = b.dataset.m1;
+      metodo1 = metodo;
+
+      // Factura: obligatoria para débito y crédito.
+      // Para transferencia: el primer click no hace nada; el segundo (ya seleccionada) abre la factura.
+      if (metodo === "Débito" || metodo === "Crédito") {
+        abrirPanelFactura(metodo);
+      } else if (metodo === "Transferencia") {
+        if (yaEstaba) abrirPanelFactura(metodo); // segundo click sobre transferencia ya elegida
+        else cerrarPanelFactura();
+      } else {
+        cerrarPanelFactura();
+      }
       recalcular();
     };
   });
@@ -782,6 +894,17 @@ function abrirPopupVenta(lineas, opts) {
   [selM1, selM2].forEach((el) => el.addEventListener("change", recalcular));
 
   btnConf.onclick = async () => {
+    // la factura es obligatoria para débito y crédito
+    const metodosUsados = modoDividido ? [selM1.value, selM2.value] : [metodo1];
+    const necesitaFactura = metodosUsados.some((m) => m === "Débito" || m === "Crédito");
+    const datosFac = leerFactura();
+    if (necesitaFactura) {
+      if (!datosFac) return toast("Falta completar la factura (obligatoria en débito/crédito)");
+      if (!datosFac.numero) return toast("Falta el número de factura");
+      if (!datosFac.nombre) return toast("Falta el nombre del cliente");
+      if (!datosFac.dni) return toast("Falta el DNI");
+    }
+
     btnConf.disabled = true;
     btnConf.textContent = "Procesando...";
 
@@ -811,6 +934,22 @@ function abrirPopupVenta(lineas, opts) {
     });
 
     if (res.ok) {
+      // guardar la factura si se completó (una sola por venta, con el total)
+      if (datosFac && datosFac.numero) {
+        await API.crearFactura({
+          numero: datosFac.numero,
+          ventaId: res.idVenta,
+          nombre: datosFac.nombre, dni: datosFac.dni, telefono: datosFac.telefono,
+          tipoTarjeta: datosFac.tipoTarjeta, banco: datosFac.banco, cuotas: datosFac.cuotas,
+          monto: precioFinal,
+          metodoPago: modoDividido ? `${selM1.value} + ${selM2.value}` : metodo1,
+          fecha: fechaVenta ? new Date(fechaVenta).toISOString() : new Date().toISOString(),
+        });
+        // si el banco es nuevo, guardarlo para próximas facturas (retroalimentación)
+        if (datosFac.banco && !bancosDisponibles.includes(datosFac.banco)) {
+          await API.agregarBanco(datosFac.banco);
+        }
+      }
       // marcar voucher usado y generar sobrante si corresponde
       if (voucherSel) {
         await API.usarVoucher(voucherSel.id);

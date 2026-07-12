@@ -277,6 +277,82 @@ button { font-family: inherit; }
 .band-informes { background: linear-gradient(100deg, rgba(87,176,171,0.16) 0%, rgba(87,176,171,0.04) 60%); border-color: rgba(87,176,171,0.3); border-left-color: var(--teal-bright); }
 .band-informes .band-icon, .band-informes .band-title { color: var(--teal-bright); }
 
+/* banda facturas */
+.band-facturas { background: linear-gradient(100deg, rgba(220,185,100,0.14) 0%, rgba(220,185,100,0.03) 60%); border-color: rgba(220,185,100,0.3); border-left-color: var(--amber); }
+.band-facturas .band-icon, .band-facturas .band-title { color: var(--amber); }
+
+/* ===== PANEL DE FACTURA (lateral, tipo papel) ===== */
+.factura-panel {
+  position: fixed; top: 0; right: 0; height: 100vh; width: 380px; max-width: 92vw;
+  background: #F7F4EC; color: #2A2622; z-index: 2200;
+  box-shadow: -8px 0 32px rgba(0,0,0,0.45);
+  display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform 0.28s ease;
+  font-family: 'Jost', 'Cinzel', serif;
+}
+.factura-panel.abierto { transform: translateX(0); }
+.factura-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 22px; border-bottom: 2px solid #2A2622;
+}
+.factura-head h3 { margin: 0; font-size: 22px; letter-spacing: 0.16em; text-transform: uppercase; color: #2A2622; }
+.factura-close {
+  background: none; border: none; cursor: pointer; color: #2A2622;
+  width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px;
+}
+.factura-close:hover { background: rgba(0,0,0,0.08); }
+.factura-close i { font-size: 20px; }
+.factura-body { padding: 20px 22px; overflow-y: auto; flex: 1; }
+.fac-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+.fac-row label { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #6A6055; font-weight: 600; }
+.fac-row input {
+  background: transparent; border: none; border-bottom: 1px solid #B9B0A2;
+  color: #2A2622; font-family: inherit; font-size: 15px; padding: 6px 2px; width: 100%;
+}
+.fac-row input:focus { outline: none; border-bottom-color: #2A2622; }
+.fac-metodo { margin-top: 18px; padding-top: 14px; border-top: 1px dashed #B9B0A2; font-size: 13px; color: #6A6055; }
+.fac-metodo strong { color: #2A2622; }
+
+/* ===== SECCIÓN FACTURAS ===== */
+.fact-list { max-width: 1700px; margin: 0 auto; padding: 0 16px 5rem; display: flex; flex-direction: column; gap: 10px; }
+.fact-resumen {
+  display: flex; gap: 24px; justify-content: flex-end; padding: 10px 16px; margin-bottom: 6px;
+  font-size: 13px; color: var(--oak-60);
+}
+.fact-resumen strong { color: var(--amber); }
+.fact-row {
+  display: grid; grid-template-columns: 110px 1.4fr 1.2fr auto auto auto;
+  gap: 14px; align-items: center;
+  background: var(--oak-08); border: 1px solid var(--oak-25); border-radius: var(--r); padding: 12px 16px;
+}
+.fact-row.fact-hecha { opacity: 0.55; border-color: rgba(95,168,106,0.4); background: rgba(95,168,106,0.07); }
+.fact-num { display: flex; flex-direction: column; gap: 2px; }
+.fact-num-val { font-size: 14px; font-weight: 700; color: var(--amber); }
+.fact-fecha { font-size: 11px; color: var(--oak-55); }
+.fact-cliente { display: flex; flex-direction: column; gap: 2px; }
+.fact-nombre { font-size: 14px; font-weight: 600; color: var(--pale-oak); }
+.fact-datos { font-size: 11px; color: var(--oak-55); }
+.fact-tarjeta { display: flex; flex-wrap: wrap; gap: 6px; }
+.fact-chip { font-size: 11px; padding: 3px 9px; border-radius: 20px; background: var(--oak-10); border: 1px solid var(--oak-25); color: var(--pale-oak); }
+.fact-chip-banco { background: rgba(87,176,171,0.12); border-color: rgba(87,176,171,0.3); color: var(--teal-bright); }
+.fact-monto { font-size: 15px; font-weight: 700; color: var(--gold-bright); text-align: right; }
+.fact-acts { display: flex; gap: 6px; }
+.fact-check, .fact-del {
+  width: 34px; height: 34px; border-radius: 8px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--oak-10); border: 1px solid var(--oak-25); color: var(--pale-oak);
+  transition: background 0.18s ease;
+}
+.fact-check:hover { background: rgba(95,168,106,0.25); color: var(--success); }
+.fact-del:hover { background: rgba(201,122,109,0.25); color: var(--danger); }
+.fact-check i, .fact-del i { font-size: 18px; }
+.fact-row.fact-hecha .fact-check { color: var(--success); }
+
+@media (max-width: 900px) {
+  .fact-row { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .fact-monto { text-align: left; }
+}
+
 /* ===== DASHBOARD DE INFORMES ===== */
 .h-informes {
   background: none; border: none; color: var(--pale-oak); cursor: pointer;
@@ -983,13 +1059,14 @@ button { font-family: inherit; }
 .venta-fields { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--oak-20); padding-top: 1rem; }
 .cambios-list { padding: 0 2.5% 3rem; display: flex; flex-direction: column; gap: 12px; }
 .crow { display: grid; grid-template-columns: 250px 1fr auto auto auto; gap: 14px; align-items: center; background: var(--oak-08); border: 1px solid var(--oak-25); border-radius: var(--r); padding: 12px 16px; }
-/* ventas hechas en carrito: cada venta con un color de fondo distinto para agruparlas visualmente */
-.crow.carrito-1 { background: rgba(127,196,160,0.10); border-color: rgba(127,196,160,0.35); }
-.crow.carrito-2 { background: rgba(87,176,171,0.10); border-color: rgba(87,176,171,0.35); }
-.crow.carrito-3 { background: rgba(224,164,88,0.09); border-color: rgba(224,164,88,0.32); }
-.crow.carrito-4 { background: rgba(184,106,75,0.09); border-color: rgba(184,106,75,0.32); }
-.crow.carrito-5 { background: rgba(126,155,122,0.11); border-color: rgba(126,155,122,0.35); }
-.crow.carrito-6 { background: rgba(155,140,190,0.10); border-color: rgba(155,140,190,0.33); }
+/* ventas hechas en carrito: cada venta con un color de fondo BIEN diferenciado.
+   Las individuales quedan con el fondo verde oscuro original. */
+.crow.carrito-1 { background: rgba(139,109,196,0.28); border-color: rgba(160,130,215,0.75); border-left: 4px solid #A082D7; }
+.crow.carrito-2 { background: rgba(196,120,90,0.26); border-color: rgba(215,145,110,0.75); border-left: 4px solid #D7916E; }
+.crow.carrito-3 { background: rgba(90,140,200,0.26); border-color: rgba(115,165,220,0.75); border-left: 4px solid #73A5DC; }
+.crow.carrito-4 { background: rgba(200,160,70,0.26); border-color: rgba(220,185,100,0.75); border-left: 4px solid #DCB964; }
+.crow.carrito-5 { background: rgba(200,95,130,0.25); border-color: rgba(220,125,160,0.75); border-left: 4px solid #DC7DA0; }
+.crow.carrito-6 { background: rgba(80,180,170,0.26); border-color: rgba(105,205,195,0.75); border-left: 4px solid #69CDC3; }
 /* precio original tachado cuando hubo descuento o regalo */
 .c-tachado { text-decoration: line-through; opacity: 0.6; }
 .crow.expirado { opacity: 0.45; }
