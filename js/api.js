@@ -160,6 +160,22 @@ const API = {
     } catch (e) { return { ok: false, error: String(e) }; }
   },
 
+  // lee el recargo de tarjeta desde la tabla config de Supabase y actualiza CONFIG.
+  // Acepta el valor como porcentaje (25) o como fracción (0.25).
+  async cargarRecargoTarjeta() {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try {
+      const rows = await SB.select("config", "clave=eq.RECARGO_TARJETA&select=valor");
+      if (!rows.length) return { ok: false };
+      let v = Number(rows[0].valor);
+      if (isNaN(v) || v < 0) return { ok: false };
+      // si viene como 25 (porcentaje), pasarlo a 0.25; si ya viene 0.25, dejarlo
+      if (v > 1) v = v / 100;
+      CONFIG.RECARGO_TARJETA = v;
+      return { ok: true, recargo: v };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
   // ---------- STOCK ----------
   async getStock() {
     if (CONFIG.MODO_PRUEBA) return this._mock("getStock", {});
@@ -296,18 +312,35 @@ const API = {
       const id = "V-" + Date.now();
       const metodoTxt = textoMetodo(pago);
       const limite = sumarDias(det.inicioCambio, CONFIG.DIAS_CAMBIO);
-      const filas = lineas.map((l, i) => ({
-        id: id + "-" + i,
-        fecha_hora: det.fechaVenta ? new Date(det.fechaVenta).toISOString() : new Date().toISOString(),
-        codigo: l.codigo, marca: l.marca, talle: l.talle, color: l.color,
-        cantidad: l.cantidad, oferta: l.oferta || 0,
-        precio_base: l.precio * l.cantidad * (1 - (l.oferta || 0) / 100),
-        precio_final: det.precioFinal || null,
-        metodo_pago: metodoTxt, voucher_id: det.voucherId || null,
-        // el desglose de pagos va completo en la primera línea (representa el total de la venta)
-        pagos: (i === 0 && pago && pago.partes) ? pago.partes : null,
-        inicio_cambio: det.inicioCambio || null, limite_cambio: limite, restaurada: false,
-      }));
+
+      // base de cada línea y total, para repartir proporcionalmente el pago
+      const basesLinea = lineas.map((l) => l.precio * l.cantidad * (1 - (l.oferta || 0) / 100));
+      const baseTotal = basesLinea.reduce((a, b) => a + b, 0);
+      const totalCobrado = det.precioFinal != null ? det.precioFinal : baseTotal;
+
+      const filas = lineas.map((l, i) => {
+        const baseL = basesLinea[i];
+        // proporción de esta línea sobre el total de la venta
+        const prop = baseTotal > 0 ? baseL / baseTotal : (1 / lineas.length);
+        // el precio final de ESTA línea es su parte proporcional de lo cobrado
+        const finalLinea = totalCobrado * prop;
+        // el desglose de pagos se reparte también proporcionalmente,
+        // así cada línea reporta solo lo que le corresponde por método
+        const partesLinea = (pago && pago.partes)
+          ? pago.partes.map((p) => ({ metodo: p.metodo, monto: (Number(p.monto) || 0) * prop }))
+          : null;
+        return {
+          id: id + "-" + i,
+          fecha_hora: det.fechaVenta ? new Date(det.fechaVenta).toISOString() : new Date().toISOString(),
+          codigo: l.codigo, marca: l.marca, talle: l.talle, color: l.color,
+          cantidad: l.cantidad, oferta: l.oferta || 0,
+          precio_base: baseL,
+          precio_final: finalLinea,
+          metodo_pago: metodoTxt, voucher_id: det.voucherId || null,
+          pagos: partesLinea,
+          inicio_cambio: det.inicioCambio || null, limite_cambio: limite, restaurada: false,
+        };
+      });
       await SB.insert("ventas", filas);
       // descontar stock
       for (const l of lineas) await this.ajustarStockPorVariante(l.codigo, l.talle, l.color, -l.cantidad);

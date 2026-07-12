@@ -333,6 +333,8 @@ function dobleConfirmacion(opts) {
 // ---- Arranque ----
 async function iniciarApp() {
   document.getElementById("app").classList.remove("hidden");
+  // leer el recargo de tarjeta configurado en Supabase (si existe)
+  await API.cargarRecargoTarjeta();
   // Precarga del stock
   const res = await API.getStock();
   if (res.ok) State.stock = consolidarStock(res.stock);

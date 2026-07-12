@@ -27,7 +27,7 @@ const CONFIG = {
   DIAS_CAMBIO: 15,
 
   // Recargo por pago con tarjeta (débito/crédito)
-  RECARGO_TARJETA: 0.20,
+  RECARGO_TARJETA: 0.25,
 
   // Días hacia atrás que se muestran en la sección Cambios (2 meses)
   DIAS_HISTORIAL_CAMBIOS: 60,

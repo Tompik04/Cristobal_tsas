@@ -834,6 +834,10 @@ button { font-family: inherit; }
 .desc-campos .field label { min-height: 2.4em; display: flex; align-items: flex-end; }
 .desc-info { margin-top: 8px; font-size: 13px; color: var(--gold-bright); text-align: center; }
 .desc-info strong { color: var(--gold-bright); }
+/* bloque adicional (cobrar por encima) — ámbar para distinguirlo del descuento */
+.adic-box { border-color: rgba(224,164,88,0.3); background: rgba(224,164,88,0.06); }
+.adic-info { color: var(--amber); }
+.adic-info strong { color: var(--amber); }
 .drawer-items { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
 .drawer-item {
   display: flex; justify-content: space-between; align-items: center;

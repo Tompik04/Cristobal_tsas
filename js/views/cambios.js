@@ -292,7 +292,7 @@ async function abrirPagoDiferencia(venta, diferencia) {
 
       <div class="swap-diff" style="border-top:1px solid var(--oak-20);padding-top:1rem">
         <div class="modal-line descuento-line" id="descLine" style="display:none"><span id="descLabel">Voucher</span><strong id="descVal">$0</strong></div>
-        <div class="modal-line" id="recLine" style="display:none"><span>Recargo tarjeta (20%)</span><strong id="recVal">$0</strong></div>
+        <div class="modal-line" id="recLine" style="display:none"><span>Recargo tarjeta (${Math.round(CONFIG.RECARGO_TARJETA * 100)}%)</span><strong id="recVal">$0</strong></div>
         <div class="modal-total"><span>Total a cobrar</span><span id="difTotal">${formatPrecio(base)}</span></div>
       </div>
 

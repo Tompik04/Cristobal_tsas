@@ -354,7 +354,7 @@ function abrirPagoCuenta(cuentaId, deuda) {
       </div>
       <p class="login-sub" style="text-align:center">Método de pago</p>
       <div class="pay-grid">${pagos1}</div>
-      <div class="modal-line" id="ccRecargoLine" style="display:none"><span>Recargo tarjeta (20%)</span><strong id="ccRecargoVal">$0</strong></div>
+      <div class="modal-line" id="ccRecargoLine" style="display:none"><span>Recargo tarjeta (${Math.round(CONFIG.RECARGO_TARJETA * 100)}%)</span><strong id="ccRecargoVal">$0</strong></div>
       <div class="modal-line"><span>Salda de deuda</span><strong id="ccSaldaVal">$0</strong></div>
       <div class="modal-total"><span>Se cobra al cliente</span><span id="ccCobra">$0</span></div>
       <div class="modal-actions">

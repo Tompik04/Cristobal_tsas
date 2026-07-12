@@ -375,6 +375,9 @@ function abrirPopupVenta(lineas, opts) {
   // estado del descuento manual del popup
   let descActivo = false;
   let descMontoFinal = null; // monto final ingresado (si se usa esa forma)
+  // estado del adicional (cobrar por encima del precio real)
+  let adicActivo = false;
+  let adicMontoFinal = null;
 
   const subtotalLineas = lineas.reduce((a, l) => a + precioLinea(l), 0);
   // el base ya considera el descuento general del carrito
@@ -464,9 +467,29 @@ function abrirPopupVenta(lineas, opts) {
         </div>
       </div>
 
+      <div class="desc-pago-box adic-box">
+        <label class="desc-check-row">
+          <input type="checkbox" id="adicCheck" class="evar-chk">
+          <span>Aplicar adicional</span>
+        </label>
+        <div id="adicCampos" class="desc-campos" style="display:none">
+          <div class="split-row">
+            <div class="field">
+              <label>Nuevo monto a cobrar ($)</label>
+              <input type="number" id="adicMonto" class="sinput" min="0" placeholder="$">
+            </div>
+            <div class="field">
+              <label>Adicional (%)</label>
+              <input type="number" id="adicPct" class="sinput" min="0" placeholder="%">
+            </div>
+          </div>
+          <p class="desc-info adic-info" id="adicInfo"></p>
+        </div>
+      </div>
+
       <div class="swap-diff" style="border-top:1px solid var(--oak-20);padding-top:1rem">
         <div class="modal-line descuento-line" id="descLine" style="display:none"><span id="descLabel">Voucher</span><strong id="descVal">$0</strong></div>
-        <div class="modal-line" id="recargoLine" style="display:none"><span>Recargo tarjeta (20%)</span><strong id="recargoVal">$0</strong></div>
+        <div class="modal-line" id="recargoLine" style="display:none"><span>Recargo tarjeta (${Math.round(CONFIG.RECARGO_TARJETA * 100)}%)</span><strong id="recargoVal">$0</strong></div>
         <div class="modal-total"><span>Total a cobrar</span><span id="totalVal">${formatPrecio(base)}</span></div>
       </div>
 
@@ -522,6 +545,18 @@ function abrirPopupVenta(lineas, opts) {
   descCheck.onchange = () => {
     descActivo = descCheck.checked;
     descCampos.style.display = descActivo ? "block" : "none";
+    if (descActivo) {
+      // descuento y adicional son excluyentes
+      const ac = document.getElementById("adicCheck");
+      const acp = document.getElementById("adicCampos");
+      if (ac && ac.checked) {
+        ac.checked = false; adicActivo = false; adicMontoFinal = null;
+        if (acp) acp.style.display = "none";
+        const am = document.getElementById("adicMonto"); if (am) am.value = "";
+        const ap = document.getElementById("adicPct"); if (ap) ap.value = "";
+        const ai = document.getElementById("adicInfo"); if (ai) ai.textContent = "";
+      }
+    }
     if (!descActivo) {
       descMontoFinal = null;
       descMontoInput.value = "";
@@ -550,6 +585,62 @@ function abrirPopupVenta(lineas, opts) {
     descMontoFinal = base * (1 - p / 100);
     descMontoInput.value = Math.round(descMontoFinal);
     refrescarDescInfo();
+    recalcular();
+  };
+
+  // --- adicional (cobrar por encima del precio real) ---
+  const adicCheck = document.getElementById("adicCheck");
+  const adicCampos = document.getElementById("adicCampos");
+  const adicMontoInput = document.getElementById("adicMonto");
+  const adicPctInput = document.getElementById("adicPct");
+  const adicInfo = document.getElementById("adicInfo");
+
+  function refrescarAdicInfo() {
+    if (!adicActivo || adicMontoFinal == null || adicMontoFinal <= base) {
+      adicInfo.textContent = "";
+      return;
+    }
+    const extra = adicMontoFinal - base;
+    const pct = base > 0 ? Math.round((extra / base) * 100) : 0;
+    adicInfo.innerHTML = `Se agregan <strong>${formatPrecio(extra)}</strong> (+${pct}%) sobre ${formatPrecio(base)}`;
+  }
+
+  adicCheck.onchange = () => {
+    adicActivo = adicCheck.checked;
+    adicCampos.style.display = adicActivo ? "block" : "none";
+    if (adicActivo && descActivo) {
+      // descuento y adicional son excluyentes: al activar uno, se apaga el otro
+      descActivo = false; descCheck.checked = false; descCampos.style.display = "none";
+      descMontoFinal = null; descMontoInput.value = ""; descPctInput.value = ""; descInfo.textContent = "";
+    }
+    if (!adicActivo) {
+      adicMontoFinal = null;
+      adicMontoInput.value = "";
+      adicPctInput.value = "";
+      adicInfo.textContent = "";
+    }
+    recalcular();
+  };
+
+  // ingresar nuevo monto → calcula el %
+  adicMontoInput.oninput = () => {
+    let m = Number(adicMontoInput.value);
+    if (isNaN(m) || adicMontoInput.value === "") { adicMontoFinal = null; adicPctInput.value = ""; refrescarAdicInfo(); recalcular(); return; }
+    if (m < base) m = base; // el adicional no puede ser menor al precio real
+    adicMontoFinal = m;
+    const pct = base > 0 ? ((m - base) / base) * 100 : 0;
+    adicPctInput.value = Math.round(pct * 100) / 100;
+    refrescarAdicInfo();
+    recalcular();
+  };
+  // ingresar % → calcula el nuevo monto
+  adicPctInput.oninput = () => {
+    let p = Number(adicPctInput.value);
+    if (isNaN(p) || adicPctInput.value === "") { adicMontoFinal = null; adicMontoInput.value = ""; refrescarAdicInfo(); recalcular(); return; }
+    if (p < 0) p = 0;
+    adicMontoFinal = base * (1 + p / 100);
+    adicMontoInput.value = Math.round(adicMontoFinal);
+    refrescarAdicInfo();
     recalcular();
   };
 
@@ -584,10 +675,13 @@ function abrirPopupVenta(lineas, opts) {
     return MEDIOS_CON_RECARGO.includes(met) ? monto * CONFIG.RECARGO_TARJETA : 0;
   }
 
-  // base efectivo: base con el descuento manual del popup aplicado (si está activo)
+  // base efectivo: base con el descuento o el adicional aplicado (si están activos)
   function baseEfectivo() {
     if (descActivo && descMontoFinal != null && descMontoFinal >= 0 && descMontoFinal < base) {
       return descMontoFinal;
+    }
+    if (adicActivo && adicMontoFinal != null && adicMontoFinal > base) {
+      return adicMontoFinal;
     }
     return base;
   }
