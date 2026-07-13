@@ -353,6 +353,7 @@ const API = {
           pagos: partesLinea,
           inicio_cambio: det.inicioCambio || null, limite_cambio: limite, restaurada: false,
           es_cambio: !!det.esCambio,
+          cambio_de: det.cambioDe || null,
         };
       });
       await SB.insert("ventas", filas);
@@ -376,10 +377,23 @@ const API = {
       const rows = await SB.select("ventas", "select=*&id=eq." + enc(id));
       if (!rows.length) return { ok: false, error: "Venta no encontrada" };
       const v = rows[0];
+      // la prenda vendida vuelve al stock
       await this.ajustarStockPorVariante(v.codigo, v.talle, v.color, Number(v.cantidad) || 0);
       if (v.voucher_id) await SB.update("vouchers", "id=eq." + enc(v.voucher_id), { usado: false });
       await SB.update("ventas", "id=eq." + enc(id), { restaurada: true });
-      return { ok: true };
+
+      // Si esta venta salió de un CAMBIO, hay que deshacer el cambio entero:
+      // la prenda original (que había vuelto al stock) sale de nuevo (el cliente se la queda),
+      // y su venta se desmarca para que pueda volver a cambiarse.
+      if (v.es_cambio && v.cambio_de) {
+        const orig = await SB.select("ventas", "select=*&id=eq." + enc(v.cambio_de));
+        if (orig.length) {
+          const o = orig[0];
+          await this.ajustarStockPorVariante(o.codigo, o.talle, o.color, -(Number(o.cantidad) || 0));
+          await SB.update("ventas", "id=eq." + enc(o.id), { cambiada: false });
+        }
+      }
+      return { ok: true, deshizoCambio: !!(v.es_cambio && v.cambio_de) };
     } catch (e) { return { ok: false, error: String(e) }; }
   },
 
@@ -421,6 +435,8 @@ const API = {
           inicioCambio: fechaCambio.slice(0, 10),
           precioFinal: cobradoHoy,
           esCambio: true,
+          // vínculo con la venta original, para poder deshacer el cambio si se restaura
+          cambioDe: p.ventaDevuelta ? p.ventaDevuelta.id : null,
         });
       }
       if (p.voucher) await this.crearVoucher(p.voucher);

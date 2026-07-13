@@ -227,17 +227,22 @@ function bindHistRow(list, v) {
       dobleConfirmacion({
         titulo: "Restaurar compra",
         mensaje1: `Vas a restaurar la venta de ${v.codigo} (${v.talle}/${v.color}) por ${formatPrecio(v.precioBase)}.`,
-        mensaje2: "La venta se anula, se repone el stock y se anula cualquier voucher usado en ella. ¿Confirmás?",
+        mensaje2: v.esCambio
+          ? "Se deshace el CAMBIO completo: la prenda vuelve al stock, la prenda original sale de nuevo (se la queda el cliente) y su venta vuelve a estar disponible para cambiar. ¿Confirmás?"
+          : "La venta se anula, se repone el stock y se anula cualquier voucher usado en ella. ¿Confirmás?",
         textoBoton: "Restaurar",
         onOk: async () => {
-          // reponer stock
-          const s = State.stock.find((x) => x.codigo === v.codigo && x.talle === v.talle && x.color === v.color);
-          if (s) s.cantidad += v.cantidad;
           // anular voucher usado en la venta (si lo hubo)
           if (v.voucherId) await API.actualizarVoucher(v.voucherId, { usado: false });
-          await API.restaurarVenta(v.id);
+          const res = await API.restaurarVenta(v.id);
           v.restaurada = true;
-          toast("Compra restaurada · Stock repuesto");
+          // el stock puede haber cambiado en 2 prendas (si se deshizo un cambio),
+          // así que se recarga desde la base para que quede exacto
+          const rec = await API.getStock();
+          if (rec.ok) State.stock = rec.stock;
+          toast(res && res.deshizoCambio
+            ? "Cambio deshecho · La venta original vuelve a estar disponible"
+            : "Compra restaurada · Stock repuesto");
           cargarHistorial();
           actualizarCampanitaVouchers();
         },
