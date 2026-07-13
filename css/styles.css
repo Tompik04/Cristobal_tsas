@@ -283,7 +283,7 @@ button { font-family: inherit; }
 
 /* ===== PANEL DE FACTURA (lateral, tipo papel) ===== */
 .factura-panel {
-  position: fixed; top: 0; right: 0; height: 100vh; width: 380px; max-width: 92vw;
+  position: fixed; top: 0; right: 0; height: 100vh; width: 420px; max-width: 92vw;
   background: #F7F4EC; color: #2A2622; z-index: 2200;
   box-shadow: -8px 0 32px rgba(0,0,0,0.45);
   display: flex; flex-direction: column;
@@ -1407,8 +1407,7 @@ input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator {
 
 /* ===== POPUP DE VENTA: ancho, en 2 columnas, sin scroll ===== */
 .modal-venta {
-  max-width: 620px;
-  gap: 0.8rem;
+  max-width: 500px;
   padding: 1.5rem 1.6rem;
 }
 /* las cajas de descuento / adicional / seña van lado a lado */
