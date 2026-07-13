@@ -11,6 +11,8 @@ function renderCambios(root) {
 }
 
 let _ventasCambios = [];
+// fecha en que se realiza el cambio (elegible: puede ser un día anterior)
+let _fechaCambio = null;
 
 async function cargarCambios() {
   const list = document.getElementById("cambiosList");
@@ -21,7 +23,7 @@ async function cargarCambios() {
   const desde = new Date(); desde.setDate(desde.getDate() - limiteDias);
 
   _ventasCambios = res.ventas
-    .filter((v) => !v.restaurada && new Date(v.fechaHora) >= desde)
+    .filter((v) => !v.restaurada && !v.cambiada && !v.voucherGenerado && new Date(v.fechaHora) >= desde)
     .sort((a, b) => new Date(b.fechaHora) - new Date(a.fechaHora));
 
   // barra de filtros
@@ -189,6 +191,10 @@ function abrirIntercambio(venta) {
         </div>
       </div>
       <div class="swap-diff">${diffHTML}</div>
+      <div class="field swap-fecha">
+        <label>Fecha del cambio</label>
+        <input class="sinput" type="datetime-local" id="swapFecha" value="${ahoraLocalInput()}">
+      </div>
       <div class="modal-actions">
         <button class="btn-ghost" id="swapCancel">Cancelar</button>
         <button class="btn-primary" id="swapNext">${diferencia > 0 ? "Continuar al pago" : "Confirmar cambio"}</button>
@@ -198,6 +204,9 @@ function abrirIntercambio(venta) {
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("swapCancel").onclick = cerrarModal;
   document.getElementById("swapNext").onclick = () => {
+    // guardar la fecha elegida (el popup siguiente reemplaza el HTML)
+    const fv = document.getElementById("swapFecha").value;
+    _fechaCambio = fv ? new Date(fv).toISOString() : new Date().toISOString();
     if (diferencia > 0) {
       abrirPagoDiferencia(venta, diferencia);
     } else if (diferencia < 0) {
@@ -491,6 +500,7 @@ async function confirmarIntercambio(venta, info) {
     ventaDevuelta: venta,
     lineasNuevas: State.carrito.slice(),
     diferencia: info.diferencia,
+    fecha: _fechaCambio || new Date().toISOString(),
     metodoPago: info.metodoPago,
     pagos: info.pagos || null,
     voucherUsado: info.voucherUsado || null,

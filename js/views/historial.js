@@ -201,14 +201,16 @@ function histRowHTML(v, filtroPago, colorCarrito) {
         <span class="c-vars">Talle <strong>${v.talle}</strong> · Color <strong>${v.color}</strong> · x${v.cantidad}${ofertaTxt}</span>
         <span class="c-fecha">${fmtFechaHora(v.fechaHora)}${pago}</span>
         ${v.restaurada ? `<span class="c-estado vencido">Restaurada</span>` : ""}
+        ${v.cambiada ? `<span class="c-estado c-estado-cambio"><i class="ti ti-arrows-exchange"></i> Cambiada</span>` : ""}
+        ${v.esCambio ? `<span class="c-estado c-estado-cambio"><i class="ti ti-arrows-exchange"></i> Cambio</span>` : ""}
         ${v.voucherGenerado ? `<span class="c-estado c-estado-voucher"><i class="ti ti-ticket"></i> Voucher generado</span>` : ""}
       </div>
       ${precioHTML}
       <div class="c-acts">
-        <button class="c-swap c-voucher" data-act="voucher" ${v.restaurada || v.esPagoCuenta || v.voucherGenerado ? "disabled" : ""} title="${v.voucherGenerado ? "Ya generó voucher (" + v.voucherGenerado + ")" : (v.restaurada ? "Venta restaurada" : "Generar voucher por esta venta")}">
+        <button class="c-swap c-voucher" data-act="voucher" ${v.restaurada || v.esPagoCuenta || v.voucherGenerado || v.cambiada ? "disabled" : ""} title="${v.cambiada ? "Ya fue cambiada" : (v.voucherGenerado ? "Ya generó voucher (" + v.voucherGenerado + ")" : (v.restaurada ? "Venta restaurada" : "Generar voucher por esta venta"))}">
           <i class="ti ti-ticket"></i>
         </button>
-        <button class="c-swap" data-act="restore" ${v.restaurada || v.esPagoCuenta || v.voucherGenerado ? "disabled" : ""} title="${v.esPagoCuenta ? "Pago de cuenta corriente" : (v.voucherGenerado ? "Ya generó voucher" : (v.restaurada ? "Ya restaurada" : "Restaurar compra"))}">
+        <button class="c-swap" data-act="restore" ${v.restaurada || v.esPagoCuenta || v.voucherGenerado || v.cambiada ? "disabled" : ""} title="${v.esPagoCuenta ? "Pago de cuenta corriente" : (v.cambiada ? "Ya fue cambiada" : (v.voucherGenerado ? "Ya generó voucher" : (v.restaurada ? "Ya restaurada" : "Restaurar compra")))}">
           <i class="ti ti-arrow-back-up"></i>
         </button>
       </div>

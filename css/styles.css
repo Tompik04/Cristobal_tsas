@@ -1334,3 +1334,12 @@ body {
 .sd-cancelar { color: var(--danger); border-color: rgba(201,122,109,0.4); }
 .sd-cancelar:hover { background: rgba(201,122,109,0.15); }
 .modal-wide { max-width: 560px; }
+
+/* badge de cambio en el historial */
+.c-estado-cambio {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(184,106,75,0.15); border: 1px solid rgba(184,106,75,0.4);
+  color: var(--terracotta); padding: 2px 9px; border-radius: 20px; font-size: 11px;
+}
+/* campo de fecha en el popup de cambio */
+.swap-fecha { margin-top: 14px; }

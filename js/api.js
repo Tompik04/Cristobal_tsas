@@ -110,6 +110,8 @@ function ventaDeDB(r) {
     inicioCambio: r.inicio_cambio, limiteCambio: r.limite_cambio,
     restaurada: !!r.restaurada,
     voucherGenerado: r.voucher_generado || null,
+    cambiada: !!r.cambiada,
+    esCambio: !!r.es_cambio,
   };
 }
 // Supabase devuelve timestamps como "2026-06-22 00:55:00+00" (con espacio).
@@ -350,6 +352,7 @@ const API = {
           metodo_pago: metodoTxt, voucher_id: det.voucherId || null,
           pagos: partesLinea,
           inicio_cambio: det.inicioCambio || null, limite_cambio: limite, restaurada: false,
+          es_cambio: !!det.esCambio,
         };
       });
       await SB.insert("ventas", filas);
@@ -390,10 +393,16 @@ const API = {
   async registrarIntercambio(p) {
     if (CONFIG.MODO_PRUEBA) return this._mock("registrarIntercambio", p);
     try {
+      // fecha en que se hace el cambio (puede ser un día anterior al actual)
+      const fechaCambio = p.fecha || new Date().toISOString();
+
       if (p.ventaDevuelta) {
         const v = p.ventaDevuelta;
+        // la prenda vuelve al stock...
         await this.ajustarStockPorVariante(v.codigo, v.talle, v.color, v.cantidad || 1);
-        await this.restaurarVenta(v.id);
+        // ...pero la venta NO se anula: la plata sigue contando el día que se cobró.
+        // Solo se marca como "cambiada" para que no se pueda volver a cambiar/restaurar.
+        await SB.update("ventas", "id=eq." + enc(v.id), { cambiada: true });
       }
       if (p.lineasNuevas && p.lineasNuevas.length) {
         // construir el objeto de pago con desglose (para que entre bien en la caja)
@@ -404,8 +413,15 @@ const API = {
         } else {
           pago = { metodo: p.metodoPago || "Cambio" };
         }
-        await this.registrarVenta(p.lineasNuevas, pago,
-          { fechaVenta: new Date().toISOString(), inicioCambio: hoyISO() });
+        // El ingreso del día del cambio es SOLO la diferencia que pagó el cliente,
+        // no el precio total de la prenda nueva (lo anterior ya se cobró el día de la venta original).
+        const cobradoHoy = (p.diferencia && p.diferencia > 0) ? p.diferencia : 0;
+        await this.registrarVenta(p.lineasNuevas, pago, {
+          fechaVenta: fechaCambio,
+          inicioCambio: fechaCambio.slice(0, 10),
+          precioFinal: cobradoHoy,
+          esCambio: true,
+        });
       }
       if (p.voucher) await this.crearVoucher(p.voucher);
       if (p.voucherUsado) await this.usarVoucher(p.voucherUsado);
