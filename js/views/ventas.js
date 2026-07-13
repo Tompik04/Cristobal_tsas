@@ -372,12 +372,9 @@ function abrirPopupVenta(lineas, opts) {
   let metodo1 = null, metodo2 = null;
   let montoTarjetaManual = null;
   let voucherSel = null; // voucher aplicado
-  // estado del descuento manual del popup
-  let descActivo = false;
-  let descMontoFinal = null; // monto final ingresado (si se usa esa forma)
-  // estado del adicional (cobrar por encima del precio real)
-  let adicActivo = false;
-  let adicMontoFinal = null;
+  // estado del ajuste manual (descuento o adicional: lo define el número ingresado)
+  let ajusActivo = false;
+  let ajusMontoFinal = null; // monto final a cobrar (antes de recargo y voucher)
   // estado del panel de factura
   let facturaAbierta = false;
   let bancosDisponibles = [];
@@ -401,20 +398,23 @@ function abrirPopupVenta(lineas, opts) {
       <div class="venta-detalle">${detalle}</div>
       <div class="modal-line"><span>Subtotal</span><strong>${formatPrecio(base)}</strong></div>
 
-      <div class="voucher-select-row">
+      <label class="desc-check-row voucher-check">
+        <input type="checkbox" id="voucherCheck" class="evar-chk">
+        <span>Aplicar voucher</span>
+      </label>
+      <div class="voucher-select-row" id="voucherWrap" style="display:none">
         <div class="field">
-          <label>Voucher (opcional)</label>
           <select id="selVoucher"><option value="">Sin voucher</option></select>
         </div>
       </div>
 
-      <div class="venta-fields">
+      <div class="venta-fields fechas-row">
         <div class="field">
           <label>Fecha y hora de venta</label>
           <input type="datetime-local" id="fechaVenta" value="${ahoraLocalInput()}">
         </div>
         <div class="field">
-          <label>Inicio del período de cambio</label>
+          <label>Inicio período cambio</label>
           <input type="date" id="fechaInicioCambio" value="${hoyInput()}">
         </div>
       </div>
@@ -455,49 +455,25 @@ function abrirPopupVenta(lineas, opts) {
       <div class="venta-extras">
       <div class="desc-pago-box">
         <label class="desc-check-row">
-          <input type="checkbox" id="descCheck" class="evar-chk">
-          <span>Aplicar descuento</span>
+          <input type="checkbox" id="ajusCheck" class="evar-chk">
+          <span>Aplicar desc/adic</span>
         </label>
-        <div id="descCampos" class="desc-campos" style="display:none">
+        <div id="ajusCampos" class="desc-campos" style="display:none">
           <div class="split-row">
             <div class="field">
-              <label>Nuevo monto a cobrar ($)</label>
-              <input type="number" id="descMonto" class="sinput" min="0" placeholder="$">
+              <label>Nuevo monto ($)</label>
+              <input type="number" id="ajusMonto" class="sinput" min="0" placeholder="$">
             </div>
             <div class="field">
-              <label>Descuento (%)</label>
-              <input type="number" id="descPct" class="sinput" min="0" max="100" placeholder="%">
+              <label>Variación (%)</label>
+              <input type="number" id="ajusPct" class="sinput" placeholder="-20 / +10">
             </div>
           </div>
-          <div class="field rec-field" id="descRecWrap" style="display:none">
-            <label id="descRecLabel">Monto final con recargo</label>
-            <input type="number" id="descMontoRec" class="sinput" min="0" placeholder="$">
+          <div class="field rec-field" id="ajusRecWrap" style="display:none">
+            <label id="ajusRecLabel">Monto final con recargo</label>
+            <input type="number" id="ajusMontoRec" class="sinput" min="0" placeholder="$">
           </div>
-          <p class="desc-info" id="descInfo"></p>
-        </div>
-      </div>
-
-      <div class="desc-pago-box adic-box">
-        <label class="desc-check-row">
-          <input type="checkbox" id="adicCheck" class="evar-chk">
-          <span>Aplicar adicional</span>
-        </label>
-        <div id="adicCampos" class="desc-campos" style="display:none">
-          <div class="split-row">
-            <div class="field">
-              <label>Nuevo monto a cobrar ($)</label>
-              <input type="number" id="adicMonto" class="sinput" min="0" placeholder="$">
-            </div>
-            <div class="field">
-              <label>Adicional (%)</label>
-              <input type="number" id="adicPct" class="sinput" min="0" placeholder="%">
-            </div>
-          </div>
-          <div class="field rec-field" id="adicRecWrap" style="display:none">
-            <label id="adicRecLabel">Monto final con recargo</label>
-            <input type="number" id="adicMontoRec" class="sinput" min="0" placeholder="$">
-          </div>
-          <p class="desc-info adic-info" id="adicInfo"></p>
+          <p class="desc-info" id="ajusInfo"></p>
         </div>
       </div>
 
@@ -561,195 +537,137 @@ function abrirPopupVenta(lineas, opts) {
   const montoM2 = document.getElementById("montoM2");
   const selVoucher = document.getElementById("selVoucher");
 
+  // el voucher aparece solo si se tilda (deja el popup más corto)
+  const voucherCheck = document.getElementById("voucherCheck");
+  const voucherWrap = document.getElementById("voucherWrap");
+  voucherCheck.onchange = () => {
+    voucherWrap.style.display = voucherCheck.checked ? "" : "none";
+    if (!voucherCheck.checked) {
+      selVoucher.value = "";
+      voucherSel = null;
+      recalcular();
+    }
+  };
+
+  // al cambiar la fecha de venta, el inicio del período de cambio la acompaña
+  // (después se puede modificar a mano si hace falta)
+  const inpFechaVenta = document.getElementById("fechaVenta");
+  const inpInicioCambio = document.getElementById("fechaInicioCambio");
+  inpFechaVenta.addEventListener("change", () => {
+    if (!inpFechaVenta.value) return;
+    inpInicioCambio.value = inpFechaVenta.value.slice(0, 10); // solo la parte de la fecha
+  });
+
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("cancelar").onclick = cerrarModal;
 
-  // --- descuento manual del popup ---
-  const descCheck = document.getElementById("descCheck");
-  const descCampos = document.getElementById("descCampos");
-  const descMontoInput = document.getElementById("descMonto");
-  const descPctInput = document.getElementById("descPct");
-  const descMontoRecInput = document.getElementById("descMontoRec");
-  const descRecWrap = document.getElementById("descRecWrap");
+  // --- ajuste manual: descuento o adicional (lo define el número ingresado) ---
+  const ajusCheck = document.getElementById("ajusCheck");
+  const ajusCampos = document.getElementById("ajusCampos");
+  const ajusMontoInput = document.getElementById("ajusMonto");
+  const ajusPctInput = document.getElementById("ajusPct");
+  const ajusMontoRecInput = document.getElementById("ajusMontoRec");
+  const ajusRecWrap = document.getElementById("ajusRecWrap");
+  const ajusInfo = document.getElementById("ajusInfo");
 
   // ¿el método elegido tiene recargo de tarjeta? (en pago dividido no aplica este atajo)
   function factorRecargo() {
     if (modoDividido) return 1;
     return MEDIOS_CON_RECARGO.includes(metodo1) ? (1 + CONFIG.RECARGO_TARJETA) : 1;
   }
-  // muestra/oculta los campos "con recargo" según el método elegido
+  // muestra/oculta el campo "monto con recargo" según el método elegido
   function actualizarCamposRecargo() {
     const f = factorRecargo();
     const hayRecargo = f > 1;
     const pct = Math.round(CONFIG.RECARGO_TARJETA * 100);
-    const lblD = document.getElementById("descRecLabel");
-    const lblA = document.getElementById("adicRecLabel");
-    if (lblD) lblD.textContent = `Monto final con recargo (${pct}%)`;
-    if (lblA) lblA.textContent = `Monto final con recargo (${pct}%)`;
-    if (descRecWrap) descRecWrap.style.display = hayRecargo ? "block" : "none";
-    const arw = document.getElementById("adicRecWrap");
-    if (arw) arw.style.display = hayRecargo ? "block" : "none";
-    // sincronizar los valores mostrados
-    if (hayRecargo) {
-      if (descMontoFinal != null && descMontoRecInput) descMontoRecInput.value = Math.round(descMontoFinal * f);
-      const amr = document.getElementById("adicMontoRec");
-      if (adicMontoFinal != null && amr) amr.value = Math.round(adicMontoFinal * f);
+    const lbl = document.getElementById("ajusRecLabel");
+    if (lbl) lbl.textContent = `Monto final con recargo (${pct}%)`;
+    if (ajusRecWrap) ajusRecWrap.style.display = hayRecargo ? "block" : "none";
+    if (hayRecargo && ajusMontoFinal != null && ajusMontoRecInput) {
+      ajusMontoRecInput.value = Math.round(ajusMontoFinal * f);
     }
   }
-  const descInfo = document.getElementById("descInfo");
 
-  function refrescarDescInfo() {
-    if (!descActivo || descMontoFinal == null || descMontoFinal >= base) {
-      descInfo.textContent = "";
-      return;
+  // el signo de la diferencia decide si es descuento o adicional
+  function refrescarAjusInfo() {
+    if (!ajusActivo || ajusMontoFinal == null) { ajusInfo.textContent = ""; ajusInfo.className = "desc-info"; return; }
+    const dif = ajusMontoFinal - base;
+    if (Math.abs(dif) < 1) { ajusInfo.textContent = "Sin cambios sobre el precio."; ajusInfo.className = "desc-info"; return; }
+    const pct = base > 0 ? Math.abs(Math.round((dif / base) * 100)) : 0;
+    if (dif < 0) {
+      ajusInfo.className = "desc-info";
+      ajusInfo.innerHTML = `<strong>Descuento</strong> de ${formatPrecio(-dif)} (−${pct}%) sobre ${formatPrecio(base)}`;
+    } else {
+      ajusInfo.className = "desc-info adic-info";
+      ajusInfo.innerHTML = `<strong>Adicional</strong> de ${formatPrecio(dif)} (+${pct}%) sobre ${formatPrecio(base)}`;
     }
-    const ahorro = base - descMontoFinal;
-    const pct = base > 0 ? Math.round((ahorro / base) * 100) : 0;
-    descInfo.innerHTML = `Se descuentan <strong>${formatPrecio(ahorro)}</strong> (${pct}%) sobre ${formatPrecio(base)}`;
   }
 
-  descCheck.onchange = () => {
-    descActivo = descCheck.checked;
-    descCampos.style.display = descActivo ? "block" : "none";
-    if (descActivo) {
-      // descuento y adicional son excluyentes
-      const ac = document.getElementById("adicCheck");
-      const acp = document.getElementById("adicCampos");
-      if (ac && ac.checked) {
-        ac.checked = false; adicActivo = false; adicMontoFinal = null;
-        if (acp) acp.style.display = "none";
-        const am = document.getElementById("adicMonto"); if (am) am.value = "";
-        const ap = document.getElementById("adicPct"); if (ap) ap.value = "";
-        const ai = document.getElementById("adicInfo"); if (ai) ai.textContent = "";
-      }
-    }
-    if (!descActivo) {
-      descMontoFinal = null;
-      descMontoInput.value = "";
-      descPctInput.value = "";
-      if (descMontoRecInput) descMontoRecInput.value = "";
-      descInfo.textContent = "";
+  ajusCheck.onchange = () => {
+    ajusActivo = ajusCheck.checked;
+    ajusCampos.style.display = ajusActivo ? "block" : "none";
+    if (!ajusActivo) {
+      ajusMontoFinal = null;
+      ajusMontoInput.value = "";
+      ajusPctInput.value = "";
+      if (ajusMontoRecInput) ajusMontoRecInput.value = "";
+      ajusInfo.textContent = "";
     }
     actualizarCamposRecargo();
     recalcular();
   };
 
-  // ingresar nuevo monto (SIN recargo) → calcula el % y el monto con recargo
-  descMontoInput.oninput = () => {
-    let m = Number(descMontoInput.value);
-    if (isNaN(m) || descMontoInput.value === "") { descMontoFinal = null; descPctInput.value = ""; if (descMontoRecInput) descMontoRecInput.value = ""; refrescarDescInfo(); recalcular(); return; }
-    if (m < 0) m = 0; if (m > base) m = base;
-    descMontoFinal = m;
-    const pct = base > 0 ? ((base - m) / base) * 100 : 0;
-    descPctInput.value = Math.round(pct * 100) / 100;
-    if (descMontoRecInput) descMontoRecInput.value = Math.round(m * factorRecargo());
-    refrescarDescInfo();
+  // monto SIN recargo → calcula el % y el monto con recargo
+  ajusMontoInput.oninput = () => {
+    let m = Number(ajusMontoInput.value);
+    if (isNaN(m) || ajusMontoInput.value === "") {
+      ajusMontoFinal = null; ajusPctInput.value = "";
+      if (ajusMontoRecInput) ajusMontoRecInput.value = "";
+      refrescarAjusInfo(); recalcular(); return;
+    }
+    if (m < 0) m = 0;
+    ajusMontoFinal = m;
+    const pct = base > 0 ? ((m - base) / base) * 100 : 0; // negativo = descuento
+    ajusPctInput.value = Math.round(pct * 100) / 100;
+    if (ajusMontoRecInput) ajusMontoRecInput.value = Math.round(m * factorRecargo());
+    refrescarAjusInfo();
     recalcular();
   };
-  // ingresar el monto final CON recargo → se calcula hacia atrás el monto sin recargo
-  if (descMontoRecInput) descMontoRecInput.oninput = () => {
+
+  // % (negativo = descuento, positivo = adicional) → calcula el monto
+  ajusPctInput.oninput = () => {
+    let p = Number(ajusPctInput.value);
+    if (isNaN(p) || ajusPctInput.value === "" || ajusPctInput.value === "-") {
+      ajusMontoFinal = null; ajusMontoInput.value = "";
+      if (ajusMontoRecInput) ajusMontoRecInput.value = "";
+      refrescarAjusInfo(); recalcular(); return;
+    }
+    if (p < -100) p = -100;
+    ajusMontoFinal = base * (1 + p / 100);
+    ajusMontoInput.value = Math.round(ajusMontoFinal);
+    if (ajusMontoRecInput) ajusMontoRecInput.value = Math.round(ajusMontoFinal * factorRecargo());
+    refrescarAjusInfo();
+    recalcular();
+  };
+
+  // monto final CON recargo → se calcula hacia atrás el monto sin recargo
+  if (ajusMontoRecInput) ajusMontoRecInput.oninput = () => {
     const f = factorRecargo();
-    let total = Number(descMontoRecInput.value);
-    if (isNaN(total) || descMontoRecInput.value === "") { descMontoFinal = null; descMontoInput.value = ""; descPctInput.value = ""; refrescarDescInfo(); recalcular(); return; }
+    let total = Number(ajusMontoRecInput.value);
+    if (isNaN(total) || ajusMontoRecInput.value === "") {
+      ajusMontoFinal = null; ajusMontoInput.value = ""; ajusPctInput.value = "";
+      refrescarAjusInfo(); recalcular(); return;
+    }
     if (total < 0) total = 0;
-    let m = total / f; // sacar el recargo para obtener el monto base
-    if (m > base) m = base;
-    descMontoFinal = m;
-    descMontoInput.value = Math.round(m);
-    const pct = base > 0 ? ((base - m) / base) * 100 : 0;
-    descPctInput.value = Math.round(pct * 100) / 100;
-    refrescarDescInfo();
-    recalcular();
-  };
-  // ingresar % → calcula el nuevo monto
-  descPctInput.oninput = () => {
-    let p = Number(descPctInput.value);
-    if (isNaN(p) || descPctInput.value === "") { descMontoFinal = null; descMontoInput.value = ""; refrescarDescInfo(); recalcular(); return; }
-    if (p < 0) p = 0; if (p > 100) p = 100;
-    descMontoFinal = base * (1 - p / 100);
-    descMontoInput.value = Math.round(descMontoFinal);
-    if (descMontoRecInput) descMontoRecInput.value = Math.round(descMontoFinal * factorRecargo());
-    refrescarDescInfo();
-    recalcular();
-  };
-
-  // --- adicional (cobrar por encima del precio real) ---
-  const adicCheck = document.getElementById("adicCheck");
-  const adicCampos = document.getElementById("adicCampos");
-  const adicMontoInput = document.getElementById("adicMonto");
-  const adicPctInput = document.getElementById("adicPct");
-  const adicInfo = document.getElementById("adicInfo");
-
-  function refrescarAdicInfo() {
-    if (!adicActivo || adicMontoFinal == null || adicMontoFinal <= base) {
-      adicInfo.textContent = "";
-      return;
-    }
-    const extra = adicMontoFinal - base;
-    const pct = base > 0 ? Math.round((extra / base) * 100) : 0;
-    adicInfo.innerHTML = `Se agregan <strong>${formatPrecio(extra)}</strong> (+${pct}%) sobre ${formatPrecio(base)}`;
-  }
-
-  adicCheck.onchange = () => {
-    adicActivo = adicCheck.checked;
-    adicCampos.style.display = adicActivo ? "block" : "none";
-    if (adicActivo && descActivo) {
-      // descuento y adicional son excluyentes: al activar uno, se apaga el otro
-      descActivo = false; descCheck.checked = false; descCampos.style.display = "none";
-      descMontoFinal = null; descMontoInput.value = ""; descPctInput.value = ""; descInfo.textContent = "";
-    }
-    if (!adicActivo) {
-      adicMontoFinal = null;
-      adicMontoInput.value = "";
-      adicPctInput.value = "";
-      const amr0 = document.getElementById("adicMontoRec");
-      if (amr0) amr0.value = "";
-      adicInfo.textContent = "";
-    }
-    actualizarCamposRecargo();
-    recalcular();
-  };
-
-  // ingresar nuevo monto (SIN recargo) → calcula el %
-  adicMontoInput.oninput = () => {
-    const amr = document.getElementById("adicMontoRec");
-    let m = Number(adicMontoInput.value);
-    if (isNaN(m) || adicMontoInput.value === "") { adicMontoFinal = null; adicPctInput.value = ""; if (amr) amr.value = ""; refrescarAdicInfo(); recalcular(); return; }
-    if (m < base) m = base; // el adicional no puede ser menor al precio real
-    adicMontoFinal = m;
+    const m = total / f;
+    ajusMontoFinal = m;
+    ajusMontoInput.value = Math.round(m);
     const pct = base > 0 ? ((m - base) / base) * 100 : 0;
-    adicPctInput.value = Math.round(pct * 100) / 100;
-    if (amr) amr.value = Math.round(m * factorRecargo());
-    refrescarAdicInfo();
+    ajusPctInput.value = Math.round(pct * 100) / 100;
+    refrescarAjusInfo();
     recalcular();
   };
-  // ingresar el monto final CON recargo → se calcula hacia atrás
-  const adicMontoRecInput = document.getElementById("adicMontoRec");
-  if (adicMontoRecInput) adicMontoRecInput.oninput = () => {
-    const f = factorRecargo();
-    let total = Number(adicMontoRecInput.value);
-    if (isNaN(total) || adicMontoRecInput.value === "") { adicMontoFinal = null; adicMontoInput.value = ""; adicPctInput.value = ""; refrescarAdicInfo(); recalcular(); return; }
-    let m = total / f;
-    if (m < base) m = base;
-    adicMontoFinal = m;
-    adicMontoInput.value = Math.round(m);
-    const pct = base > 0 ? ((m - base) / base) * 100 : 0;
-    adicPctInput.value = Math.round(pct * 100) / 100;
-    refrescarAdicInfo();
-    recalcular();
-  };
-  // ingresar % → calcula el nuevo monto
-  adicPctInput.oninput = () => {
-    let p = Number(adicPctInput.value);
-    if (isNaN(p) || adicPctInput.value === "") { adicMontoFinal = null; adicMontoInput.value = ""; refrescarAdicInfo(); recalcular(); return; }
-    if (p < 0) p = 0;
-    adicMontoFinal = base * (1 + p / 100);
-    adicMontoInput.value = Math.round(adicMontoFinal);
-    const amr2 = document.getElementById("adicMontoRec");
-    if (amr2) amr2.value = Math.round(adicMontoFinal * factorRecargo());
-    refrescarAdicInfo();
-    recalcular();
-  };
+
 
   let vouchersDisp = [];
   API.getVouchers().then((res) => {
@@ -784,11 +702,8 @@ function abrirPopupVenta(lineas, opts) {
 
   // base efectivo: base con el descuento o el adicional aplicado (si están activos)
   function baseEfectivo() {
-    if (descActivo && descMontoFinal != null && descMontoFinal >= 0 && descMontoFinal < base) {
-      return descMontoFinal;
-    }
-    if (adicActivo && adicMontoFinal != null && adicMontoFinal > base) {
-      return adicMontoFinal;
+    if (ajusActivo && ajusMontoFinal != null && ajusMontoFinal >= 0) {
+      return ajusMontoFinal; // menor al precio = descuento, mayor = adicional
     }
     return base;
   }

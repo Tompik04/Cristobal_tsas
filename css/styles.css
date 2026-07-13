@@ -1407,14 +1407,14 @@ input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator {
 
 /* ===== POPUP DE VENTA: ancho, en 2 columnas, sin scroll ===== */
 .modal-venta {
-  max-width: 860px;
-  gap: 0.9rem;
-  padding: 1.5rem 1.7rem;
+  max-width: 620px;
+  gap: 0.8rem;
+  padding: 1.5rem 1.6rem;
 }
 /* las cajas de descuento / adicional / seña van lado a lado */
 .modal-venta .desc-pago-box { margin: 0; padding: 10px 12px; }
 .modal-venta .venta-extras {
-  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; align-items: start;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start;
 }
 .modal-venta .desc-check-row { font-size: 12.5px; gap: 8px; }
 .modal-venta .desc-campos { margin-top: 8px; }
@@ -1447,3 +1447,18 @@ input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator {
 }
 .modal::-webkit-scrollbar-thumb:hover,
 .venta-detalle::-webkit-scrollbar-thumb:hover { background: rgba(127,196,160,0.6); }
+
+/* fecha de venta (80%) + inicio período de cambio (20%) en la misma fila */
+.fechas-row { display: grid; grid-template-columns: 4fr 1fr; gap: 10px; align-items: end; }
+.fechas-row .field label { font-size: 10.5px; letter-spacing: 0.05em; }
+.fechas-row input { width: 100%; }
+/* el input chico de período: fuente algo menor para que entre la fecha */
+.fechas-row .field:last-child input { font-size: 12px; padding-left: 6px; }
+
+/* checkbox del voucher */
+.voucher-check { margin-bottom: -4px; }
+.voucher-select-row { margin-top: 4px; }
+
+@media (max-width: 620px) {
+  .fechas-row { grid-template-columns: 1fr; }
+}
