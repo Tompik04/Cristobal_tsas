@@ -155,6 +155,7 @@ button { font-family: inherit; }
 .bg-logo.bg-caja { opacity: 0.03; --bg-logo-color: var(--gold); }
 .bg-logo.bg-gastos { opacity: 0.03; --bg-logo-color: var(--terracotta); }
 .bg-logo.bg-informes { opacity: 0.03; --bg-logo-color: var(--teal-bright); }
+.bg-logo.bg-facturas { opacity: 0.03; --bg-logo-color: var(--sage); }
 
 /* el contenido va por encima del fondo */
 .app-header { position: relative; z-index: 10; }
