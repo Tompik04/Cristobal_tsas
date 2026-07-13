@@ -335,6 +335,16 @@ function dobleConfirmacion(opts) {
 }
 
 // ---- Arranque ----
+// Abre el calendario nativo al tocar cualquier parte del input de fecha
+// (por defecto solo se abre al clickear el iconito).
+document.addEventListener("click", (e) => {
+  const inp = e.target.closest('input[type="date"], input[type="datetime-local"]');
+  if (!inp || inp.disabled || inp.readOnly) return;
+  if (typeof inp.showPicker === "function") {
+    try { inp.showPicker(); } catch (err) { /* algunos navegadores lo bloquean, se ignora */ }
+  }
+});
+
 async function iniciarApp() {
   document.getElementById("app").classList.remove("hidden");
   // leer el recargo de tarjeta configurado en Supabase (si existe)

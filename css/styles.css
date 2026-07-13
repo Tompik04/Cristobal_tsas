@@ -1379,3 +1379,71 @@ body {
 .sc-op-s { font-size: 11px; color: var(--oak-60); line-height: 1.4; }
 .sc-op-danger i { color: var(--danger); }
 .sc-op-danger:hover { border-color: var(--danger); background: rgba(201,122,109,0.08); }
+
+/* ===== INPUTS DE FECHA ===== */
+/* color-scheme: dark hace que el navegador dibuje el calendario nativo en oscuro,
+   acompañando la estética de la página (el desplegable en sí lo dibuja el navegador
+   y no se puede estilizar más allá de esto). */
+input[type="date"], input[type="datetime-local"] {
+  color-scheme: dark;
+  cursor: pointer;
+}
+/* teñir el iconito del calendario con el jade de la marca */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(78%) sepia(24%) saturate(560%) hue-rotate(101deg) brightness(92%) contrast(88%);
+  opacity: 0.85;
+  transition: opacity 0.15s ease, transform 0.12s ease;
+}
+input[type="date"]:hover::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator {
+  opacity: 1; transform: scale(1.1);
+}
+/* el panel de factura es claro: ahí el calendario va en modo claro */
+.factura-panel input[type="date"],
+.factura-panel input[type="datetime-local"] { color-scheme: light; }
+.factura-panel input[type="date"]::-webkit-calendar-picker-indicator { filter: none; }
+
+/* ===== POPUP DE VENTA: ancho, en 2 columnas, sin scroll ===== */
+.modal-venta {
+  max-width: 860px;
+  gap: 0.9rem;
+  padding: 1.5rem 1.7rem;
+}
+/* las cajas de descuento / adicional / seña van lado a lado */
+.modal-venta .desc-pago-box { margin: 0; padding: 10px 12px; }
+.modal-venta .venta-extras {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; align-items: start;
+}
+.modal-venta .desc-check-row { font-size: 12.5px; gap: 8px; }
+.modal-venta .desc-campos { margin-top: 8px; }
+.modal-venta .field label { font-size: 11px; }
+.modal-venta .modal-line { font-size: 13px; }
+.modal-venta .desc-info { font-size: 12px; margin-top: 6px; }
+.modal-venta .pay-opt { padding: 9px 10px; font-size: 13px; }
+.modal-venta h2 { margin-bottom: 2px; }
+/* el detalle de prendas, si son muchas, scrollea solo él (no todo el popup) */
+.modal-venta .venta-detalle { max-height: 130px; overflow-y: auto; }
+
+@media (max-width: 900px) {
+  .modal-venta .venta-extras { grid-template-columns: 1fr; }
+}
+
+/* ===== BARRA DE SCROLL con los colores de la marca ===== */
+.modal::-webkit-scrollbar,
+.venta-detalle::-webkit-scrollbar,
+.drawer-items::-webkit-scrollbar,
+.factura-body::-webkit-scrollbar { width: 8px; }
+.modal::-webkit-scrollbar-track,
+.venta-detalle::-webkit-scrollbar-track,
+.drawer-items::-webkit-scrollbar-track,
+.factura-body::-webkit-scrollbar-track { background: transparent; }
+.modal::-webkit-scrollbar-thumb,
+.venta-detalle::-webkit-scrollbar-thumb,
+.drawer-items::-webkit-scrollbar-thumb,
+.factura-body::-webkit-scrollbar-thumb {
+  background: rgba(127,196,160,0.35); border-radius: 20px;
+}
+.modal::-webkit-scrollbar-thumb:hover,
+.venta-detalle::-webkit-scrollbar-thumb:hover { background: rgba(127,196,160,0.6); }

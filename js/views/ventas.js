@@ -396,9 +396,9 @@ function abrirPopupVenta(lineas, opts) {
 
   document.getElementById("modalRoot").innerHTML = `
     <div class="modal-overlay" id="ov"></div>
-    <div class="modal">
+    <div class="modal modal-venta">
       <h2>Confirmar venta</h2>
-      <div>${detalle}</div>
+      <div class="venta-detalle">${detalle}</div>
       <div class="modal-line"><span>Subtotal</span><strong>${formatPrecio(base)}</strong></div>
 
       <div class="voucher-select-row">
@@ -452,6 +452,7 @@ function abrirPopupVenta(lineas, opts) {
         </div>
       </div>
 
+      <div class="venta-extras">
       <div class="desc-pago-box">
         <label class="desc-check-row">
           <input type="checkbox" id="descCheck" class="evar-chk">
@@ -522,6 +523,7 @@ function abrirPopupVenta(lineas, opts) {
           </div>
           <p class="desc-info sena-info" id="senaInfo"></p>
         </div>
+      </div>
       </div>
 
       <div class="swap-diff" style="border-top:1px solid var(--oak-20);padding-top:1rem">
