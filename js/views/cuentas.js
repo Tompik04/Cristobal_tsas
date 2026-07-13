@@ -597,25 +597,57 @@ function abrirDetalleSena(senaId) {
   // registrar un pago (si completa el total, la seña se completa y el cliente se lleva la prenda)
   document.getElementById("sdPagar").onclick = () => abrirPagoSena(s, saldo);
 
-  // cancelar: las prendas vuelven al stock
+  // cancelar: las prendas vuelven al stock. Dos opciones con la plata cobrada.
   document.getElementById("sdCancelar").onclick = () => {
-    dobleConfirmacion({
-      titulo: "Cancelar seña",
-      mensaje1: `Las ${items.length} prenda${items.length === 1 ? "" : "s"} vuelven al stock. Lo que el cliente ya pagó (${formatPrecio(pagado)}) queda registrado como ingreso.`,
-      mensaje2: "¿Confirmás la cancelación?",
-      textoBoton: "Cancelar seña",
-      onOk: async () => {
-        await API.cancelarSena(s.id, items);
-        // reponer en memoria
-        items.forEach((i) => {
-          const st = State.stock.find((x) => x.codigo === i.codigo && x.talle === i.talle && x.color === i.color);
-          if (st) st.cantidad += i.cantidad;
-        });
-        cerrarModal();
-        toast("Seña cancelada · Prendas repuestas al stock");
-        cargarSenas();
-      },
-    });
+    document.getElementById("modalRoot").innerHTML = `
+      <div class="modal-overlay" id="scOv"></div>
+      <div class="modal">
+        <h2>Cancelar seña</h2>
+        <p class="dc-msg">Las ${items.length} prenda${items.length === 1 ? "" : "s"} vuelven al stock.</p>
+        <p class="sd-titulo">¿Qué hacés con lo que ya pagó (${formatPrecio(pagado)})?</p>
+        <div class="sc-ops">
+          <button class="sc-op" id="scMantener">
+            <i class="ti ti-cash"></i>
+            <span class="sc-op-t">La plata queda registrada</span>
+            <span class="sc-op-s">El local se queda con ${formatPrecio(pagado)}. Sigue contando como ingreso en los días que se cobró.</span>
+          </button>
+          <button class="sc-op sc-op-danger" id="scBorrar">
+            <i class="ti ti-cash-off"></i>
+            <span class="sc-op-t">La plata NO queda registrada</span>
+            <span class="sc-op-s">Se borran los pagos (se le devolvió al cliente). Deja de contar como ingreso.</span>
+          </button>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-ghost" id="scVolver">Volver</button>
+        </div>
+      </div>`;
+
+    document.getElementById("scOv").onclick = cerrarModal;
+    document.getElementById("scVolver").onclick = () => abrirDetalleSena(s.id);
+
+    const cancelar = async (borrarPagos) => {
+      await API.cancelarSena(s.id, items, borrarPagos);
+      items.forEach((i) => {
+        const st = State.stock.find((x) => x.codigo === i.codigo && x.talle === i.talle && x.color === i.color);
+        if (st) st.cantidad += i.cantidad;
+      });
+      cerrarModal();
+      toast(borrarPagos
+        ? "Seña cancelada · Prendas repuestas · Pagos borrados"
+        : "Seña cancelada · Prendas repuestas · La plata queda registrada");
+      cargarSenas();
+    };
+
+    document.getElementById("scMantener").onclick = () => cancelar(false);
+    document.getElementById("scBorrar").onclick = () => {
+      dobleConfirmacion({
+        titulo: "Borrar los pagos",
+        mensaje1: `Se van a borrar ${formatPrecio(pagado)} en pagos. Dejan de contar como ingreso en el historial.`,
+        mensaje2: "Esto no se puede deshacer. ¿Confirmás?",
+        textoBoton: "Borrar pagos",
+        onOk: () => cancelar(true),
+      });
+    };
   };
 }
 

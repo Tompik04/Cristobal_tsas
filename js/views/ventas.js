@@ -468,6 +468,10 @@ function abrirPopupVenta(lineas, opts) {
               <input type="number" id="descPct" class="sinput" min="0" max="100" placeholder="%">
             </div>
           </div>
+          <div class="field rec-field" id="descRecWrap" style="display:none">
+            <label id="descRecLabel">Monto final con recargo</label>
+            <input type="number" id="descMontoRec" class="sinput" min="0" placeholder="$">
+          </div>
           <p class="desc-info" id="descInfo"></p>
         </div>
       </div>
@@ -487,6 +491,10 @@ function abrirPopupVenta(lineas, opts) {
               <label>Adicional (%)</label>
               <input type="number" id="adicPct" class="sinput" min="0" placeholder="%">
             </div>
+          </div>
+          <div class="field rec-field" id="adicRecWrap" style="display:none">
+            <label id="adicRecLabel">Monto final con recargo</label>
+            <input type="number" id="adicMontoRec" class="sinput" min="0" placeholder="$">
           </div>
           <p class="desc-info adic-info" id="adicInfo"></p>
         </div>
@@ -559,6 +567,33 @@ function abrirPopupVenta(lineas, opts) {
   const descCampos = document.getElementById("descCampos");
   const descMontoInput = document.getElementById("descMonto");
   const descPctInput = document.getElementById("descPct");
+  const descMontoRecInput = document.getElementById("descMontoRec");
+  const descRecWrap = document.getElementById("descRecWrap");
+
+  // ¿el método elegido tiene recargo de tarjeta? (en pago dividido no aplica este atajo)
+  function factorRecargo() {
+    if (modoDividido) return 1;
+    return MEDIOS_CON_RECARGO.includes(metodo1) ? (1 + CONFIG.RECARGO_TARJETA) : 1;
+  }
+  // muestra/oculta los campos "con recargo" según el método elegido
+  function actualizarCamposRecargo() {
+    const f = factorRecargo();
+    const hayRecargo = f > 1;
+    const pct = Math.round(CONFIG.RECARGO_TARJETA * 100);
+    const lblD = document.getElementById("descRecLabel");
+    const lblA = document.getElementById("adicRecLabel");
+    if (lblD) lblD.textContent = `Monto final con recargo (${pct}%)`;
+    if (lblA) lblA.textContent = `Monto final con recargo (${pct}%)`;
+    if (descRecWrap) descRecWrap.style.display = hayRecargo ? "block" : "none";
+    const arw = document.getElementById("adicRecWrap");
+    if (arw) arw.style.display = hayRecargo ? "block" : "none";
+    // sincronizar los valores mostrados
+    if (hayRecargo) {
+      if (descMontoFinal != null && descMontoRecInput) descMontoRecInput.value = Math.round(descMontoFinal * f);
+      const amr = document.getElementById("adicMontoRec");
+      if (adicMontoFinal != null && amr) amr.value = Math.round(adicMontoFinal * f);
+    }
+  }
   const descInfo = document.getElementById("descInfo");
 
   function refrescarDescInfo() {
@@ -590,17 +625,35 @@ function abrirPopupVenta(lineas, opts) {
       descMontoFinal = null;
       descMontoInput.value = "";
       descPctInput.value = "";
+      if (descMontoRecInput) descMontoRecInput.value = "";
       descInfo.textContent = "";
     }
+    actualizarCamposRecargo();
     recalcular();
   };
 
-  // ingresar nuevo monto → calcula el %
+  // ingresar nuevo monto (SIN recargo) → calcula el % y el monto con recargo
   descMontoInput.oninput = () => {
     let m = Number(descMontoInput.value);
-    if (isNaN(m) || descMontoInput.value === "") { descMontoFinal = null; descPctInput.value = ""; refrescarDescInfo(); recalcular(); return; }
+    if (isNaN(m) || descMontoInput.value === "") { descMontoFinal = null; descPctInput.value = ""; if (descMontoRecInput) descMontoRecInput.value = ""; refrescarDescInfo(); recalcular(); return; }
     if (m < 0) m = 0; if (m > base) m = base;
     descMontoFinal = m;
+    const pct = base > 0 ? ((base - m) / base) * 100 : 0;
+    descPctInput.value = Math.round(pct * 100) / 100;
+    if (descMontoRecInput) descMontoRecInput.value = Math.round(m * factorRecargo());
+    refrescarDescInfo();
+    recalcular();
+  };
+  // ingresar el monto final CON recargo → se calcula hacia atrás el monto sin recargo
+  if (descMontoRecInput) descMontoRecInput.oninput = () => {
+    const f = factorRecargo();
+    let total = Number(descMontoRecInput.value);
+    if (isNaN(total) || descMontoRecInput.value === "") { descMontoFinal = null; descMontoInput.value = ""; descPctInput.value = ""; refrescarDescInfo(); recalcular(); return; }
+    if (total < 0) total = 0;
+    let m = total / f; // sacar el recargo para obtener el monto base
+    if (m > base) m = base;
+    descMontoFinal = m;
+    descMontoInput.value = Math.round(m);
     const pct = base > 0 ? ((base - m) / base) * 100 : 0;
     descPctInput.value = Math.round(pct * 100) / 100;
     refrescarDescInfo();
@@ -613,6 +666,7 @@ function abrirPopupVenta(lineas, opts) {
     if (p < 0) p = 0; if (p > 100) p = 100;
     descMontoFinal = base * (1 - p / 100);
     descMontoInput.value = Math.round(descMontoFinal);
+    if (descMontoRecInput) descMontoRecInput.value = Math.round(descMontoFinal * factorRecargo());
     refrescarDescInfo();
     recalcular();
   };
@@ -646,17 +700,37 @@ function abrirPopupVenta(lineas, opts) {
       adicMontoFinal = null;
       adicMontoInput.value = "";
       adicPctInput.value = "";
+      const amr0 = document.getElementById("adicMontoRec");
+      if (amr0) amr0.value = "";
       adicInfo.textContent = "";
     }
+    actualizarCamposRecargo();
     recalcular();
   };
 
-  // ingresar nuevo monto → calcula el %
+  // ingresar nuevo monto (SIN recargo) → calcula el %
   adicMontoInput.oninput = () => {
+    const amr = document.getElementById("adicMontoRec");
     let m = Number(adicMontoInput.value);
-    if (isNaN(m) || adicMontoInput.value === "") { adicMontoFinal = null; adicPctInput.value = ""; refrescarAdicInfo(); recalcular(); return; }
+    if (isNaN(m) || adicMontoInput.value === "") { adicMontoFinal = null; adicPctInput.value = ""; if (amr) amr.value = ""; refrescarAdicInfo(); recalcular(); return; }
     if (m < base) m = base; // el adicional no puede ser menor al precio real
     adicMontoFinal = m;
+    const pct = base > 0 ? ((m - base) / base) * 100 : 0;
+    adicPctInput.value = Math.round(pct * 100) / 100;
+    if (amr) amr.value = Math.round(m * factorRecargo());
+    refrescarAdicInfo();
+    recalcular();
+  };
+  // ingresar el monto final CON recargo → se calcula hacia atrás
+  const adicMontoRecInput = document.getElementById("adicMontoRec");
+  if (adicMontoRecInput) adicMontoRecInput.oninput = () => {
+    const f = factorRecargo();
+    let total = Number(adicMontoRecInput.value);
+    if (isNaN(total) || adicMontoRecInput.value === "") { adicMontoFinal = null; adicMontoInput.value = ""; adicPctInput.value = ""; refrescarAdicInfo(); recalcular(); return; }
+    let m = total / f;
+    if (m < base) m = base;
+    adicMontoFinal = m;
+    adicMontoInput.value = Math.round(m);
     const pct = base > 0 ? ((m - base) / base) * 100 : 0;
     adicPctInput.value = Math.round(pct * 100) / 100;
     refrescarAdicInfo();
@@ -669,6 +743,8 @@ function abrirPopupVenta(lineas, opts) {
     if (p < 0) p = 0;
     adicMontoFinal = base * (1 + p / 100);
     adicMontoInput.value = Math.round(adicMontoFinal);
+    const amr2 = document.getElementById("adicMontoRec");
+    if (amr2) amr2.value = Math.round(adicMontoFinal * factorRecargo());
     refrescarAdicInfo();
     recalcular();
   };
@@ -788,6 +864,7 @@ function abrirPopupVenta(lineas, opts) {
     document.getElementById("modoSimple").classList.add("selected");
     document.getElementById("modoDiv").classList.remove("selected");
     paySimple.style.display = ""; payDividido.style.display = "none";
+    actualizarCamposRecargo();
     recalcular();
   };
   document.getElementById("modoDiv").onclick = () => {
@@ -795,6 +872,7 @@ function abrirPopupVenta(lineas, opts) {
     document.getElementById("modoDiv").classList.add("selected");
     document.getElementById("modoSimple").classList.remove("selected");
     paySimple.style.display = "none"; payDividido.style.display = "";
+    actualizarCamposRecargo();
     recalcular();
   };
 
@@ -861,6 +939,10 @@ function abrirPopupVenta(lineas, opts) {
           </div>
         </div>
         <p class="fac-metodo">Pago: <strong id="facMetodo">${metodo}</strong></p>
+        <label class="fac-incompleto">
+          <input type="checkbox" id="facIncompleto">
+          <span>Agregar incompleto (faltan datos, los completo después)</span>
+        </label>
       </div>`;
     document.getElementById("modalRoot").appendChild(panel);
     requestAnimationFrame(() => panel.classList.add("abierto"));
@@ -940,6 +1022,7 @@ function abrirPopupVenta(lineas, opts) {
       } else {
         cerrarPanelFactura();
       }
+      actualizarCamposRecargo();
       recalcular();
     };
   });
@@ -1001,7 +1084,8 @@ function abrirPopupVenta(lineas, opts) {
     const metodosUsados = modoDividido ? [selM1.value, selM2.value] : [metodo1];
     const necesitaFactura = metodosUsados.some((m) => m === "Débito" || m === "Crédito");
     const datosFac = leerFactura();
-    if (necesitaFactura) {
+    const incompleta = !!(document.getElementById("facIncompleto") || {}).checked;
+    if (necesitaFactura && !incompleta) {
       if (!datosFac) return toast("Falta completar la factura (obligatoria en débito/crédito)");
       if (!datosFac.numero) return toast("Falta el número de factura");
       if (!datosFac.nombre) return toast("Falta el nombre del cliente");
@@ -1037,10 +1121,10 @@ function abrirPopupVenta(lineas, opts) {
     });
 
     if (res.ok) {
-      // guardar la factura si se completó (una sola por venta, con el total)
-      if (datosFac && datosFac.numero) {
+      // guardar la factura si el panel estaba abierto (aunque le falten datos)
+      if (datosFac) {
         await API.crearFactura({
-          numero: datosFac.numero,
+          numero: datosFac.numero || "",
           ventaId: res.idVenta,
           nombre: datosFac.nombre, dni: datosFac.dni, telefono: datosFac.telefono,
           tipoTarjeta: datosFac.tipoTarjeta, banco: datosFac.banco, cuotas: datosFac.cuotas,

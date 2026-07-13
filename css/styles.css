@@ -1343,3 +1343,39 @@ body {
 }
 /* campo de fecha en el popup de cambio */
 .swap-fecha { margin-top: 14px; }
+
+/* campo de monto con recargo (descuento / adicional) */
+.rec-field { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--oak-25); }
+.rec-field label { color: var(--teal-bright); }
+
+/* checkbox agregar factura incompleta */
+.fac-incompleto {
+  display: flex; align-items: flex-start; gap: 8px; margin-top: 14px; padding-top: 12px;
+  border-top: 1px dashed #B9B0A2; cursor: pointer; font-size: 12px; color: #6A6055;
+}
+.fac-incompleto input { margin-top: 2px; }
+
+/* factura incompleta en la lista */
+.fact-row.fact-incompleta { border-color: rgba(224,164,88,0.45); background: rgba(224,164,88,0.06); }
+.fact-badge-inc {
+  font-size: 10px; padding: 2px 7px; border-radius: 20px; text-transform: uppercase;
+  background: rgba(224,164,88,0.18); border: 1px solid rgba(224,164,88,0.45); color: var(--amber);
+}
+.fact-num-val em { color: var(--amber); font-style: normal; opacity: 0.8; }
+.fact-edit:hover { background: rgba(87,176,171,0.25); color: var(--teal-bright); }
+
+/* opciones al cancelar una seña */
+.sc-ops { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 4px; }
+.sc-op {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left;
+  background: var(--oak-08); border: 1px solid var(--oak-25); border-radius: 12px;
+  padding: 14px 16px; cursor: pointer; font-family: inherit; color: var(--pale-oak);
+  transition: border-color 0.18s ease, background 0.18s ease;
+  position: relative; padding-left: 48px;
+}
+.sc-op i { position: absolute; left: 16px; top: 16px; font-size: 20px; color: var(--success); }
+.sc-op:hover { border-color: var(--success); background: rgba(95,168,106,0.08); }
+.sc-op-t { font-size: 14px; font-weight: 600; }
+.sc-op-s { font-size: 11px; color: var(--oak-60); line-height: 1.4; }
+.sc-op-danger i { color: var(--danger); }
+.sc-op-danger:hover { border-color: var(--danger); background: rgba(201,122,109,0.08); }

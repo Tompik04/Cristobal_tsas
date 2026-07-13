@@ -505,11 +505,13 @@ const API = {
     } catch (e) { return { ok: false, error: String(e) }; }
   },
 
-  // Cancela la seña: las prendas vuelven al stock
-  async cancelarSena(senaId, items) {
+  // Cancela la seña: las prendas vuelven al stock.
+  // borrarPagos=true → la plata cobrada NO queda registrada (se borran los pagos).
+  async cancelarSena(senaId, items, borrarPagos) {
     if (CONFIG.MODO_PRUEBA) return { ok: true };
     try {
       for (const i of items) await this.ajustarStockPorVariante(i.codigo, i.talle, i.color, i.cantidad);
+      if (borrarPagos) await SB.remove("sena_pagos", "sena_id=eq." + enc(senaId));
       await SB.update("senas", "id=eq." + enc(senaId), { estado: "cancelada" });
       return { ok: true };
     } catch (e) { return { ok: false, error: String(e) }; }
@@ -544,6 +546,18 @@ const API = {
         metodo_pago: f.metodoPago || "", facturada: false,
         fecha: f.fecha || new Date().toISOString(),
       }]);
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
+  async editarFactura(id, f) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try {
+      await SB.update("facturas", "id=eq." + enc(id), {
+        numero: f.numero || "", nombre: f.nombre || "", dni: f.dni || "",
+        telefono: f.telefono || "", tipo_tarjeta: f.tipoTarjeta || "",
+        banco: f.banco || "", cuotas: Number(f.cuotas) || 1, monto: Number(f.monto) || 0,
+      });
       return { ok: true };
     } catch (e) { return { ok: false, error: String(e) }; }
   },
