@@ -786,12 +786,13 @@ const API = {
   },
   // registrar un pago (baja deuda, ES ingreso con método de pago)
   // monto = lo cobrado al cliente (con recargo si es tarjeta); salda = cuánto baja la deuda base
-  async registrarPagoCuenta(cuentaId, monto, metodoPago, salda) {
+  async registrarPagoCuenta(cuentaId, monto, metodoPago, salda, fecha) {
     if (CONFIG.MODO_PRUEBA) return { ok: true };
     try {
       await SB.insert("cuenta_pagos", [{
         id: "CP-" + Date.now(), cuenta_id: cuentaId, monto, metodo_pago: metodoPago,
         salda: salda != null ? salda : monto,
+        fecha: fecha || new Date().toISOString(),
       }]);
       return { ok: true };
     } catch (e) { return { ok: false, error: String(e) }; }

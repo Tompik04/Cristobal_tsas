@@ -379,6 +379,10 @@ function abrirPagoCuenta(cuentaId, deuda) {
       </div>
       <p class="login-sub" style="text-align:center">Método de pago</p>
       <div class="pay-grid">${pagos1}</div>
+      <div class="field">
+        <label>Fecha del pago</label>
+        <input class="sinput" type="datetime-local" id="ccFecha" value="${ahoraLocalInput()}">
+      </div>
       <div class="modal-line" id="ccRecargoLine" style="display:none"><span>Recargo tarjeta (${Math.round(CONFIG.RECARGO_TARJETA * 100)}%)</span><strong id="ccRecargoVal">$0</strong></div>
       <div class="modal-line"><span>Salda de deuda</span><strong id="ccSaldaVal">$0</strong></div>
       <div class="modal-total"><span>Se cobra al cliente</span><span id="ccCobra">$0</span></div>
@@ -449,7 +453,10 @@ function abrirPagoCuenta(cuentaId, deuda) {
     if (saldaFinal <= 0) return toast("Ingresá cuánto salda");
     if (saldaFinal > deuda + 0.5) return toast("El monto supera la deuda");
     if (!metodo) return toast("Elegí un método de pago");
-    await API.registrarPagoCuenta(cuentaId, Math.round(cobradoFinal), metodo, Math.round(saldaFinal));
+    // usar la fecha elegida (puede ser de un día anterior)
+    const fVal = document.getElementById("ccFecha").value;
+    const fecha = fVal ? new Date(fVal).toISOString() : new Date().toISOString();
+    await API.registrarPagoCuenta(cuentaId, Math.round(cobradoFinal), metodo, Math.round(saldaFinal), fecha);
     toast(`Pago registrado · saldó ${formatPrecio(Math.round(saldaFinal))}`);
     await recargarYReabrir(cuentaId);
   };
