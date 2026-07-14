@@ -4,6 +4,7 @@
 
 let _gastos = [];
 let _ventasParaResumen = [];
+let _cobrosExtra = []; // pagos de cuenta corriente y señas (también son ingresos)
 let _mesGastos = null; // "yyyy-mm" del mes mostrado en el resumen
 
 function renderGastos(root) {
@@ -20,13 +21,25 @@ function renderGastos(root) {
 }
 
 async function cargarGastos() {
-  const [rg, rv] = await Promise.all([API.getGastos(), API.getVentas()]);
+  const [rg, rv, rc, rs] = await Promise.all([
+    API.getGastos(), API.getVentas(), API.getCuentas(), API.getSenas(),
+  ]);
   if (!rg.ok) {
     document.getElementById("gastosList").innerHTML = `<div class="soon"><i class="ti ti-alert-triangle"></i><p>No se pudieron cargar los gastos.</p></div>`;
     return;
   }
   _gastos = rg.gastos;
   _ventasParaResumen = rv.ok ? rv.ventas : [];
+
+  // Los cobros de cuenta corriente y de señas también son plata que entra:
+  // se suman como ingresos del día en que se cobraron (igual que en el historial).
+  _cobrosExtra = [];
+  if (rc && rc.ok && rc.pagos) {
+    rc.pagos.forEach((p) => _cobrosExtra.push({ fechaHora: p.fecha, monto: p.monto || 0 }));
+  }
+  if (rs && rs.ok && rs.pagos) {
+    rs.pagos.forEach((p) => _cobrosExtra.push({ fechaHora: p.fecha, monto: p.monto || 0 }));
+  }
 
   // mes actual por defecto
   if (!_mesGastos) _mesGastos = mesActualISO();
@@ -71,9 +84,15 @@ function pintarResumen() {
   const cont = document.getElementById("gastosResumen");
   const mes = _mesGastos;
 
-  // ventas del mes (no restauradas), por precio base (lo que se embolsa)
+  // ventas del mes (no restauradas). Se usa precioFinal = lo que REALMENTE se cobró
+  // (ya con descuento, regalo o adicional aplicado). Con precioBase, un regalo sumaba
+  // el precio de lista aunque no hubiera entrado plata.
   const ventasMes = _ventasParaResumen.filter((v) => !v.restaurada && (v.fechaHora || "").slice(0, 7) === mes);
-  const totalVentas = ventasMes.reduce((a, v) => a + (v.precioBase || 0), 0);
+  const totalVentasPuras = ventasMes.reduce((a, v) => a + (v.precioFinal != null ? v.precioFinal : (v.precioBase || 0)), 0);
+  // cobros de cuenta corriente y señas del mismo mes
+  const cobrosMes = _cobrosExtra.filter((c) => (c.fechaHora || "").slice(0, 7) === mes);
+  const totalCobros = cobrosMes.reduce((a, c) => a + c.monto, 0);
+  const totalVentas = totalVentasPuras + totalCobros;
 
   // gastos del mes
   const gastosDelMes = _gastos.filter((g) => (g.fecha || "").slice(0, 7) === mes);

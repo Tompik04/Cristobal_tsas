@@ -5,6 +5,7 @@
    ============================================================ */
 
 let _ventasInf = [];   // ventas cargadas (sin restauradas)
+let _cobrosInf = [];   // cobros de cuenta corriente y señas
 let _mesInf = "";      // filtro de mes actual ("" = todo el tiempo)
 
 function renderInformes(root) {
@@ -19,13 +20,19 @@ function renderInformes(root) {
 }
 
 async function cargarInformes() {
-  const res = await API.getVentas();
+  const [res, rc, rs] = await Promise.all([API.getVentas(), API.getCuentas(), API.getSenas()]);
   if (!res.ok) {
     document.getElementById("infBody").innerHTML = `<div class="soon"><i class="ti ti-alert-triangle"></i><p>No se pudieron cargar las ventas.</p></div>`;
     return;
   }
   // excluir ventas restauradas (no cuentan como venta real)
   _ventasInf = res.ventas.filter((v) => !v.restaurada);
+
+  // cobros de cuenta corriente y señas: son plata que entró, pero no son
+  // "ventas de prenda", así que se muestran aparte y no ensucian el margen.
+  _cobrosInf = [];
+  if (rc && rc.ok && rc.pagos) rc.pagos.forEach((p) => _cobrosInf.push({ fecha: p.fecha, monto: p.monto || 0, tipo: "Cta cte" }));
+  if (rs && rs.ok && rs.pagos) rs.pagos.forEach((p) => _cobrosInf.push({ fecha: p.fecha, monto: p.monto || 0, tipo: "Seña" }));
 
   // armar el selector de meses disponibles
   const meses = [...new Set(_ventasInf.map((v) => (v.fechaHora || "").substring(0, 7)))].filter(Boolean).sort().reverse();
@@ -83,6 +90,11 @@ function bloqueResumen(ventas) {
   const unidades = ventas.reduce((a, v) => a + v.cantidad, 0);
   const margen = bruto > 0 ? Math.round((neta / bruto) * 100) : 0;
 
+  // cobros de cuenta corriente y señas del período (plata que entró aparte de las ventas)
+  let cobros = _cobrosInf.slice();
+  if (_mesInf) cobros = cobros.filter((c) => (c.fecha || "").substring(0, 7) === _mesInf);
+  const totalCobros = cobros.reduce((a, c) => a + c.monto, 0);
+
   return `
     <div class="inf-section">
       <h3 class="inf-h3"><i class="ti ti-cash"></i> Resumen ${_mesInf ? "de " + nombreMes(_mesInf) : "de todo el tiempo"}</h3>
@@ -91,7 +103,9 @@ function bloqueResumen(ventas) {
         <div class="inf-card"><span class="inf-card-label">Ganancia neta (est.)</span><span class="inf-card-val" style="color:var(--gold-bright)">${formatPrecio(neta)}</span></div>
         <div class="inf-card"><span class="inf-card-label">Margen</span><span class="inf-card-val">${margen}%</span></div>
         <div class="inf-card"><span class="inf-card-label">Prendas vendidas</span><span class="inf-card-val">${unidades}</span></div>
+        ${totalCobros > 0 ? `<div class="inf-card"><span class="inf-card-label">Cobros cta cte / señas</span><span class="inf-card-val" style="color:var(--teal-bright)">${formatPrecio(totalCobros)}</span></div>` : ""}
       </div>
+      ${totalCobros > 0 ? `<p class="inf-reco-sub" style="margin-top:10px">Los cobros de cuenta corriente y señas se muestran aparte: son plata que entró, pero no son ventas de prenda del período.</p>` : ""}
     </div>`;
 }
 

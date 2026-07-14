@@ -1034,6 +1034,8 @@ function abrirPopupVenta(lineas, opts) {
 
     const res = await API.registrarVenta(lineas, pago, {
       precioBase: baseConDesc, precioFinal, fechaVenta, inicioCambio,
+      // valor real del producto: con descuento/adicional aplicado, SIN recargo de tarjeta
+      precioProducto: baseEfectivo(),
       voucherId: voucherSel ? voucherSel.id : null, descuento: desc,
     });
 

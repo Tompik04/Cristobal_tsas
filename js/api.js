@@ -105,6 +105,7 @@ function ventaDeDB(r) {
     talle: String(r.talle), color: r.color, cantidad: Number(r.cantidad) || 0,
     oferta: Number(r.oferta) || 0,
     precioBase: Number(r.precio_base) || 0, precioFinal: Number(r.precio_final) || 0,
+    precioProducto: r.precio_producto != null ? Number(r.precio_producto) : null,
     metodoPago: r.metodo_pago, voucherId: r.voucher_id,
     pagos: r.pagos || null,
     inicioCambio: r.inicio_cambio, limiteCambio: r.limite_cambio,
@@ -330,6 +331,9 @@ const API = {
       const basesLinea = lineas.map((l) => l.precio * l.cantidad * (1 - (l.oferta || 0) / 100));
       const baseTotal = basesLinea.reduce((a, b) => a + b, 0);
       const totalCobrado = det.precioFinal != null ? det.precioFinal : baseTotal;
+      // valor real del producto (con descuento/adicional aplicado, SIN recargo de tarjeta).
+      // Es el que se usa para los cambios: lo que la prenda "vale" para el cliente.
+      const productoTotal = det.precioProducto != null ? det.precioProducto : baseTotal;
 
       const filas = lineas.map((l, i) => {
         const baseL = basesLinea[i];
@@ -337,6 +341,7 @@ const API = {
         const prop = baseTotal > 0 ? baseL / baseTotal : (1 / lineas.length);
         // el precio final de ESTA línea es su parte proporcional de lo cobrado
         const finalLinea = totalCobrado * prop;
+        const productoLinea = productoTotal * prop;
         // el desglose de pagos se reparte también proporcionalmente,
         // así cada línea reporta solo lo que le corresponde por método
         const partesLinea = (pago && pago.partes)
@@ -348,6 +353,7 @@ const API = {
           codigo: l.codigo, marca: l.marca, talle: l.talle, color: l.color,
           cantidad: l.cantidad, oferta: l.oferta || 0,
           precio_base: baseL,
+          precio_producto: productoLinea,
           precio_final: finalLinea,
           metodo_pago: metodoTxt, voucher_id: det.voucherId || null,
           pagos: partesLinea,

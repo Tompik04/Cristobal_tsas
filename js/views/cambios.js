@@ -107,7 +107,7 @@ function crowHTML(v) {
         <span class="c-fecha">${fmtFechaHora(v.fechaHora)}</span>
         <span class="c-estado ${claseEstado}">${est.label}</span>
       </div>
-      <div class="c-precio">${formatPrecio(v.precioBase)}</div>
+      <div class="c-precio">${formatPrecio(v.precioProducto != null ? v.precioProducto : v.precioBase)}</div>
       <button class="c-swap" data-act="swap" title="Realizar cambio">
         <i class="ti ti-arrows-exchange"></i>
       </button>
@@ -140,7 +140,11 @@ function abrirIntercambio(venta) {
   }
 
   const totalNuevas = State.carrito.reduce((a, l) => a + precioLinea(l), 0);
-  const valorDevuelto = venta.precioBase; // precio base sin recargo
+  // Valor de la prenda devuelta: lo que realmente valió (con el descuento/adicional
+  // que se le haya aplicado), SIN el recargo de tarjeta.
+  // Si se usara el precio de lista, a una prenda vendida con descuento se le
+  // acreditaría de más y se regalaría plata.
+  const valorDevuelto = venta.precioProducto != null ? venta.precioProducto : venta.precioBase;
   const diferencia = totalNuevas - valorDevuelto; // + cliente paga / - voucher
 
   const cardDevuelta = `
@@ -459,7 +463,7 @@ async function abrirPagoDiferencia(venta, diferencia) {
       sobranteVoucher = {
         id: "VCH-" + Date.now(),
         tipo: "monto", monto: remanente,
-        fecha: new Date().toISOString(),
+        fecha: _fechaCambio || new Date().toISOString(),
         vencimiento: vence.toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" }),
         nombre: voucherSel.nombre || "", telefono: voucherSel.telefono || "",
         origen: "Saldo de " + voucherSel.id, avisado: false, usado: false,
@@ -485,7 +489,7 @@ async function confirmarIntercambio(venta, info) {
     voucher = {
       id: "VCH-" + Date.now(),
       tipo: "monto",
-      fecha: new Date().toISOString(),
+      fecha: _fechaCambio || new Date().toISOString(),
       vencimiento: vence.toISOString().slice(0, 10),
       monto: info.voucher,
       nombre: dv.nombre || "",
