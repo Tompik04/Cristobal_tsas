@@ -74,6 +74,7 @@ function pintarInformes() {
 
   body.innerHTML =
     bloqueResumen(ventas) +
+    bloqueValorStock() +
     bloqueMensual() +
     bloqueTopPrendas(ventas) +
     bloqueTopTalles(ventas) +
@@ -106,6 +107,54 @@ function bloqueResumen(ventas) {
         ${totalCobros > 0 ? `<div class="inf-card"><span class="inf-card-label">Cobros cta cte / señas</span><span class="inf-card-val" style="color:var(--teal-bright)">${formatPrecio(totalCobros)}</span></div>` : ""}
       </div>
       ${totalCobros > 0 ? `<p class="inf-reco-sub" style="margin-top:10px">Los cobros de cuenta corriente y señas se muestran aparte: son plata que entró, pero no son ventas de prenda del período.</p>` : ""}
+    </div>`;
+}
+
+/* ---------- Bloque: valor del stock actual ---------- */
+function bloqueValorStock() {
+  const filas = State.stock.filter((s) => (s.cantidad || 0) > 0);
+  if (!filas.length) return "";
+
+  const unidades = filas.reduce((a, s) => a + s.cantidad, 0);
+  const valorCosto = filas.reduce((a, s) => a + s.costo * s.cantidad, 0);
+  const valorVenta = filas.reduce((a, s) => a + s.precio * s.cantidad, 0);
+  const ganancia = valorVenta - valorCosto;
+  const margen = valorVenta > 0 ? Math.round((ganancia / valorVenta) * 100) : 0;
+
+  // desglose por categoría (de mayor a menor valor de venta)
+  const porCat = {};
+  filas.forEach((s) => {
+    const c = s.categoria || "—";
+    if (!porCat[c]) porCat[c] = { unidades: 0, costo: 0, venta: 0 };
+    porCat[c].unidades += s.cantidad;
+    porCat[c].costo += s.costo * s.cantidad;
+    porCat[c].venta += s.precio * s.cantidad;
+  });
+  const cats = Object.entries(porCat).sort((a, b) => b[1].venta - a[1].venta);
+  const maxVenta = Math.max(...cats.map(([, d]) => d.venta));
+
+  const filasCat = cats.map(([c, d]) => `
+    <div class="inf-hbar-row vs-row">
+      <span class="inf-hbar-name" title="${escAttr(c)}">${escAttr(c)}</span>
+      <div class="inf-hbar-track"><div class="inf-hbar-fill" style="width:${maxVenta > 0 ? (d.venta / maxVenta) * 100 : 0}%"></div></div>
+      <span class="vs-cifras">
+        <span class="vs-venta">${formatPrecio(d.venta)}</span>
+        <span class="vs-costo">costo ${formatPrecio(d.costo)} · ${d.unidades}u</span>
+      </span>
+    </div>`).join("");
+
+  return `
+    <div class="inf-section">
+      <h3 class="inf-h3"><i class="ti ti-building-warehouse"></i> Valor del stock actual</h3>
+      <div class="inf-cards">
+        <div class="inf-card"><span class="inf-card-label">Valor a costo</span><span class="inf-card-val" style="color:var(--teal-bright)">${formatPrecio(valorCosto)}</span></div>
+        <div class="inf-card"><span class="inf-card-label">Valor a venta</span><span class="inf-card-val" style="color:var(--gold-bright)">${formatPrecio(valorVenta)}</span></div>
+        <div class="inf-card"><span class="inf-card-label">Ganancia potencial</span><span class="inf-card-val">${formatPrecio(ganancia)}</span></div>
+        <div class="inf-card"><span class="inf-card-label">Margen</span><span class="inf-card-val">${margen}%</span></div>
+        <div class="inf-card"><span class="inf-card-label">Prendas en stock</span><span class="inf-card-val">${unidades}</span></div>
+      </div>
+      <p class="inf-reco-sub" style="margin-top:14px">Por categoría (barra = valor a venta):</p>
+      <div class="inf-hbars">${filasCat}</div>
     </div>`;
 }
 

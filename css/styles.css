@@ -155,7 +155,6 @@ button { font-family: inherit; }
 .bg-logo.bg-caja { opacity: 0.03; --bg-logo-color: var(--gold); }
 .bg-logo.bg-gastos { opacity: 0.03; --bg-logo-color: var(--terracotta); }
 .bg-logo.bg-informes { opacity: 0.03; --bg-logo-color: var(--teal-bright); }
-.bg-logo.bg-facturas { opacity: 0.03; --bg-logo-color: var(--sage); }
 
 /* el contenido va por encima del fondo */
 .app-header { position: relative; z-index: 10; }
@@ -284,7 +283,7 @@ button { font-family: inherit; }
 
 /* ===== PANEL DE FACTURA (lateral, tipo papel) ===== */
 .factura-panel {
-  position: fixed; top: 0; right: 0; height: 100vh; width: 420px; max-width: 92vw;
+  position: fixed; top: 0; right: 0; height: 100vh; width: 380px; max-width: 92vw;
   background: #F7F4EC; color: #2A2622; z-index: 2200;
   box-shadow: -8px 0 32px rgba(0,0,0,0.45);
   display: flex; flex-direction: column;
@@ -1408,7 +1407,8 @@ input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator {
 
 /* ===== POPUP DE VENTA: ancho, en 2 columnas, sin scroll ===== */
 .modal-venta {
-  max-width: 500px;
+  max-width: 620px;
+  gap: 0.8rem;
   padding: 1.5rem 1.6rem;
 }
 /* las cajas de descuento / adicional / seña van lado a lado */
@@ -1461,4 +1461,37 @@ input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator {
 
 @media (max-width: 620px) {
   .fechas-row { grid-template-columns: 1fr; }
+}
+
+/* valor del stock por categoría (informes) */
+.vs-row { grid-template-columns: 150px 1fr 150px; }
+.vs-cifras { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.vs-venta { font-size: 13px; font-weight: 600; color: var(--gold-bright); }
+.vs-costo { font-size: 10.5px; color: var(--oak-55); }
+@media (max-width: 640px) {
+  .vs-row { grid-template-columns: 90px 1fr 110px; }
+}
+
+/* detalle del cambio en el historial (muestra las 2 prendas) */
+.cd-box {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+  background: rgba(184,106,75,0.10); border: 1px solid rgba(184,106,75,0.35);
+  border-left: 3px solid var(--terracotta);
+  border-radius: 8px; padding: 6px 10px; margin-top: 5px;
+}
+.cd-box-orig { background: rgba(184,106,75,0.06); }
+.cd-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--terracotta); font-weight: 600; white-space: nowrap;
+}
+.cd-linea { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; }
+.cd-in, .cd-out { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.cd-in { color: var(--success); }
+.cd-out { color: var(--gold-bright); }
+.cd-in i, .cd-out i { font-size: 14px; }
+.cd-var { color: var(--oak-60); font-size: 11px; }
+.cd-dif { font-size: 11px; color: var(--oak-60); margin-left: auto; white-space: nowrap; }
+@media (max-width: 900px) {
+  .cd-dif { margin-left: 0; }
 }

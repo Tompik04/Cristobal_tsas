@@ -3,6 +3,8 @@
    ============================================================ */
 
 let _ventasHist = [];
+let _ventaPorId = {};       // id de venta → venta (para vincular los cambios)
+let _cambioPorOrigen = {};  // id de la venta original → venta nueva del cambio
 
 function renderHistorial(root) {
   root.innerHTML = `
@@ -51,6 +53,16 @@ async function cargarHistorial() {
       restaurada: false, esPagoCuenta: true, esPagoSena: true,
     }));
   }
+
+  // Índices para mostrar el cambio completo en el historial.
+  // Se arman con TODAS las ventas (no solo las del período visible), porque
+  // la venta original puede ser de antes de la ventana de fechas.
+  _ventaPorId = {};
+  _cambioPorOrigen = {};
+  res.ventas.forEach((v) => {
+    _ventaPorId[v.id] = v;
+    if (v.esCambio && v.cambioDe) _cambioPorOrigen[v.cambioDe] = v; // original → prenda que se llevó
+  });
 
   _ventasHist = res.ventas.concat(pagosCC).concat(pagosSE)
     .filter((v) => new Date(v.fechaHora) >= desde)
@@ -201,8 +213,7 @@ function histRowHTML(v, filtroPago, colorCarrito) {
         <span class="c-vars">Talle <strong>${v.talle}</strong> · Color <strong>${v.color}</strong> · x${v.cantidad}${ofertaTxt}</span>
         <span class="c-fecha">${fmtFechaHora(v.fechaHora)}${pago}</span>
         ${v.restaurada ? `<span class="c-estado vencido">Restaurada</span>` : ""}
-        ${v.cambiada ? `<span class="c-estado c-estado-cambio"><i class="ti ti-arrows-exchange"></i> Cambiada</span>` : ""}
-        ${v.esCambio ? `<span class="c-estado c-estado-cambio"><i class="ti ti-arrows-exchange"></i> Cambio</span>` : ""}
+        ${detalleCambioHTML(v)}
         ${v.voucherGenerado ? `<span class="c-estado c-estado-voucher"><i class="ti ti-ticket"></i> Voucher generado</span>` : ""}
       </div>
       ${precioHTML}
@@ -240,9 +251,13 @@ function bindHistRow(list, v) {
           // así que se recarga desde la base para que quede exacto
           const rec = await API.getStock();
           if (rec.ok) State.stock = rec.stock;
-          toast(res && res.deshizoCambio
-            ? "Cambio deshecho · La venta original vuelve a estar disponible"
-            : "Compra restaurada · Stock repuesto");
+          if (res && res.ok && !res.stockRepuesto) {
+            toast("Atención: la prenda no se pudo reponer al stock. Revisala a mano.");
+          } else {
+            toast(res && res.deshizoCambio
+              ? "Cambio deshecho · La venta original vuelve a estar disponible"
+              : "Compra restaurada · Stock repuesto");
+          }
           cargarHistorial();
           actualizarCampanitaVouchers();
         },
@@ -327,4 +342,41 @@ function abrirVoucherDesdeVenta(v) {
     cargarHistorial();
     actualizarCampanitaVouchers();
   };
+}
+
+// Detalle del cambio en la fila del historial: muestra las DOS puntas del cambio
+// (la prenda que volvió al stock y la que se llevó el cliente).
+function detalleCambioHTML(v) {
+  const desc = (x) => x ? `${escAttr(x.marca || x.codigo)} <span class="cd-var">${x.talle}/${x.color}</span>` : "—";
+
+  // Esta venta ES la del cambio (la prenda que se llevó el cliente)
+  if (v.esCambio) {
+    const orig = v.cambioDe ? _ventaPorId[v.cambioDe] : null;
+    const dif = v.precioFinal || 0;
+    return `
+      <div class="cd-box">
+        <span class="cd-tag"><i class="ti ti-arrows-exchange"></i> Cambio</span>
+        <span class="cd-linea">
+          <span class="cd-in"><i class="ti ti-arrow-back-up"></i> Volvió al stock: ${desc(orig)}</span>
+          <span class="cd-out"><i class="ti ti-arrow-right"></i> Se llevó: ${desc(v)}</span>
+        </span>
+        <span class="cd-dif">${dif > 0 ? "Pagó de diferencia " + formatPrecio(dif) : "Sin diferencia a pagar"}</span>
+      </div>`;
+  }
+
+  // Esta venta FUE cambiada (la prenda volvió al stock y el cliente se llevó otra)
+  if (v.cambiada) {
+    const nueva = _cambioPorOrigen[v.id];
+    return `
+      <div class="cd-box cd-box-orig">
+        <span class="cd-tag"><i class="ti ti-arrows-exchange"></i> Cambiada</span>
+        <span class="cd-linea">
+          <span class="cd-in"><i class="ti ti-arrow-back-up"></i> Esta prenda volvió al stock</span>
+          <span class="cd-out"><i class="ti ti-arrow-right"></i> Se llevó: ${desc(nueva)}</span>
+        </span>
+        <span class="cd-dif">Lo pagado sigue contando en este día</span>
+      </div>`;
+  }
+
+  return "";
 }

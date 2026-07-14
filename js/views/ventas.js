@@ -790,6 +790,7 @@ function abrirPopupVenta(lineas, opts) {
     document.getElementById("modoSimple").classList.remove("selected");
     paySimple.style.display = "none"; payDividido.style.display = "";
     actualizarCamposRecargo();
+    chequearFacturaDividido();
     recalcular();
   };
 
@@ -864,8 +865,9 @@ function abrirPopupVenta(lineas, opts) {
     document.getElementById("modalRoot").appendChild(panel);
     requestAnimationFrame(() => panel.classList.add("abierto"));
     document.getElementById("facCerrar").onclick = () => {
-      // si es débito/crédito la factura es obligatoria: avisar
-      if (metodo1 === "Débito" || metodo1 === "Crédito") {
+      // la factura es obligatoria si se cobra con débito/crédito (en simple o dividido)
+      const usados = modoDividido ? [selM1.value, selM2.value] : [metodo1];
+      if (usados.some((m) => m === "Débito" || m === "Crédito")) {
         toast("La factura es obligatoria para débito y crédito");
         return;
       }
@@ -946,6 +948,24 @@ function abrirPopupVenta(lineas, opts) {
   [selM1, selM2, montoM1].forEach((el) => el.addEventListener("input", recalcular));
   document.getElementById("pagaCon").addEventListener("input", () => recalcular());
   [selM1, selM2].forEach((el) => el.addEventListener("change", recalcular));
+
+  // En PAGO DIVIDIDO también hay que facturar si alguna de las dos partes es tarjeta.
+  // (Antes el panel solo se abría con los botones del pago simple, y la validación
+  //  igual exigía la factura → quedabas trabado sin poder cargarla.)
+  function chequearFacturaDividido() {
+    if (!modoDividido) return;
+    const m1 = selM1.value, m2 = selM2.value;
+    const conTarjeta = [m1, m2].find((m) => m === "Débito" || m === "Crédito");
+    if (conTarjeta) {
+      abrirPanelFactura(conTarjeta);
+    } else if ([m1, m2].includes("Transferencia")) {
+      // transferencia en pago dividido: la factura es opcional, no se fuerza
+    } else {
+      cerrarPanelFactura();
+    }
+    actualizarCamposRecargo();
+  }
+  [selM1, selM2].forEach((el) => el.addEventListener("change", chequearFacturaDividido));
 
   btnConf.onclick = async () => {
     // ---- SEÑA: en vez de una venta, se registra una reserva con pago parcial ----

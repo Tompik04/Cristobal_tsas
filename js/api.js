@@ -113,6 +113,7 @@ function ventaDeDB(r) {
     voucherGenerado: r.voucher_generado || null,
     cambiada: !!r.cambiada,
     esCambio: !!r.es_cambio,
+    cambioDe: r.cambio_de || null,
   };
 }
 // Supabase devuelve timestamps como "2026-06-22 00:55:00+00" (con espacio).
@@ -246,12 +247,36 @@ const API = {
   // ajusta stock por variante (codigo+talle+color) cuando no se tiene el id.
   // Para descontar: resta de las filas con stock (puede haber varios lotes).
   // Para sumar: suma a la primera fila que coincida.
-  async ajustarStockPorVariante(codigo, talle, color, delta) {
+  // Ajusta el stock de una variante. `ref` (opcional) trae datos por si hay que
+  // recrear la fila: cuando se repone una prenda cuya fila fue eliminada (llegó a 0),
+  // antes fallaba en silencio y la prenda no volvía nunca al stock.
+  async ajustarStockPorVariante(codigo, talle, color, delta, ref) {
     if (CONFIG.MODO_PRUEBA) return this._mock("ajustarStockPorVariante", {});
     try {
       const q = "codigo=eq." + enc(codigo) + "&talle=eq." + enc(talle) + "&color=eq." + enc(color);
       const rows = await SB.select("stock", "select=*&" + q + "&order=id");
-      if (!rows.length) return { ok: false, error: "No encontrado" };
+
+      if (!rows.length) {
+        // No existe la fila de esa variante.
+        if (delta <= 0) return { ok: false, error: "No encontrado" };
+        // Se está reponiendo: hay que crearla.
+        // Se copian categoría/precios de otra fila del mismo código, si existe.
+        const hermanas = await SB.select("stock", "select=*&codigo=eq." + enc(codigo) + "&order=id");
+        const base = hermanas.length ? hermanas[0] : null;
+        const fila = {
+          codigo,
+          talle: String(talle),
+          color,
+          cantidad: delta,
+          categoria: (base && base.categoria) || (ref && ref.categoria) || categoriaDeCodigo(codigo) || "",
+          marca: (base && base.marca) || (ref && ref.marca) || "",
+          precio_venta: Number(base ? base.precio_venta : (ref && ref.precio) || 0) || 0,
+          precio_costo: Number(base ? base.precio_costo : (ref && ref.costo) || 0) || 0,
+        };
+        await SB.insert("stock", [fila]);
+        return { ok: true, creada: true };
+      }
+
       if (delta < 0) {
         let quitar = -delta;
         for (const r of rows) {
@@ -383,8 +408,12 @@ const API = {
       const rows = await SB.select("ventas", "select=*&id=eq." + enc(id));
       if (!rows.length) return { ok: false, error: "Venta no encontrada" };
       const v = rows[0];
-      // la prenda vendida vuelve al stock
-      await this.ajustarStockPorVariante(v.codigo, v.talle, v.color, Number(v.cantidad) || 0);
+      const cant = Number(v.cantidad) || 0;
+      // la prenda vendida vuelve al stock (si su fila fue eliminada, se recrea)
+      const rStock = await this.ajustarStockPorVariante(v.codigo, v.talle, v.color, cant, {
+        marca: v.marca,
+        precio: cant > 0 ? (Number(v.precio_base) || 0) / cant : 0,
+      });
       if (v.voucher_id) await SB.update("vouchers", "id=eq." + enc(v.voucher_id), { usado: false });
       await SB.update("ventas", "id=eq." + enc(id), { restaurada: true });
 
@@ -399,7 +428,11 @@ const API = {
           await SB.update("ventas", "id=eq." + enc(o.id), { cambiada: false });
         }
       }
-      return { ok: true, deshizoCambio: !!(v.es_cambio && v.cambio_de) };
+      return {
+        ok: true,
+        deshizoCambio: !!(v.es_cambio && v.cambio_de),
+        stockRepuesto: !!(rStock && rStock.ok),
+      };
     } catch (e) { return { ok: false, error: String(e) }; }
   },
 
