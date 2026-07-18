@@ -22,9 +22,16 @@ function crearBarraFiltros(config) {
       const sel = document.createElement("select");
       sel.className = "filter-field";
       sel.dataset.filter = c.id;
-      // la opción vacía significa "sin filtrar" → se muestra como "Todo"
-      sel.innerHTML = `<option value="">${c.label}: Todo</option>` +
-        c.opciones.map((o) => `<option value="${o}">${o}</option>`).join("");
+      if (c.porDefecto) {
+        // el campo arranca con un valor elegido y NO tiene opción vacía "Todo"
+        sel.innerHTML = c.opciones
+          .map((o) => `<option value="${o}"${o === c.porDefecto ? " selected" : ""}>${c.label}: ${o}</option>`)
+          .join("");
+      } else {
+        // la opción vacía significa "sin filtrar" → se muestra como "Todo"
+        sel.innerHTML = `<option value="">${c.label}: Todo</option>` +
+          c.opciones.map((o) => `<option value="${o}">${o}</option>`).join("");
+      }
       wrap.appendChild(sel);
     } else if (c.tipo === "date") {
       const inp = document.createElement("input");
@@ -66,7 +73,11 @@ function crearBarraFiltros(config) {
     el.addEventListener(ev, emit);
   });
   clear.onclick = () => {
-    wrap.querySelectorAll("[data-filter]").forEach((el) => (el.value = ""));
+    wrap.querySelectorAll("[data-filter]").forEach((el) => {
+      // si el campo tiene un valor por defecto, volver a ese en vez de vaciar
+      const campo = (config.campos || []).find((c) => c.id === el.dataset.filter);
+      el.value = (campo && campo.porDefecto) ? campo.porDefecto : "";
+    });
     emit();
   };
 

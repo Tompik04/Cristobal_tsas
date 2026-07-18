@@ -796,10 +796,25 @@ function bindSrowAgrupada(cont, p, f, idx) {
     qtyEl.textContent = v ? v.cantidad : 0;
   }
 
-  // preseleccionar según filtro de talle/color si está puesto
-  if (f && f.talle && [...selTalle.options].some((o) => o.value === f.talle)) selTalle.value = f.talle;
+  // preseleccionar según el filtro de talle/color.
+  // Si se filtra por color (con o sin talle), hay que elegir un talle que
+  // efectivamente tenga ese color, si no el desplegable queda en otra variante.
+  let talleObjetivo = null, colorObjetivo = null;
+  if (f && (f.talle || f.color)) {
+    // buscar la variante que cumple ambos filtros (o el que esté puesto)
+    const match = p.variantes.find((v) =>
+      (!f.talle || v.talle === f.talle) && (!f.color || v.color === f.color));
+    if (match) { talleObjetivo = match.talle; colorObjetivo = match.color; }
+    else if (f.talle) talleObjetivo = f.talle;
+  }
+  if (talleObjetivo && [...selTalle.options].some((o) => o.value === talleObjetivo)) {
+    selTalle.value = talleObjetivo;
+  }
   refrescarColores();
-  if (f && f.color && [...selColor.options].some((o) => o.value === f.color)) { selColor.value = f.color; refrescarCantidad(); }
+  if (colorObjetivo && [...selColor.options].some((o) => o.value === colorObjetivo)) {
+    selColor.value = colorObjetivo;
+  }
+  refrescarCantidad();
 
   selTalle.onchange = refrescarColores;
   selColor.onchange = refrescarCantidad;
