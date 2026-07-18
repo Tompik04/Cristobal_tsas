@@ -126,11 +126,12 @@ function pintarHistorial(f) {
   if (f.q) lista = lista.filter((v) => coincideTexto(v, f.q, ["marca", "codigo"]));
   if (f.talle) lista = lista.filter((v) => v.talle === f.talle);
   if (f.pago) lista = lista.filter((v) => ventaUsaPago(v, f.pago));
-  // por defecto las restauradas se ocultan (no molestan).
-  // "Restauradas" muestra solo esas; "Todas" muestra activas + restauradas.
-  // Realizadas (por defecto) = solo las no restauradas; Restauradas = solo anuladas; Todas = ambas
-  if (f.estado === "Restauradas") lista = lista.filter((v) => v.restaurada);
-  else if (f.estado !== "Todas") lista = lista.filter((v) => !v.restaurada);
+  // Estado: "Realizadas" (por defecto) = solo las NO restauradas;
+  //         "Restauradas" = solo las anuladas; "Todas" = ambas.
+  // Si por lo que sea llega vacío, se asume "Realizadas" (nunca mostrar todo por error).
+  const estado = f.estado || "Realizadas";
+  if (estado === "Restauradas") lista = lista.filter((v) => v.restaurada);
+  else if (estado !== "Todas") lista = lista.filter((v) => !v.restaurada);
   if (f.fecha) lista = lista.filter((v) => fechaLocalISO(v.fechaHora) === f.fecha);
 
   if (!lista.length) {
