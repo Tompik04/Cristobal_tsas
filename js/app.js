@@ -4,11 +4,86 @@
 
 const State = {
   stock: [],          // todo el stock cargado
-  carrito: [],        // líneas agregadas { codigo, marca, talle, color, oferta, cantidad, precio }
-  descuentoCarrito: 0, // % de descuento general aplicado a todo el carrito
+  carrito: [],        // carrito ACTIVO (líneas). Es un alias del carrito seleccionado en Carritos.
+  descuentoCarrito: 0, // % de descuento general aplicado al carrito activo
   vistaActual: "home",
   dentroCategoria: false, // true cuando estás dentro de una categoría (Ventas/Stock)
   privadoHasta: 0,    // timestamp hasta el cual el modo privado está activo
+};
+
+/* ===== MÚLTIPLES CARRITOS (para atender varios clientes a la vez) =====
+   Se mantienen varios carritos y uno "activo". State.carrito siempre apunta
+   al activo, así el resto del código no cambia. Persisten en localStorage. */
+const Carritos = {
+  lista: [],       // [{ id, nombre, items:[], descuento:0 }]
+  activoId: null,
+  CLAVE: "cristobal_carritos",
+
+  init() {
+    this.cargar();
+    if (!this.lista.length) this.crear("Cliente 1");
+    else this.activar(this.activoId || this.lista[0].id, true);
+  },
+
+  cargar() {
+    try {
+      const raw = localStorage.getItem(this.CLAVE);
+      if (raw) {
+        const d = JSON.parse(raw);
+        this.lista = Array.isArray(d.lista) ? d.lista : [];
+        this.activoId = d.activoId || (this.lista[0] && this.lista[0].id);
+      }
+    } catch (e) { this.lista = []; }
+  },
+
+  guardar() {
+    try {
+      // sincronizar el carrito activo antes de guardar
+      const a = this.lista.find((c) => c.id === this.activoId);
+      if (a) { a.items = State.carrito; a.descuento = State.descuentoCarrito || 0; }
+      localStorage.setItem(this.CLAVE, JSON.stringify({ lista: this.lista, activoId: this.activoId }));
+    } catch (e) { /* ignore */ }
+  },
+
+  crear(nombre) {
+    const id = "cart-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+    const n = nombre || ("Cliente " + (this.lista.length + 1));
+    this.lista.push({ id, nombre: n, items: [], descuento: 0 });
+    this.activar(id);
+    return id;
+  },
+
+  activar(id, sinGuardarPrevio) {
+    // guardar el estado del carrito que estaba activo
+    if (!sinGuardarPrevio) {
+      const prev = this.lista.find((c) => c.id === this.activoId);
+      if (prev) { prev.items = State.carrito; prev.descuento = State.descuentoCarrito || 0; }
+    }
+    const c = this.lista.find((x) => x.id === id) || this.lista[0];
+    if (!c) return;
+    this.activoId = c.id;
+    State.carrito = c.items || [];
+    State.descuentoCarrito = c.descuento || 0;
+    this.guardar();
+  },
+
+  cerrar(id) {
+    const idx = this.lista.findIndex((c) => c.id === id);
+    if (idx < 0) return;
+    this.lista.splice(idx, 1);
+    if (!this.lista.length) { this.crear("Cliente 1"); return; }
+    if (this.activoId === id) this.activar(this.lista[Math.max(0, idx - 1)].id, true);
+    else this.guardar();
+  },
+
+  activo() { return this.lista.find((c) => c.id === this.activoId); },
+
+  // sincroniza el carrito activo con State (llamar tras modificar State.carrito)
+  sync() {
+    const a = this.activo();
+    if (a) { a.items = State.carrito; a.descuento = State.descuentoCarrito || 0; }
+    this.guardar();
+  },
 };
 
 // ¿está activo el modo privado (datos históricos visibles)?
@@ -88,11 +163,16 @@ function renderCartFab() {
   const root = document.getElementById("cartRoot");
   if (!root) return;
   const unidades = State.carrito.reduce((a, l) => a + l.cantidad, 0);
-  if (!State.carrito.length) { root.innerHTML = ""; return; }
+  // ¿cuántos carritos (además del activo) tienen prendas? para avisar visualmente
+  const otrosConItems = (typeof Carritos !== "undefined")
+    ? Carritos.lista.filter((c) => c.id !== Carritos.activoId && (c.items || []).length).length
+    : 0;
+  if (!State.carrito.length && !otrosConItems) { root.innerHTML = ""; return; }
   root.innerHTML = `
     <button class="cart-fab" id="cartFab" title="Ver carrito">
       <i class="ti ti-shopping-cart"></i>
-      <span class="cart-badge" id="cartBadge">${unidades}</span>
+      ${unidades ? `<span class="cart-badge" id="cartBadge">${unidades}</span>` : ""}
+      ${otrosConItems ? `<span class="cart-fab-otros" title="${otrosConItems} carrito(s) más con prendas">+${otrosConItems}</span>` : ""}
     </button>`;
   document.getElementById("cartFab").onclick = abrirCarrito;
 }
@@ -349,6 +429,7 @@ async function iniciarApp() {
   document.getElementById("app").classList.remove("hidden");
   // leer el recargo de tarjeta configurado en Supabase (si existe)
   await API.cargarRecargoTarjeta();
+  Carritos.init(); // recuperar carritos guardados (o crear el primero)
   // Precarga del stock
   const res = await API.getStock();
   if (res.ok) State.stock = consolidarStock(res.stock);

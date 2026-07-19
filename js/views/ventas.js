@@ -222,6 +222,7 @@ function bindFila(root, p) {
     const l = lineaActual();
     if (l.cantidad < 1) return toast("Sin stock disponible");
     State.carrito.push(l);
+    Carritos.sync();
     actualizarBadge();
     toast(`${l.codigo} agregado al carrito`);
   };
@@ -234,6 +235,69 @@ function totalConDescuentoCarrito() {
   const base = State.carrito.reduce((a, l) => a + precioLinea(l), 0);
   const desc = State.descuentoCarrito || 0;
   return base * (1 - desc / 100);
+}
+
+// ===== PESTAÑAS DE CARRITOS =====
+function tabsCarritosHTML() {
+  const tabs = Carritos.lista.map((c) => {
+    const n = (c.items || []).reduce((a, l) => a + (l.cantidad || 1), 0);
+    const activo = c.id === Carritos.activoId;
+    return `
+      <button class="cart-tab ${activo ? "activo" : ""}" data-cart="${c.id}">
+        <span class="cart-tab-nom">${escAttr(c.nombre)}</span>
+        ${n ? `<span class="cart-tab-badge">${n}</span>` : ""}
+        ${Carritos.lista.length > 1 ? `<span class="cart-tab-x" data-close="${c.id}" title="Cerrar carrito">×</span>` : ""}
+      </button>`;
+  }).join("");
+  return `
+    <div class="cart-tabs">
+      ${tabs}
+      <button class="cart-tab-add" id="cartAdd" title="Nuevo carrito"><i class="ti ti-plus"></i></button>
+    </div>`;
+}
+
+function bindTabsCarritos() {
+  // cambiar de carrito
+  document.querySelectorAll(".cart-tab[data-cart]").forEach((t) => {
+    t.onclick = (e) => {
+      if (e.target.dataset.close) return; // el click fue en la X
+      Carritos.activar(t.dataset.cart);
+      abrirCarrito(); // repinta con el nuevo activo
+      actualizarBadge();
+      renderCartFab();
+    };
+  });
+  // cerrar un carrito
+  document.querySelectorAll(".cart-tab-x[data-close]").forEach((x) => {
+    x.onclick = (e) => {
+      e.stopPropagation();
+      const id = x.dataset.close;
+      const c = Carritos.lista.find((k) => k.id === id);
+      const cerrar = () => {
+        Carritos.cerrar(id);
+        abrirCarrito();
+        actualizarBadge();
+        renderCartFab();
+      };
+      if (c && (c.items || []).length) {
+        dobleConfirmacion({
+          titulo: "Cerrar carrito",
+          mensaje1: `"${c.nombre}" tiene ${c.items.length} prenda${c.items.length === 1 ? "" : "s"}. Se van a perder.`,
+          mensaje2: "¿Cerrar igual?",
+          textoBoton: "Cerrar carrito",
+          onOk: cerrar,
+        });
+      } else cerrar();
+    };
+  });
+  // nuevo carrito
+  const add = document.getElementById("cartAdd");
+  if (add) add.onclick = () => {
+    Carritos.crear();
+    abrirCarrito();
+    actualizarBadge();
+    renderCartFab();
+  };
 }
 
 function abrirCarrito() {
@@ -259,8 +323,9 @@ function abrirCarrito() {
   document.getElementById("modalRoot").innerHTML = `
     <div class="modal-overlay" id="ov"></div>
     <aside class="drawer">
+      ${!enModoCuenta ? tabsCarritosHTML() : ""}
       <div class="drawer-head">
-        <h2>${enModoCuenta ? "Agregar a cuenta" : "Carrito"}</h2>
+        <h2>${enModoCuenta ? "Agregar a cuenta" : (Carritos.activo() ? escAttr(Carritos.activo().nombre) : "Carrito")}</h2>
         ${State.carrito.length ? `<button class="drawer-clear" id="vaciarCarrito"><i class="ti ti-trash"></i> Vaciar</button>` : ""}
       </div>
       <div class="drawer-items">${items}</div>
@@ -276,12 +341,16 @@ function abrirCarrito() {
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("cerrar").onclick = cerrarModal;
 
+  // pestañas de carritos: cambiar, crear, renombrar, cerrar
+  if (!enModoCuenta) bindTabsCarritos();
+
   // vaciar carrito completo (confirma solo si hay varias prendas)
   const btnVaciar = document.getElementById("vaciarCarrito");
   if (btnVaciar) btnVaciar.onclick = () => {
     const vaciar = () => {
       State.carrito = [];
       State.descuentoCarrito = 0;
+      Carritos.sync();
       actualizarBadge();
       renderCartFab();
       cerrarModal();
@@ -317,6 +386,7 @@ function abrirCarrito() {
       });
       State.carrito = [];
       State.cuentaDestino = null;
+      Carritos.sync();
       actualizarBadge();
       renderCartFab();
       cerrarModal();
@@ -329,6 +399,7 @@ function abrirCarrito() {
   document.querySelectorAll("[data-rm]").forEach((b) => {
     b.onclick = () => {
       State.carrito.splice(Number(b.dataset.rm), 1);
+      Carritos.sync();
       actualizarBadge();
       if (State.carrito.length) abrirCarrito();
       else cerrarModal();
@@ -1006,9 +1077,10 @@ function abrirPopupVenta(lineas, opts) {
         const s = State.stock.find((x) => x.codigo === l.codigo && x.talle === l.talle && x.color === l.color);
         if (s) s.cantidad -= l.cantidad;
       });
-      if (lineas === State.carrito || lineas.length === State.carrito.length) {
+      if (esCarrito) {
         State.carrito = [];
         State.descuentoCarrito = 0;
+        Carritos.sync();
       }
       cerrarModal();
       actualizarBadge();
@@ -1094,9 +1166,10 @@ function abrirPopupVenta(lineas, opts) {
         const v = State.stock.find((x) => x.codigo === l.codigo && x.talle === l.talle && x.color === l.color);
         if (v) v.cantidad -= l.cantidad;
       });
-      if (lineas === State.carrito || lineas.length === State.carrito.length) {
+      if (esCarrito) {
         State.carrito = [];
         State.descuentoCarrito = 0;
+        Carritos.sync();
       }
       cerrarModal();
       actualizarBadge();

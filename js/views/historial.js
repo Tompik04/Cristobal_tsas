@@ -205,7 +205,7 @@ function histRowHTML(v, filtroPago, colorCarrito) {
       : `<div class="c-precio">${formatPrecio(cobrado)}</div>`;
   }
   return `
-    <div class="crow ${v.restaurada ? "expirado" : ""} ${colorCarrito ? "carrito-" + colorCarrito : ""}" data-id="${v.id}">
+    <div class="crow ${v.restaurada ? "expirado fila-restaurada" : ""} ${v.cambiada ? "fila-cambiada" : ""} ${colorCarrito ? "carrito-" + colorCarrito : ""}" data-id="${v.id}">
       <div class="pcell">
         <img class="pimg${v.esPagoCuenta ? "" : " zoomable"}" src="${imgPrenda(v.codigo, categoriaDeStock(v.codigo))}" alt="" onerror="this.style.opacity=0.3">
         <div class="pinfo"><span class="pmarca">${v.marca}</span><span class="pcod">${v.codigo}</span></div>
