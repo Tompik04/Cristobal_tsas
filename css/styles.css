@@ -452,7 +452,7 @@ button { font-family: inherit; }
 /* ============ LISTA DE PRODUCTOS ============ */
 .prod-list { padding: 0 1.5% 7rem; display: flex; flex-direction: column; gap: 12px; }
 .prow {
-  display: grid; grid-template-columns: 260px minmax(120px, 1.1fr) minmax(120px, 1.1fr) 90px 100px auto; gap: 14px; align-items: center;
+  display: grid; grid-template-columns: 260px minmax(76px, .8fr) minmax(76px, .8fr) 104px auto 78px auto; gap: 14px; align-items: center;
   background: var(--oak-08); border: 1px solid var(--oak-25); border-radius: var(--r); padding: 14px 16px;
 }
 .pcell { display: flex; align-items: center; gap: 12px; }
@@ -1564,13 +1564,19 @@ input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator {
 /* checkbox en la fila de venta */
 .pofer-field { min-width: 0; }
 .pofer-chk {
-  display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
-  font-size: 12px; color: var(--oak-60); padding: 7px 8px;
-  border: 1px solid var(--oak-25); border-radius: 8px; background: var(--oak-08);
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;
+  font-size: 11px; color: var(--oak-60); padding: 7px 10px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  border: 1px solid var(--oak-25); border-radius: 8px; background: rgba(4,31,30,0.6);
   white-space: nowrap; transition: all 0.15s ease;
 }
-.pofer-chk:hover { border-color: var(--gold); color: var(--pale-oak); }
-.pofer-chk input { accent-color: var(--gold); }
+.pofer-chk:hover { border-color: var(--gold-bright); color: var(--pale-oak); }
+.pofer-chk input { accent-color: var(--gold); margin: 0; }
+.pofer-chk:has(input:checked) {
+  background: rgba(127,196,160,0.20);
+  border-color: var(--gold);
+  color: var(--gold-bright);
+}
 
 /* checkbox en el carrito */
 .di-ofer-chk {

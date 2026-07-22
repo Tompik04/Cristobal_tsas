@@ -135,7 +135,7 @@ function filaProductoHTML(p) {
         <select data-f="color"></select>
       </div>
       <div class="field">
-        <label>Oferta</label>
+        <label>Descuento</label>
         <select data-f="oferta">${ofertasOpt}</select>
       </div>
       <div class="field pofer-field">

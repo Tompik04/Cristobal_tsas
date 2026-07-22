@@ -17,12 +17,11 @@ const State = {
 const Carritos = {
   lista: [],       // [{ id, nombre, items:[], descuento:0 }]
   activoId: null,
-  proximoNum: 1,   // contador que siempre sube (no reusa números al cerrar)
   CLAVE: "cristobal_carritos",
 
   init() {
     this.cargar();
-    if (!this.lista.length) this.crear("Cliente 1");
+    if (!this.lista.length) this.crear();
     else this.activar(this.activoId || this.lista[0].id, true);
   },
 
@@ -33,18 +32,6 @@ const Carritos = {
         const d = JSON.parse(raw);
         this.lista = Array.isArray(d.lista) ? d.lista : [];
         this.activoId = d.activoId || (this.lista[0] && this.lista[0].id);
-        // restaurar el contador; si no estaba guardado, deducirlo de los nombres
-        // existentes para no repetir números al crear el próximo carrito
-        if (d.proximoNum) {
-          this.proximoNum = d.proximoNum;
-        } else {
-          let max = 0;
-          this.lista.forEach((c) => {
-            const m = /Cliente (\d+)/.exec(c.nombre || "");
-            if (m) max = Math.max(max, parseInt(m[1], 10));
-          });
-          this.proximoNum = max + 1;
-        }
       }
     } catch (e) { this.lista = []; }
   },
@@ -55,16 +42,45 @@ const Carritos = {
       const a = this.lista.find((c) => c.id === this.activoId);
       if (a) { a.items = State.carrito; a.descuento = State.descuentoCarrito || 0; }
       localStorage.setItem(this.CLAVE, JSON.stringify({
-        lista: this.lista, activoId: this.activoId, proximoNum: this.proximoNum,
+        lista: this.lista, activoId: this.activoId,
       }));
     } catch (e) { /* ignore */ }
   },
 
+  // menor entero positivo no usado por un carrito llamado "Cliente N"
+  numeroLibre() {
+    const usados = new Set();
+    this.lista.forEach((c) => {
+      const m = /^Cliente (\d+)$/.exec(c.nombre || "");
+      if (m) usados.add(parseInt(m[1], 10));
+    });
+    let n = 1;
+    while (usados.has(n)) n++;
+    return n;
+  },
+
   crear(nombre) {
     const id = "cart-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
-    const n = nombre || ("Cliente " + this.proximoNum);
-    this.proximoNum++;
-    this.lista.push({ id, nombre: n, items: [], descuento: 0 });
+    let num = null, n;
+    if (nombre) {
+      n = nombre;
+    } else {
+      num = this.numeroLibre();
+      n = "Cliente " + num;
+    }
+    const nuevo = { id, nombre: n, items: [], descuento: 0 };
+    // los "Cliente N" se insertan en orden (entre el menor y el mayor);
+    // los renombrados a mano se agregan al final
+    if (num != null) {
+      let idx = this.lista.length;
+      for (let i = 0; i < this.lista.length; i++) {
+        const m = /^Cliente (\d+)$/.exec(this.lista[i].nombre || "");
+        if (m && parseInt(m[1], 10) > num) { idx = i; break; }
+      }
+      this.lista.splice(idx, 0, nuevo);
+    } else {
+      this.lista.push(nuevo);
+    }
     this.activar(id);
     return id;
   },
@@ -87,7 +103,7 @@ const Carritos = {
     const idx = this.lista.findIndex((c) => c.id === id);
     if (idx < 0) return;
     this.lista.splice(idx, 1);
-    if (!this.lista.length) { this.crear("Cliente 1"); return; }
+    if (!this.lista.length) { this.crear(); return; }
     if (this.activoId === id) this.activar(this.lista[Math.max(0, idx - 1)].id, true);
     else this.guardar();
   },
