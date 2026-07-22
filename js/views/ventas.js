@@ -138,6 +138,12 @@ function filaProductoHTML(p) {
         <label>Oferta</label>
         <select data-f="oferta">${ofertasOpt}</select>
       </div>
+      <div class="field pofer-field">
+        <label>&nbsp;</label>
+        <label class="pofer-chk" title="Marcar para la oferta del carrito">
+          <input type="checkbox" data-f="ofertaCarrito"> Oferta
+        </label>
+      </div>
       <div class="field">
         <label data-f="cantLabel">Cant.</label>
         <select data-f="cantidad"></select>
@@ -194,6 +200,8 @@ function bindFila(root, p) {
     return v ? (v.costo || 0) : 0;
   }
 
+  const chkOfertaCarrito = row.querySelector('[data-f="ofertaCarrito"]');
+
   function lineaActual() {
     const ofVal = selOferta.value; // "pct:15" | "costo" | "regalo"
     let tipoOferta = "pct", ofertaPct = 0;
@@ -207,6 +215,7 @@ function bindFila(root, p) {
       color: selColor.value,
       tipoOferta,
       oferta: ofertaPct,
+      ofertaCarrito: chkOfertaCarrito ? chkOfertaCarrito.checked : false, // marcada para la oferta del carrito
       cantidad: Number(selCant.value),
       precio: p.precio,
       costo: costoActual(),
@@ -300,15 +309,18 @@ function bindTabsCarritos() {
   };
 }
 
+function enModoCuentaGlobal() { return !!State.cuentaDestino; }
+
 function abrirCarrito() {
   const items = State.carrito.length
     ? State.carrito
         .map(
           (l, i) => `
-        <div class="drawer-item">
+        <div class="drawer-item ${l.ofertaCarrito ? "di-oferta" : ""}">
           <div class="di-info">
             <strong>${l.codigo}</strong>
             <span class="di-sub">${l.talle} · ${l.color} · x${l.cantidad}${ofertaLabel(l) ? " · " + ofertaLabel(l) : ""}</span>
+            ${!enModoCuentaGlobal() ? `<label class="di-ofer-chk"><input type="checkbox" data-ofer="${i}" ${l.ofertaCarrito ? "checked" : ""}> Oferta</label>` : ""}
           </div>
           <span>${formatPrecio(precioLinea(l))}</span>
           <button class="di-rm" data-rm="${i}"><i class="ti ti-trash"></i></button>
@@ -405,6 +417,15 @@ function abrirCarrito() {
       else cerrarModal();
     };
   });
+  // tildar/destildar oferta desde el carrito
+  document.querySelectorAll("[data-ofer]").forEach((c) => {
+    c.onchange = () => {
+      const idx = Number(c.dataset.ofer);
+      if (State.carrito[idx]) State.carrito[idx].ofertaCarrito = c.checked;
+      Carritos.sync();
+      abrirCarrito(); // repinta para actualizar el resaltado
+    };
+  });
 }
 
 // ---- Popup de venta (único o carrito) ----
@@ -457,9 +478,44 @@ function abrirPopupVenta(lineas, opts) {
   // estado de la seña
   let senaActiva = false;
 
-  const subtotalLineas = lineas.reduce((a, l) => a + precioLinea(l), 0);
-  // el base ya considera el descuento general del carrito
-  const base = subtotalLineas * (1 - descuentoCarrito / 100);
+  // ===== OFERTA sobre las prendas marcadas (checkbox "Oferta") =====
+  const hayMarcadas = lineas.some((l) => l.ofertaCarrito);
+  let ofertaActiva = false;
+  let ofertaModo = "pct";       // "pct" (mismo % a cada una) | "total" (monto total del grupo)
+  let ofertaPct = 0;            // porcentaje de descuento a las marcadas
+  let ofertaTotal = null;       // monto total al que quedan las marcadas
+
+  // subtotal normal (sin la oferta del carrito) de las líneas marcadas
+  const subtotalMarcadas = lineas.filter((l) => l.ofertaCarrito).reduce((a, l) => a + precioLinea(l), 0);
+
+  // subtotal de todas las líneas, ya aplicando la oferta a las marcadas
+  function subtotalConOferta() {
+    let sub = 0;
+    for (const l of lineas) {
+      if (l.ofertaCarrito && ofertaActiva) {
+        // las marcadas reciben la oferta; el resto se calcula proporcional si es por monto total
+        continue;
+      }
+      sub += precioLinea(l);
+    }
+    // agregar las marcadas con la oferta aplicada
+    if (ofertaActiva && subtotalMarcadas > 0) {
+      if (ofertaModo === "pct") {
+        sub += subtotalMarcadas * (1 - ofertaPct / 100);
+      } else {
+        sub += (ofertaTotal != null ? Math.max(0, ofertaTotal) : subtotalMarcadas);
+      }
+    } else {
+      sub += subtotalMarcadas; // sin oferta activa, las marcadas van a precio normal
+    }
+    return sub;
+  }
+
+  // el base considera la oferta de las marcadas Y el descuento general del carrito (en cascada)
+  function calcularBase() {
+    return subtotalConOferta() * (1 - descuentoCarrito / 100);
+  }
+  let base = calcularBase();
 
   const detalle = lineas
     .map((l) => `<div class="modal-line"><span>${l.codigo} · ${l.talle}/${l.color} · x${l.cantidad}</span><strong>${formatPrecio(precioLinea(l))}</strong></div>`)
@@ -527,6 +583,27 @@ function abrirPopupVenta(lineas, opts) {
           </div>
         </div>
       </div>
+
+      ${hayMarcadas ? `
+      <div class="desc-pago-box oferta-box">
+        <label class="desc-check-row">
+          <input type="checkbox" id="ofertaCheck" class="evar-chk">
+          <span>Oferta a marcadas (${lineas.filter((l) => l.ofertaCarrito).length}) · ${formatPrecio(subtotalMarcadas)}</span>
+        </label>
+        <div id="ofertaCampos" class="desc-campos" style="display:none">
+          <div class="oferta-modo">
+            <button class="oferta-modo-btn selected" id="ofModoPct" type="button">Por %</button>
+            <button class="oferta-modo-btn" id="ofModoTotal" type="button">Monto total</button>
+          </div>
+          <div id="ofPctWrap">
+            <div class="field"><label>Descuento a cada marcada (%)</label><input type="number" id="ofPct" class="sinput" min="0" max="100" placeholder="%"></div>
+          </div>
+          <div id="ofTotalWrap" style="display:none">
+            <div class="field"><label>Las marcadas quedan en total ($)</label><input type="number" id="ofTotal" class="sinput" min="0" placeholder="$"></div>
+          </div>
+          <p class="desc-info" id="ofertaInfo"></p>
+        </div>
+      </div>` : ""}
 
       <div class="venta-extras">
       <div class="desc-pago-box">
@@ -638,6 +715,73 @@ function abrirPopupVenta(lineas, opts) {
   document.getElementById("cancelar").onclick = cerrarModal;
 
   // --- ajuste manual: descuento o adicional (lo define el número ingresado) ---
+  // --- oferta a las prendas marcadas ---
+  const ofertaCheck = document.getElementById("ofertaCheck");
+  if (ofertaCheck) {
+    const ofertaCampos = document.getElementById("ofertaCampos");
+    const ofModoPct = document.getElementById("ofModoPct");
+    const ofModoTotal = document.getElementById("ofModoTotal");
+    const ofPctWrap = document.getElementById("ofPctWrap");
+    const ofTotalWrap = document.getElementById("ofTotalWrap");
+    const ofPct = document.getElementById("ofPct");
+    const ofTotal = document.getElementById("ofTotal");
+    const ofertaInfo = document.getElementById("ofertaInfo");
+
+    function refrescarOfertaInfo() {
+      if (!ofertaActiva) { ofertaInfo.textContent = ""; return; }
+      let conOferta;
+      if (ofertaModo === "pct") conOferta = subtotalMarcadas * (1 - ofertaPct / 100);
+      else conOferta = ofertaTotal != null ? Math.max(0, ofertaTotal) : subtotalMarcadas;
+      const ahorro = subtotalMarcadas - conOferta;
+      if (ahorro > 0) ofertaInfo.innerHTML = `Las marcadas: <strong>${formatPrecio(subtotalMarcadas)}</strong> → <strong>${formatPrecio(conOferta)}</strong> (ahorro ${formatPrecio(ahorro)})`;
+      else if (ahorro < 0) { ofertaInfo.className = "desc-info adic-info"; ofertaInfo.innerHTML = `Las marcadas suben a ${formatPrecio(conOferta)}`; }
+      else ofertaInfo.textContent = "Sin cambios sobre las marcadas.";
+    }
+
+    // recalcula base (oferta + descuento general en cascada) y refresca todo
+    function aplicarOferta() {
+      base = calcularBase();
+      // si el ajuste manual estaba fijado por monto, se recalcula su %
+      refrescarOfertaInfo();
+      recalcular();
+    }
+
+    ofertaCheck.onchange = () => {
+      ofertaActiva = ofertaCheck.checked;
+      ofertaCampos.style.display = ofertaActiva ? "block" : "none";
+      if (!ofertaActiva) { ofertaPct = 0; ofertaTotal = null; ofPct.value = ""; ofTotal.value = ""; }
+      aplicarOferta();
+    };
+    ofModoPct.onclick = () => {
+      ofertaModo = "pct";
+      ofModoPct.classList.add("selected"); ofModoTotal.classList.remove("selected");
+      ofPctWrap.style.display = ""; ofTotalWrap.style.display = "none";
+      ofertaTotal = null;
+      aplicarOferta();
+    };
+    ofModoTotal.onclick = () => {
+      ofertaModo = "total";
+      ofModoTotal.classList.add("selected"); ofModoPct.classList.remove("selected");
+      ofTotalWrap.style.display = ""; ofPctWrap.style.display = "none";
+      ofertaPct = 0;
+      aplicarOferta();
+    };
+    ofPct.oninput = () => {
+      let p = Number(ofPct.value);
+      if (isNaN(p) || ofPct.value === "") p = 0;
+      if (p < 0) p = 0; if (p > 100) p = 100;
+      ofertaPct = p;
+      aplicarOferta();
+    };
+    ofTotal.oninput = () => {
+      if (ofTotal.value === "") { ofertaTotal = null; aplicarOferta(); return; }
+      let t = Number(ofTotal.value);
+      if (isNaN(t) || t < 0) t = 0;
+      ofertaTotal = t;
+      aplicarOferta();
+    };
+  }
+
   const ajusCheck = document.getElementById("ajusCheck");
   const ajusCampos = document.getElementById("ajusCampos");
   const ajusMontoInput = document.getElementById("ajusMonto");
@@ -1129,7 +1273,26 @@ function abrirPopupVenta(lineas, opts) {
       ] };
     }
 
-    const res = await API.registrarVenta(lineas, pago, {
+    // Aplicar la oferta del carrito a las líneas marcadas antes de registrar,
+    // así el reparto proporcional del API usa el precio con oferta ya incluido.
+    const lineasFinales = lineas.map((l) => {
+      if (!l.ofertaCarrito || !ofertaActiva) return l;
+      const precioNormal = precioLinea(l);
+      let precioConOferta;
+      if (ofertaModo === "pct") {
+        precioConOferta = precioNormal * (1 - ofertaPct / 100);
+      } else {
+        // monto total: repartir proporcional entre las marcadas
+        const destino = ofertaTotal != null ? Math.max(0, ofertaTotal) : subtotalMarcadas;
+        precioConOferta = subtotalMarcadas > 0 ? destino * (precioNormal / subtotalMarcadas) : precioNormal;
+      }
+      // traducir a un % efectivo sobre el precio de lista (l.precio * cantidad)
+      const pleno = l.precio * l.cantidad;
+      const ofertaEfectiva = pleno > 0 ? (1 - precioConOferta / pleno) * 100 : 0;
+      return { ...l, tipoOferta: "pct", oferta: ofertaEfectiva };
+    });
+
+    const res = await API.registrarVenta(lineasFinales, pago, {
       precioBase: baseConDesc, precioFinal, fechaVenta, inicioCambio,
       // valor real del producto: con descuento/adicional aplicado, SIN recargo de tarjeta
       precioProducto: baseEfectivo(),

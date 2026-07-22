@@ -1559,3 +1559,34 @@ input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator {
   font-size: 10.5px; color: var(--success);
 }
 .sc-desc-persiste i { font-size: 13px; }
+
+/* ===== OFERTA POR PRENDA (checkbox) ===== */
+/* checkbox en la fila de venta */
+.pofer-field { min-width: 0; }
+.pofer-chk {
+  display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+  font-size: 12px; color: var(--oak-60); padding: 7px 8px;
+  border: 1px solid var(--oak-25); border-radius: 8px; background: var(--oak-08);
+  white-space: nowrap; transition: all 0.15s ease;
+}
+.pofer-chk:hover { border-color: var(--gold); color: var(--pale-oak); }
+.pofer-chk input { accent-color: var(--gold); }
+
+/* checkbox en el carrito */
+.di-ofer-chk {
+  display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
+  font-size: 11px; color: var(--oak-55); margin-top: 3px;
+}
+.di-ofer-chk input { accent-color: var(--gold); width: 13px; height: 13px; }
+.drawer-item.di-oferta { border-left: 3px solid var(--gold); padding-left: 9px; }
+
+/* caja de oferta en el popup */
+.oferta-box { border-color: rgba(127,196,160,0.35); background: rgba(127,196,160,0.06); }
+.oferta-modo { display: flex; gap: 6px; margin-bottom: 10px; }
+.oferta-modo-btn {
+  flex: 1; padding: 7px; border-radius: 8px; cursor: pointer; font-family: inherit;
+  font-size: 12px; background: var(--oak-08); border: 1px solid var(--oak-25); color: var(--oak-60);
+  transition: all 0.15s ease;
+}
+.oferta-modo-btn:hover { border-color: var(--gold); color: var(--pale-oak); }
+.oferta-modo-btn.selected { background: rgba(127,196,160,0.15); border-color: var(--gold); color: var(--gold-bright); }
