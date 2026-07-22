@@ -17,6 +17,7 @@ const State = {
 const Carritos = {
   lista: [],       // [{ id, nombre, items:[], descuento:0 }]
   activoId: null,
+  proximoNum: 1,   // contador que siempre sube (no reusa números al cerrar)
   CLAVE: "cristobal_carritos",
 
   init() {
@@ -32,6 +33,18 @@ const Carritos = {
         const d = JSON.parse(raw);
         this.lista = Array.isArray(d.lista) ? d.lista : [];
         this.activoId = d.activoId || (this.lista[0] && this.lista[0].id);
+        // restaurar el contador; si no estaba guardado, deducirlo de los nombres
+        // existentes para no repetir números al crear el próximo carrito
+        if (d.proximoNum) {
+          this.proximoNum = d.proximoNum;
+        } else {
+          let max = 0;
+          this.lista.forEach((c) => {
+            const m = /Cliente (\d+)/.exec(c.nombre || "");
+            if (m) max = Math.max(max, parseInt(m[1], 10));
+          });
+          this.proximoNum = max + 1;
+        }
       }
     } catch (e) { this.lista = []; }
   },
@@ -41,13 +54,16 @@ const Carritos = {
       // sincronizar el carrito activo antes de guardar
       const a = this.lista.find((c) => c.id === this.activoId);
       if (a) { a.items = State.carrito; a.descuento = State.descuentoCarrito || 0; }
-      localStorage.setItem(this.CLAVE, JSON.stringify({ lista: this.lista, activoId: this.activoId }));
+      localStorage.setItem(this.CLAVE, JSON.stringify({
+        lista: this.lista, activoId: this.activoId, proximoNum: this.proximoNum,
+      }));
     } catch (e) { /* ignore */ }
   },
 
   crear(nombre) {
     const id = "cart-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
-    const n = nombre || ("Cliente " + (this.lista.length + 1));
+    const n = nombre || ("Cliente " + this.proximoNum);
+    this.proximoNum++;
     this.lista.push({ id, nombre: n, items: [], descuento: 0 });
     this.activar(id);
     return id;
