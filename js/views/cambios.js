@@ -140,11 +140,26 @@ function abrirIntercambio(venta) {
   }
 
   const totalNuevas = State.carrito.reduce((a, l) => a + precioLinea(l), 0);
-  // Valor de la prenda devuelta: lo que realmente valió (con el descuento/adicional
-  // que se le haya aplicado), SIN el recargo de tarjeta.
-  // Si se usara el precio de lista, a una prenda vendida con descuento se le
-  // acreditaría de más y se regalaría plata.
-  const valorDevuelto = venta.precioProducto != null ? venta.precioProducto : venta.precioBase;
+
+  // ===== Valor que se le acredita al cliente por la prenda que devuelve =====
+  // Por defecto: lo que REALMENTE pagó (con descuento), para no regalar plata.
+  // Pero el descuento "persiste" (se acredita el precio PLENO de lista) cuando la
+  // prenda nueva vale lo mismo de lista que la original, O es el mismo modelo (código).
+  // Así, cambiar una prenda con descuento por otra equivalente no le cuesta nada al cliente.
+  const pagoConDescuento = venta.precioProducto != null ? venta.precioProducto : venta.precioBase;
+  const precioListaOriginal = venta.precioBase || 0;
+  const tuvoDescuento = pagoConDescuento < precioListaOriginal - 0.5;
+
+  // ¿alguna prenda nueva es "equivalente" a la original? (mismo modelo o mismo precio de lista)
+  const hayEquivalente = State.carrito.some((l) => {
+    const listaNueva = precioListaDeLinea(l);
+    const mismoModelo = l.codigo === venta.codigo;
+    const mismoPrecio = Math.abs(listaNueva - precioListaOriginal) < 0.5;
+    return mismoModelo || mismoPrecio;
+  });
+
+  const descuentoPersiste = tuvoDescuento && hayEquivalente;
+  const valorDevuelto = descuentoPersiste ? precioListaOriginal : pagoConDescuento;
   const diferencia = totalNuevas - valorDevuelto; // + cliente paga / - voucher
 
   const cardDevuelta = `
@@ -154,6 +169,7 @@ function abrirIntercambio(venta) {
         <strong>${venta.marca}</strong>
         <span class="sc-cod">${venta.codigo} · ${venta.talle}/${venta.color}</span>
         <span class="sc-price">${formatPrecio(valorDevuelto)}</span>
+        ${descuentoPersiste ? `<span class="sc-desc-persiste"><i class="ti ti-discount-check"></i> Descuento trasladado (pagó ${formatPrecio(pagoConDescuento)})</span>` : ""}
       </div>
     </div>`;
 
@@ -255,7 +271,8 @@ async function abrirPagoDiferencia(venta, diferencia) {
   let modoDividido = false;
   let metodo1 = null;
   let voucherSel = null;
-  const base = diferencia;
+  const diferenciaOriginal = diferencia;
+  let base = diferencia; // puede cambiar si se aplica descuento/adicional a la diferencia
 
   // cargar vouchers disponibles para aplicar
   const rv = await API.getVouchers();
@@ -295,6 +312,20 @@ async function abrirPagoDiferencia(venta, diferencia) {
         <div class="split-row">
           <div class="field"><label>Método 2 (resto)</label><select id="selM2">${MEDIOS_PAGO.map((m, i) => `<option value="${m}"${i === 1 ? " selected" : ""}>${m}</option>`).join("")}</select></div>
           <div class="field"><label>Monto en método 2</label><input type="text" id="montoM2" disabled value="—"></div>
+        </div>
+      </div>
+
+      <div class="desc-pago-box" style="margin-top:0.6rem">
+        <label class="desc-check-row">
+          <input type="checkbox" id="difAjusCheck" class="evar-chk">
+          <span>Aplicar desc/adic a la diferencia</span>
+        </label>
+        <div id="difAjusCampos" class="desc-campos" style="display:none">
+          <div class="split-row">
+            <div class="field"><label>Nueva diferencia ($)</label><input type="number" id="difAjusMonto" class="sinput" min="0" placeholder="$"></div>
+            <div class="field"><label>Variación (%)</label><input type="number" id="difAjusPct" class="sinput" placeholder="-20 / +10"></div>
+          </div>
+          <p class="desc-info" id="difAjusInfo"></p>
         </div>
       </div>
 
@@ -338,6 +369,44 @@ async function abrirPagoDiferencia(venta, diferencia) {
 
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("payCancel").onclick = () => abrirIntercambio(venta);
+
+  // --- descuento / adicional sobre la diferencia a pagar ---
+  const difAjusCheck = document.getElementById("difAjusCheck");
+  const difAjusCampos = document.getElementById("difAjusCampos");
+  const difAjusMonto = document.getElementById("difAjusMonto");
+  const difAjusPct = document.getElementById("difAjusPct");
+  const difAjusInfo = document.getElementById("difAjusInfo");
+
+  function refrescarDifInfo() {
+    if (!difAjusCheck.checked) { difAjusInfo.textContent = ""; return; }
+    const d = base - diferenciaOriginal;
+    if (Math.abs(d) < 1) { difAjusInfo.textContent = "Sin cambios sobre la diferencia."; difAjusInfo.className = "desc-info"; return; }
+    const pct = diferenciaOriginal > 0 ? Math.abs(Math.round((d / diferenciaOriginal) * 100)) : 0;
+    if (d < 0) { difAjusInfo.className = "desc-info"; difAjusInfo.innerHTML = `<strong>Descuento</strong> de ${formatPrecio(-d)} (−${pct}%)`; }
+    else { difAjusInfo.className = "desc-info adic-info"; difAjusInfo.innerHTML = `<strong>Adicional</strong> de ${formatPrecio(d)} (+${pct}%)`; }
+  }
+
+  difAjusCheck.onchange = () => {
+    difAjusCampos.style.display = difAjusCheck.checked ? "block" : "none";
+    if (!difAjusCheck.checked) { base = diferenciaOriginal; difAjusMonto.value = ""; difAjusPct.value = ""; difAjusInfo.textContent = ""; }
+    recalcular();
+  };
+  difAjusMonto.oninput = () => {
+    let m = Number(difAjusMonto.value);
+    if (isNaN(m) || difAjusMonto.value === "") { base = diferenciaOriginal; difAjusPct.value = ""; refrescarDifInfo(); recalcular(); return; }
+    if (m < 0) m = 0;
+    base = m;
+    difAjusPct.value = diferenciaOriginal > 0 ? Math.round(((m - diferenciaOriginal) / diferenciaOriginal) * 10000) / 100 : 0;
+    refrescarDifInfo(); recalcular();
+  };
+  difAjusPct.oninput = () => {
+    let p = Number(difAjusPct.value);
+    if (isNaN(p) || difAjusPct.value === "" || difAjusPct.value === "-") { base = diferenciaOriginal; difAjusMonto.value = ""; refrescarDifInfo(); recalcular(); return; }
+    if (p < -100) p = -100;
+    base = diferenciaOriginal * (1 + p / 100);
+    difAjusMonto.value = Math.round(base);
+    refrescarDifInfo(); recalcular();
+  };
 
   function recargoDe(monto, met) { return MEDIOS_CON_RECARGO.includes(met) ? monto * CONFIG.RECARGO_TARJETA : 0; }
 
@@ -473,7 +542,7 @@ async function abrirPagoDiferencia(venta, diferencia) {
     }
 
     confirmarIntercambio(venta, {
-      diferencia, voucher: 0, metodoPago: metodoTxt, pagos: partes,
+      diferencia: base, voucher: 0, metodoPago: metodoTxt, pagos: partes,
       voucherUsado: voucherSel ? voucherSel.id : null,
       sobranteVoucher,
     });

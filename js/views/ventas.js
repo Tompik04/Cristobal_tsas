@@ -414,6 +414,11 @@ function precioLinea(l) {
   return l.precio * l.cantidad * (1 - l.oferta / 100);
 }
 
+// precio pleno de lista de una línea (sin ninguna oferta/descuento aplicado)
+function precioListaDeLinea(l) {
+  return (l.precio || 0) * (l.cantidad || 1);
+}
+
 // etiqueta legible de la oferta aplicada
 function ofertaLabel(l) {
   if (l.tipoOferta === "regalo") return "Regalo";

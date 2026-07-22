@@ -6,7 +6,7 @@
   --platinum: #E9E9ED;
   --coffee: #0F060B;
 
-  /* acentos que combinan con la paleta — JADE CLARO O */
+  /* acentos que combinan con la paleta — JADE CLARO */
   --gold: #7FC4A0;          /* jade (acento principal) */
   --gold-bright: #9FD9BB;   /* jade luminoso */
   --terracotta: #B86A4B;    /* terracota suave */
@@ -1503,35 +1503,42 @@ input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator {
 
 /* ===== PESTAÑAS DE CARRITOS (múltiples clientes) ===== */
 .cart-tabs {
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; align-items: stretch;
   padding-bottom: 12px; margin-bottom: 4px; border-bottom: 1px solid var(--oak-20);
+  max-height: 200px; overflow-y: auto;
 }
 .cart-tab {
-  display: inline-flex; align-items: center; gap: 7px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
   background: var(--oak-08); border: 1px solid var(--oak-25); color: var(--oak-60);
-  border-radius: 9px; padding: 7px 11px; font-family: inherit; font-size: 12.5px;
+  border-radius: 9px; padding: 8px 6px; font-family: inherit; font-size: 12px;
   cursor: pointer; transition: all 0.15s ease; position: relative;
+  min-width: 0; /* deja que el texto se recorte en vez de desfasar la grilla */
 }
 .cart-tab:hover { border-color: var(--gold); color: var(--pale-oak); }
 .cart-tab.activo {
   background: rgba(127,196,160,0.14); border-color: var(--gold); color: var(--gold-bright);
 }
-.cart-tab-nom { font-weight: 500; letter-spacing: 0.03em; }
+.cart-tab-nom {
+  font-weight: 500; letter-spacing: 0.02em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; /* nombre largo no rompe la grilla */
+}
 .cart-tab-badge {
+  flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 20px;
-  background: var(--gold); color: var(--evergreen); font-size: 11px; font-weight: 700;
+  min-width: 17px; height: 17px; padding: 0 5px; border-radius: 20px;
+  background: var(--gold); color: var(--evergreen); font-size: 10.5px; font-weight: 700;
 }
 .cart-tab.activo .cart-tab-badge { background: var(--gold-bright); }
 .cart-tab-x {
+  flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
   width: 16px; height: 16px; border-radius: 50%; font-size: 15px; line-height: 1;
-  color: var(--oak-55); margin-left: 1px; transition: all 0.15s ease;
+  color: var(--oak-55); transition: all 0.15s ease;
 }
 .cart-tab-x:hover { background: rgba(201,122,109,0.25); color: var(--danger); }
 .cart-tab-add {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 32px; height: 32px; border-radius: 9px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  height: 34px; width: 100%; border-radius: 9px; cursor: pointer;
   background: var(--oak-08); border: 1px dashed var(--oak-35); color: var(--gold);
   transition: all 0.15s ease;
 }
@@ -1545,3 +1552,10 @@ input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator {
   font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 20px;
   border: 2px solid var(--evergreen);
 }
+
+/* aviso de descuento trasladado en el cambio */
+.sc-desc-persiste {
+  display: inline-flex; align-items: center; gap: 4px; margin-top: 3px;
+  font-size: 10.5px; color: var(--success);
+}
+.sc-desc-persiste i { font-size: 13px; }
