@@ -590,8 +590,13 @@ async function confirmarIntercambio(venta, info) {
     // reponer stock de la prenda devuelta
     const dev = State.stock.find((s) => s.codigo === venta.codigo && s.talle === venta.talle && s.color === venta.color);
     if (dev) dev.cantidad += venta.cantidad;
-    // vaciar carrito
+    // vaciar carrito (mismo patron que ventas.js: sin sync el carrito revive
+    // desde Carritos.lista/localStorage al cambiar de pestana o recargar)
     State.carrito = [];
+    State.descuentoCarrito = 0;
+    Carritos.sync();
+    actualizarBadge();
+    renderCartFab();
     cerrarModal();
     if (info.sobranteVoucher) toast(`Cambio hecho · Voucher de saldo ${formatPrecio(info.sobranteVoucher.monto)}`);
     else if (voucher) toast(`Cambio hecho · Voucher de ${formatPrecio(voucher.monto)}`);

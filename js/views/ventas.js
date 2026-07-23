@@ -139,9 +139,9 @@ function filaProductoHTML(p) {
         <select data-f="oferta">${ofertasOpt}</select>
       </div>
       <div class="field pofer-field">
-        <label>&nbsp;</label>
+        <label>Oferta</label>
         <label class="pofer-chk" title="Marcar para la oferta del carrito">
-          <input type="checkbox" data-f="ofertaCarrito"> Oferta
+          <input type="checkbox" class="evar-chk" data-f="ofertaCarrito">
         </label>
       </div>
       <div class="field">
