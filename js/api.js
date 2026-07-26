@@ -143,6 +143,9 @@ function voucherDeDB(r) {
     fecha: normalizarFechaISO(r.fecha), vencimiento: r.vencimiento, origen: r.origen,
     avisado: !!r.avisado, usado: !!r.usado,
     comprado: !!r.comprado, metodoPago: r.metodo_pago || null,
+    // lo que el cliente pagó (ingreso real). NULL en vouchers viejos:
+    // se asume que pagó el monto completo si fue comprado, 0 si es saldo a favor.
+    pagado: r.pagado != null ? Number(r.pagado) : ((!!r.comprado) ? (Number(r.monto) || 0) : 0),
   };
 }
 function gastoDeDB(r) {
@@ -690,6 +693,7 @@ const API = {
         fecha: v.fecha || new Date().toISOString(), vencimiento: v.vencimiento || null,
         origen: v.origen || "", avisado: !!v.avisado, usado: !!v.usado,
         comprado: !!v.comprado, metodo_pago: v.metodoPago || null,
+        pagado: v.pagado != null ? v.pagado : (v.comprado ? (v.monto || 0) : 0),
       }]);
       return { ok: true };
     } catch (e) { return { ok: false, error: String(e) }; }

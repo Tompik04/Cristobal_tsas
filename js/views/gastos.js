@@ -21,8 +21,8 @@ function renderGastos(root) {
 }
 
 async function cargarGastos() {
-  const [rg, rv, rc, rs] = await Promise.all([
-    API.getGastos(), API.getVentas(), API.getCuentas(), API.getSenas(),
+  const [rg, rv, rc, rs, rvo] = await Promise.all([
+    API.getGastos(), API.getVentas(), API.getCuentas(), API.getSenas(), API.getVouchers(),
   ]);
   if (!rg.ok) {
     document.getElementById("gastosList").innerHTML = `<div class="soon"><i class="ti ti-alert-triangle"></i><p>No se pudieron cargar los gastos.</p></div>`;
@@ -39,6 +39,11 @@ async function cargarGastos() {
   }
   if (rs && rs.ok && rs.pagos) {
     rs.pagos.forEach((p) => _cobrosExtra.push({ fechaHora: p.fecha, monto: p.monto || 0 }));
+  }
+  // vouchers comprados: ingresa lo que pagó el cliente, el día de la venta
+  if (rvo && rvo.ok && rvo.vouchers) {
+    rvo.vouchers.filter((v) => v.comprado && (v.pagado || 0) > 0)
+      .forEach((v) => _cobrosExtra.push({ fechaHora: v.fecha, monto: v.pagado || 0 }));
   }
 
   // mes actual por defecto

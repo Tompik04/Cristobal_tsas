@@ -233,8 +233,13 @@ function abrirNuevoVoucher() {
         <button class="pay-mode-btn" id="tipoDesc">% Descuento</button>
       </div>
       <div class="field" id="campoMonto">
-        <label>Monto ($)</label>
+        <label>Monto ($) <span style="color:var(--oak-55)">— lo que se lleva</span></label>
         <input class="sinput" type="number" min="0" id="vMonto" placeholder="$">
+      </div>
+      <label class="g-check" id="campoBonif" style="display:none"><input type="checkbox" id="vBonif"> Con bonificación (paga menos de lo que se lleva)</label>
+      <div class="field" id="campoPagado" style="display:none">
+        <label>Paga ($) <span style="color:var(--oak-55)">— lo que entra a caja</span></label>
+        <input class="sinput" type="number" min="0" id="vPagado" placeholder="$">
       </div>
       <div class="field" id="campoDesc" style="display:none">
         <label>Descuento (%)</label>
@@ -257,26 +262,44 @@ function abrirNuevoVoucher() {
   let tipo = "monto";
   const campoMonto = document.getElementById("campoMonto");
   const campoDesc = document.getElementById("campoDesc");
+  const chkComprado = document.getElementById("vComprado");
+  const campoMetodo = document.getElementById("campoMetodo");
+  const campoBonif = document.getElementById("campoBonif");
+  const campoPagado = document.getElementById("campoPagado");
+  const chkBonif = document.getElementById("vBonif");
+
+  // la bonificación solo aplica a "Monto fijo" + "Comprado"
+  function refrescarBonif() {
+    const puede = (tipo === "monto") && chkComprado.checked;
+    campoBonif.style.display = puede ? "" : "none";
+    campoPagado.style.display = (puede && chkBonif.checked) ? "" : "none";
+    if (!puede) chkBonif.checked = false;
+  }
+
   document.getElementById("tipoMonto").onclick = () => {
     tipo = "monto";
     document.getElementById("tipoMonto").classList.add("selected");
     document.getElementById("tipoDesc").classList.remove("selected");
     campoMonto.style.display = ""; campoDesc.style.display = "none";
+    refrescarBonif();
   };
   document.getElementById("tipoDesc").onclick = () => {
     tipo = "descuento";
     document.getElementById("tipoDesc").classList.add("selected");
     document.getElementById("tipoMonto").classList.remove("selected");
     campoDesc.style.display = ""; campoMonto.style.display = "none";
+    refrescarBonif();
   };
 
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("vCancel").onclick = cerrarModal;
 
-  // mostrar método de pago solo si es comprado
-  const chkComprado = document.getElementById("vComprado");
-  const campoMetodo = document.getElementById("campoMetodo");
-  chkComprado.onchange = () => { campoMetodo.style.display = chkComprado.checked ? "" : "none"; };
+  // mostrar método de pago y bonificación solo si es comprado
+  chkComprado.onchange = () => {
+    campoMetodo.style.display = chkComprado.checked ? "" : "none";
+    refrescarBonif();
+  };
+  chkBonif.onchange = refrescarBonif;
 
   document.getElementById("vSave").onclick = async () => {
     const nombre = document.getElementById("vNom").value.trim();
@@ -297,6 +320,15 @@ function abrirNuevoVoucher() {
       const m = Number(document.getElementById("vMonto").value) || 0;
       if (m <= 0) return toast("Monto inválido");
       voucher.monto = m;
+      // bonificación: paga menos de lo que se lleva. Solo si es comprado.
+      if (comprado && chkBonif.checked) {
+        const pagado = Number(document.getElementById("vPagado").value) || 0;
+        if (pagado <= 0) return toast("Ingresá lo que paga el cliente");
+        if (pagado > m) return toast("Lo que paga no puede ser mayor a lo que se lleva");
+        voucher.pagado = pagado;
+      } else {
+        voucher.pagado = comprado ? m : 0;
+      }
     } else {
       const d = Number(document.getElementById("vDesc").value) || 0;
       if (d <= 0 || d > 100) return toast("Descuento inválido");

@@ -20,7 +20,7 @@ function renderInformes(root) {
 }
 
 async function cargarInformes() {
-  const [res, rc, rs] = await Promise.all([API.getVentas(), API.getCuentas(), API.getSenas()]);
+  const [res, rc, rs, rvo] = await Promise.all([API.getVentas(), API.getCuentas(), API.getSenas(), API.getVouchers()]);
   if (!res.ok) {
     document.getElementById("infBody").innerHTML = `<div class="soon"><i class="ti ti-alert-triangle"></i><p>No se pudieron cargar las ventas.</p></div>`;
     return;
@@ -33,6 +33,7 @@ async function cargarInformes() {
   _cobrosInf = [];
   if (rc && rc.ok && rc.pagos) rc.pagos.forEach((p) => _cobrosInf.push({ fecha: p.fecha, monto: p.monto || 0, tipo: "Cta cte" }));
   if (rs && rs.ok && rs.pagos) rs.pagos.forEach((p) => _cobrosInf.push({ fecha: p.fecha, monto: p.monto || 0, tipo: "Seña" }));
+  if (rvo && rvo.ok && rvo.vouchers) rvo.vouchers.filter((v) => v.comprado && (v.pagado || 0) > 0).forEach((v) => _cobrosInf.push({ fecha: v.fecha, monto: v.pagado || 0, tipo: "Voucher" }));
 
   // armar el selector de meses disponibles
   const meses = [...new Set(_ventasInf.map((v) => (v.fechaHora || "").substring(0, 7)))].filter(Boolean).sort().reverse();

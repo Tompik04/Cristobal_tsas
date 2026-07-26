@@ -15,7 +15,7 @@ function renderHistorial(root) {
 }
 
 async function cargarHistorial() {
-  const [res, resCC, resSE] = await Promise.all([API.getVentas(), API.getCuentas(), API.getSenas()]);
+  const [res, resCC, resSE, resVO] = await Promise.all([API.getVentas(), API.getCuentas(), API.getSenas(), API.getVouchers()]);
   if (!res.ok) {
     document.getElementById("histList").innerHTML = `<div class="soon"><i class="ti ti-alert-triangle"></i><p>No se pudieron cargar las ventas.</p></div>`;
     return;
@@ -54,6 +54,25 @@ async function cargarHistorial() {
     }));
   }
 
+  // vouchers COMPRADOS como ingreso: la plata entra el día que se vende la gift card.
+  // El ingreso es lo que PAGÓ el cliente (no el saldo del voucher, que puede tener bonificación).
+  // Al usar el voucher en prendas, esas ventas registran precioFinal=0 (o solo el excedente),
+  // así que no hay doble conteo.
+  let ingresosVO = [];
+  if (resVO && resVO.ok) {
+    ingresosVO = resVO.vouchers.filter((v) => v.comprado && (v.pagado || 0) > 0).map((v) => {
+      const bonif = (v.monto || 0) - (v.pagado || 0); // regalo (mercadería), informativo
+      return {
+        id: "VO-" + v.id, fechaHora: v.fecha, codigo: "VOUCHER", marca: "Venta de voucher",
+        talle: "—", color: v.nombre || "", cantidad: 1, oferta: 0,
+        precioBase: v.pagado, precioFinal: v.pagado, metodoPago: v.metodoPago,
+        pagos: [{ metodo: v.metodoPago, monto: v.pagado }],
+        restaurada: false, esPagoCuenta: true, esVoucher: true,
+        voucherMonto: v.monto || 0, voucherBonif: bonif > 0 ? bonif : 0,
+      };
+    });
+  }
+
   // Índices para mostrar el cambio completo en el historial.
   // Se arman con TODAS las ventas (no solo las del período visible), porque
   // la venta original puede ser de antes de la ventana de fechas.
@@ -64,7 +83,7 @@ async function cargarHistorial() {
     if (v.esCambio && v.cambioDe) _cambioPorOrigen[v.cambioDe] = v; // original → prenda que se llevó
   });
 
-  _ventasHist = res.ventas.concat(pagosCC).concat(pagosSE)
+  _ventasHist = res.ventas.concat(pagosCC).concat(pagosSE).concat(ingresosVO)
     .filter((v) => new Date(v.fechaHora) >= desde)
     .sort((a, b) => new Date(b.fechaHora) - new Date(a.fechaHora));
 
@@ -211,7 +230,9 @@ function histRowHTML(v, filtroPago, colorCarrito) {
         <div class="pinfo"><span class="pmarca">${v.marca}</span><span class="pcod">${v.codigo}</span></div>
       </div>
       <div class="c-meta">
-        <span class="c-vars">Talle <strong>${v.talle}</strong> · Color <strong>${v.color}</strong> · x${v.cantidad}${ofertaTxt}</span>
+        ${v.esVoucher
+          ? `<span class="c-vars"><strong>${v.color || "—"}</strong> · saldo ${formatPrecio(v.voucherMonto)}${v.voucherBonif > 0 ? ` · bonificás ${formatPrecio(v.voucherBonif)}` : ""}</span>`
+          : `<span class="c-vars">Talle <strong>${v.talle}</strong> · Color <strong>${v.color}</strong> · x${v.cantidad}${ofertaTxt}</span>`}
         <span class="c-fecha">${fmtFechaHora(v.fechaHora)}${pago}</span>
         ${v.restaurada ? `<span class="c-estado vencido">Restaurada</span>` : ""}
         ${detalleCambioHTML(v)}
