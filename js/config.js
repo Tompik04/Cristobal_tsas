@@ -56,6 +56,14 @@ function diasParaVencer(vencimientoISO) {
   return Math.round((v - hoy) / (1000 * 60 * 60 * 24));
 }
 
+// fecha local (Argentina) en formato yyyy-mm-dd. Acepta ISO string o Date.
+// Vive aca (y no en una vista) porque la usan cambios, historial, facturas y ventas.
+function fechaLocalISO(iso) {
+  const d = new Date(iso);
+  // "en-CA" da formato yyyy-mm-dd; fijamos zona Argentina
+  return d.toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
+}
+
 // estado de alarma de un voucher: "roja" | "amarilla" | "ninguna" | "vencido" | "usado"
 function estadoAlarmaVoucher(v) {
   if (v.usado) return "usado";
@@ -63,24 +71,6 @@ function estadoAlarmaVoucher(v) {
   if (dias < 0) return "vencido";
   if (dias <= CONFIG.DIAS_ALARMA_VOUCHER) return v.avisado ? "amarilla" : "roja";
   return "ninguna";
-}
-
-// días que faltan para que venza un voucher (yyyy-mm-dd)
-function diasParaVencer(vencimiento) {
-  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-  const v = new Date(vencimiento + "T00:00:00");
-  return Math.ceil((v - hoy) / (1000 * 60 * 60 * 24));
-}
-
-// estado de alarma de un voucher: "roja" | "amarilla" | null
-function estadoAlarmaVoucher(v) {
-  if (v.usado) return null;
-  const dias = diasParaVencer(v.vencimiento);
-  if (dias < 0) return null; // ya vencido
-  if (dias <= CONFIG.DIAS_ALARMA_VOUCHER) {
-    return v.avisado ? "amarilla" : "roja";
-  }
-  return null;
 }
 
 // Logo SVG reutilizable en toda la app

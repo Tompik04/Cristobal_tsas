@@ -1324,7 +1324,7 @@ function abrirPopupVenta(lineas, opts) {
           const vence = new Date(); vence.setDate(vence.getDate() + CONFIG.DIAS_VENCIMIENTO_VOUCHER);
           await API.crearVoucher({
             id: "VCH-" + Date.now(), tipo: "monto", fecha: new Date().toISOString(),
-            vencimiento: vence.toISOString().slice(0, 10), monto: sobra,
+            vencimiento: fechaLocalISO(vence), monto: sobra,
             nombre: voucherSel.nombre || "", telefono: voucherSel.telefono || "",
             origen: `Saldo de ${voucherSel.id}`, avisado: false, usado: false,
           });

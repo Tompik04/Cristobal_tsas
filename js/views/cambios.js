@@ -77,12 +77,6 @@ function fmtFecha(iso) {
   const d = new Date(iso.length <= 10 ? iso + "T00:00:00" : iso);
   return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", timeZone: "America/Argentina/Buenos_Aires" });
 }
-// fecha local (Argentina) en formato yyyy-mm-dd
-function fechaLocalISO(iso) {
-  const d = new Date(iso);
-  // "en-CA" da formato yyyy-mm-dd; fijamos zona Argentina
-  return d.toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
-}
 function fmtFechaHora(iso) {
   const d = new Date(iso);
   const tz = { timeZone: "America/Argentina/Buenos_Aires" };
@@ -533,7 +527,7 @@ async function abrirPagoDiferencia(venta, diferencia) {
         id: "VCH-" + Date.now(),
         tipo: "monto", monto: remanente,
         fecha: _fechaCambio || new Date().toISOString(),
-        vencimiento: vence.toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" }),
+        vencimiento: fechaLocalISO(vence),
         nombre: voucherSel.nombre || "", telefono: voucherSel.telefono || "",
         origen: "Saldo de " + voucherSel.id, avisado: false, usado: false,
         // el remanente hereda el tipo contable del voucher original
@@ -559,7 +553,7 @@ async function confirmarIntercambio(venta, info) {
       id: "VCH-" + Date.now(),
       tipo: "monto",
       fecha: _fechaCambio || new Date().toISOString(),
-      vencimiento: vence.toISOString().slice(0, 10),
+      vencimiento: fechaLocalISO(vence),
       monto: info.voucher,
       nombre: dv.nombre || "",
       telefono: dv.telefono || "",

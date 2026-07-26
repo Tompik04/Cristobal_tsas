@@ -279,8 +279,7 @@ function abrirVoucherDesdeVenta(v) {
   const monto = v.precioFinal != null ? v.precioFinal : (v.precioBase || 0);
   const venceDefault = (() => {
     const d = new Date(); d.setDate(d.getDate() + CONFIG.DIAS_VENCIMIENTO_VOUCHER);
-    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-    return d.toISOString().slice(0, 10);
+    return fechaLocalISO(d);
   })();
 
   document.getElementById("modalRoot").innerHTML = `
