@@ -1300,9 +1300,12 @@ function abrirPopupVenta(lineas, opts) {
     });
 
     if (res.ok) {
+      // la venta ya quedó guardada. Los pasos que siguen son secundarios: si alguno
+      // falla, la venta NO se pierde, pero avisamos para que se corrija a mano.
+      const fallos = [];
       // guardar la factura si el panel estaba abierto (aunque le falten datos)
       if (datosFac) {
-        await API.crearFactura({
+        const rf = await API.crearFactura({
           numero: datosFac.numero || "",
           ventaId: res.idVenta,
           nombre: datosFac.nombre, dni: datosFac.dni, telefono: datosFac.telefono,
@@ -1311,6 +1314,7 @@ function abrirPopupVenta(lineas, opts) {
           metodoPago: modoDividido ? `${selM1.value} + ${selM2.value}` : metodo1,
           fecha: fechaVenta ? new Date(fechaVenta).toISOString() : new Date().toISOString(),
         });
+        if (!rf || !rf.ok) fallos.push("la factura");
         // si el banco es nuevo, guardarlo para próximas facturas (retroalimentación)
         if (datosFac.banco && !bancosDisponibles.includes(datosFac.banco)) {
           await API.agregarBanco(datosFac.banco);
@@ -1318,16 +1322,18 @@ function abrirPopupVenta(lineas, opts) {
       }
       // marcar voucher usado y generar sobrante si corresponde
       if (voucherSel) {
-        await API.usarVoucher(voucherSel.id);
+        const ru = await API.usarVoucher(voucherSel.id);
+        if (!ru || !ru.ok) fallos.push("marcar el voucher como usado (puede reutilizarse)");
         if (voucherSel.tipo === "monto" && voucherSel.monto > base) {
           const sobra = voucherSel.monto - base;
           const vence = new Date(); vence.setDate(vence.getDate() + CONFIG.DIAS_VENCIMIENTO_VOUCHER);
-          await API.crearVoucher({
+          const rs = await API.crearVoucher({
             id: "VCH-" + Date.now(), tipo: "monto", fecha: new Date().toISOString(),
             vencimiento: fechaLocalISO(vence), monto: sobra,
             nombre: voucherSel.nombre || "", telefono: voucherSel.telefono || "",
             origen: `Saldo de ${voucherSel.id}`, avisado: false, usado: false,
           });
+          if (!rs || !rs.ok) fallos.push(`el voucher de saldo (${formatPrecio(sobra)})`);
         }
       }
       lineas.forEach((l) => {
@@ -1341,10 +1347,14 @@ function abrirPopupVenta(lineas, opts) {
       }
       cerrarModal();
       actualizarBadge();
-      const msg = voucherSel
-        ? (voucherSel.tipo === "monto" && voucherSel.monto > base ? "Venta registrada · Voucher aplicado (queda saldo)" : "Venta registrada · Voucher aplicado")
-        : "Venta registrada";
-      toast(msg);
+      if (fallos.length) {
+        toast("Venta registrada, pero falló: " + fallos.join(", ") + ". Revisalo a mano.");
+      } else {
+        const msg = voucherSel
+          ? (voucherSel.tipo === "monto" && voucherSel.monto > base ? "Venta registrada · Voucher aplicado (queda saldo)" : "Venta registrada · Voucher aplicado")
+          : "Venta registrada";
+        toast(msg);
+      }
       renderVentasCategorias(document.getElementById("view"));
     } else {
       toast("Error al registrar la venta");

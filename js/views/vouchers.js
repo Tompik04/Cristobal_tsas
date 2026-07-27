@@ -336,7 +336,8 @@ function abrirNuevoVoucher() {
     }
     // un voucher comprado de descuento no tiene sentido (no entra plata fija); avisar
     if (comprado && tipo === "descuento") return toast("Un voucher comprado debe ser de monto fijo");
-    await API.crearVoucher(voucher);
+    const resVch = await API.crearVoucher(voucher);
+    if (!resVch || !resVch.ok) return toast("No se pudo crear el voucher. Revisá la conexión e intentá de nuevo.");
     cerrarModal();
     toast("Voucher creado");
     cargarVouchers();

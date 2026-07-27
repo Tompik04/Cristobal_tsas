@@ -456,7 +456,8 @@ function abrirPagoCuenta(cuentaId, deuda) {
     // usar la fecha elegida (puede ser de un día anterior)
     const fVal = document.getElementById("ccFecha").value;
     const fecha = fVal ? new Date(fVal).toISOString() : new Date().toISOString();
-    await API.registrarPagoCuenta(cuentaId, Math.round(cobradoFinal), metodo, Math.round(saldaFinal), fecha);
+    const res = await API.registrarPagoCuenta(cuentaId, Math.round(cobradoFinal), metodo, Math.round(saldaFinal), fecha);
+    if (!res || !res.ok) return toast("No se pudo registrar el pago. Revisá la conexión e intentá de nuevo.");
     toast(`Pago registrado · saldó ${formatPrecio(Math.round(saldaFinal))}`);
     await recargarYReabrir(cuentaId);
   };
@@ -710,7 +711,11 @@ function abrirPagoSena(s, saldo) {
     const fVal = document.getElementById("spFecha").value;
     const fecha = fVal ? new Date(fVal).toISOString() : new Date().toISOString();
 
-    await API.pagarSena(s.id, monto, metodo, fecha);
+    const resPago = await API.pagarSena(s.id, monto, metodo, fecha);
+    if (!resPago || !resPago.ok) {
+      btn.disabled = false; btn.textContent = "Guardar";
+      return toast("No se pudo registrar el pago. Revisá la conexión e intentá de nuevo.");
+    }
     // si completó el total, la seña queda completada (la prenda ya salió del stock al señar)
     const completa = (monto >= saldo);
     if (completa) await API.actualizarEstadoSena(s.id, "completada");
