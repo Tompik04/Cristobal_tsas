@@ -57,10 +57,17 @@ function nombreMes(ym) {
 
 // costo estimado de una venta: busca el costo actual de esa prenda en el stock
 function costoDeVenta(v) {
+  // una venta "cambiada": la prenda se devolvió y volvió al stock, así que su costo
+  // NO cuenta (sino se descontaría dos veces: acá y cuando la prenda se revenda).
+  if (v.cambiada) return 0;
   const s = State.stock.find((x) => x.codigo === v.codigo);
   const costoUnit = s ? s.costo : 0;
   return costoUnit * v.cantidad;
 }
+
+// ¿esta venta representa una prenda realmente entregada? (para contar unidades/rankings)
+// Una venta cambiada NO: su prenda volvió al stock. Su plata sí sigue en el bruto.
+function esVentaDePrenda(v) { return !v.cambiada; }
 
 function pintarInformes() {
   const body = document.getElementById("infBody");
@@ -89,7 +96,7 @@ function bloqueResumen(ventas) {
   const bruto = ventas.reduce((a, v) => a + v.precioFinal, 0);
   const costo = ventas.reduce((a, v) => a + costoDeVenta(v), 0);
   const neta = bruto - costo;
-  const unidades = ventas.reduce((a, v) => a + v.cantidad, 0);
+  const unidades = ventas.reduce((a, v) => a + (esVentaDePrenda(v) ? v.cantidad : 0), 0);
   const margen = bruto > 0 ? Math.round((neta / bruto) * 100) : 0;
 
   // cobros de cuenta corriente y señas del período (plata que entró aparte de las ventas)
@@ -169,7 +176,7 @@ function bloqueMensual() {
     if (!porMes[ym]) porMes[ym] = { bruto: 0, neta: 0, unidades: 0 };
     porMes[ym].bruto += v.precioFinal;
     porMes[ym].neta += v.precioFinal - costoDeVenta(v);
-    porMes[ym].unidades += v.cantidad;
+    porMes[ym].unidades += esVentaDePrenda(v) ? v.cantidad : 0;
   });
   const meses = Object.keys(porMes).sort();
   if (meses.length < 2) return ""; // con un solo mes no tiene sentido el gráfico
@@ -205,6 +212,7 @@ function bloqueMensual() {
 function bloqueTopPrendas(ventas) {
   const porCod = {};
   ventas.forEach((v) => {
+    if (!esVentaDePrenda(v)) return; // las cambiadas no cuentan como prenda vendida
     if (!porCod[v.codigo]) porCod[v.codigo] = { codigo: v.codigo, marca: v.marca, unidades: 0, total: 0 };
     porCod[v.codigo].unidades += v.cantidad;
     porCod[v.codigo].total += v.precioFinal;
@@ -229,7 +237,7 @@ function bloqueTopPrendas(ventas) {
 /* ---------- Bloque 4: talles más vendidos ---------- */
 function bloqueTopTalles(ventas) {
   const porTalle = {};
-  ventas.forEach((v) => { porTalle[v.talle] = (porTalle[v.talle] || 0) + v.cantidad; });
+  ventas.forEach((v) => { if (!esVentaDePrenda(v)) return; porTalle[v.talle] = (porTalle[v.talle] || 0) + v.cantidad; });
   const orden = Object.entries(porTalle).sort((a, b) => b[1] - a[1]);
   const max = Math.max(...orden.map(([, n]) => n));
   const totalU = orden.reduce((a, [, n]) => a + n, 0);
@@ -259,6 +267,7 @@ function bloqueRecomendaciones(ventas) {
   // por código: vendidas vs stock actual. Alta rotación = vendido alto respecto a lo que queda.
   const stat = {};
   ventas.forEach((v) => {
+    if (!esVentaDePrenda(v)) return;
     if (!stat[v.codigo]) stat[v.codigo] = { codigo: v.codigo, marca: v.marca, vendidas: 0 };
     stat[v.codigo].vendidas += v.cantidad;
   });
@@ -326,6 +335,7 @@ function bloqueMejoresMeses() {
     if (!ym) return;
     // deducir categoría del stock actual, o del número del código
     const s = State.stock.find((x) => x.codigo === v.codigo);
+    if (!esVentaDePrenda(v)) return;
     const cat = s ? s.categoria : (categoriaDeCodigo ? categoriaDeCodigo(v.codigo) : "—");
     if (!porMesCat[ym]) porMesCat[ym] = {};
     porMesCat[ym][cat] = (porMesCat[ym][cat] || 0) + v.cantidad;
