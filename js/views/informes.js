@@ -55,13 +55,20 @@ function nombreMes(ym) {
   return `${nombres[Number(m) - 1] || m} ${a}`;
 }
 
-// costo estimado de una venta: busca el costo actual de esa prenda en el stock
+// costo estimado de una venta
 function costoDeVenta(v) {
   // una venta "cambiada": la prenda se devolvió y volvió al stock, así que su costo
   // NO cuenta (sino se descontaría dos veces: acá y cuando la prenda se revenda).
   if (v.cambiada) return 0;
-  const s = State.stock.find((x) => x.codigo === v.codigo);
-  const costoUnit = s ? s.costo : 0;
+  // costo guardado al momento de la venta (fijo, no cambia si se repone o borra la prenda).
+  // Ventas viejas no lo tienen (null): para esas caemos al costo actual del stock, como antes.
+  let costoUnit;
+  if (v.precioCosto != null) {
+    costoUnit = v.precioCosto;
+  } else {
+    const s = State.stock.find((x) => x.codigo === v.codigo);
+    costoUnit = s ? s.costo : 0;
+  }
   return costoUnit * v.cantidad;
 }
 
@@ -88,7 +95,7 @@ function pintarInformes() {
     bloqueTopTalles(ventas) +
     bloqueRecomendaciones(ventas) +
     bloqueMejoresMeses() +
-    `<p class="inf-nota"><i class="ti ti-info-circle"></i> La ganancia neta usa el costo actual de cada prenda en stock, por lo que es una estimación.</p>`;
+    `<p class="inf-nota"><i class="ti ti-info-circle"></i> La ganancia neta usa el costo guardado en cada venta. Ventas anteriores a esta mejora usan el costo actual del stock, así que son una estimación.</p>`;
 }
 
 /* ---------- Bloque 1: resumen (ingresos, ganancias) ---------- */

@@ -106,6 +106,9 @@ function ventaDeDB(r) {
     oferta: Number(r.oferta) || 0,
     precioBase: Number(r.precio_base) || 0, precioFinal: Number(r.precio_final) || 0,
     precioProducto: r.precio_producto != null ? Number(r.precio_producto) : null,
+    // costo unitario guardado al vender. NULL en ventas viejas (antes de esta columna):
+    // en ese caso el informe cae al costo actual del stock como antes.
+    precioCosto: r.precio_costo != null ? Number(r.precio_costo) : null,
     metodoPago: r.metodo_pago, voucherId: r.voucher_id,
     pagos: r.pagos || null,
     inicioCambio: r.inicio_cambio, limiteCambio: r.limite_cambio,
@@ -386,6 +389,9 @@ const API = {
           precio_base: baseL,
           precio_producto: productoLinea,
           precio_final: finalLinea,
+          // costo unitario al momento de la venta, para que el margen histórico no cambie
+          // si después se repone la prenda a otro precio o se borra la fila del stock.
+          precio_costo: Number(l.costo) || 0,
           metodo_pago: metodoTxt, voucher_id: det.voucherId || null,
           pagos: partesLinea,
           inicio_cambio: det.inicioCambio || null, limite_cambio: limite, restaurada: false,
