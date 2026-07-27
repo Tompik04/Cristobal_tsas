@@ -288,6 +288,9 @@ const API = {
           const q2 = Math.min(actual, quitar);
           if (q2 > 0) { await SB.update("stock", "id=eq." + r.id, { cantidad: actual - q2 }); quitar -= q2; }
         }
+        // si sobró para quitar, no había stock suficiente en las filas de esa variante.
+        // No dejamos el stock negativo (queda en 0), pero avisamos para no ocultar el faltante.
+        if (quitar > 0) return { ok: true, faltante: quitar };
       } else {
         const r = rows[0];
         await SB.update("stock", "id=eq." + r.id, { cantidad: (Number(r.cantidad) || 0) + delta });
@@ -391,9 +394,16 @@ const API = {
         };
       });
       await SB.insert("ventas", filas);
-      // descontar stock
-      for (const l of lineas) await this.ajustarStockPorVariante(l.codigo, l.talle, l.color, -l.cantidad);
-      return { ok: true, idVenta: id };
+      // descontar stock. La venta YA está guardada; si el descuento falla o no alcanza,
+      // no revertimos (ya se cobró) pero juntamos los avisos para que la vista los muestre.
+      const stockAvisos = [];
+      for (const l of lineas) {
+        const rs = await this.ajustarStockPorVariante(l.codigo, l.talle, l.color, -l.cantidad);
+        const etiqueta = `${l.codigo} ${l.talle}/${l.color}`;
+        if (!rs || !rs.ok) stockAvisos.push(`${etiqueta} (no se pudo descontar)`);
+        else if (rs.faltante) stockAvisos.push(`${etiqueta} (faltaban ${rs.faltante} en stock)`);
+      }
+      return { ok: true, idVenta: id, stockAvisos };
     } catch (e) { return { ok: false, error: String(e) }; }
   },
 

@@ -1303,6 +1303,10 @@ function abrirPopupVenta(lineas, opts) {
       // la venta ya quedó guardada. Los pasos que siguen son secundarios: si alguno
       // falla, la venta NO se pierde, pero avisamos para que se corrija a mano.
       const fallos = [];
+      // avisos de stock que no se pudo descontar (o no alcanzaba) al guardar la venta
+      if (res.stockAvisos && res.stockAvisos.length) {
+        fallos.push("descontar stock de " + res.stockAvisos.join(", "));
+      }
       // guardar la factura si el panel estaba abierto (aunque le falten datos)
       if (datosFac) {
         const rf = await API.crearFactura({
