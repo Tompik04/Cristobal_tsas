@@ -68,8 +68,7 @@ async function cargarGastos() {
 }
 
 function mesActualISO() {
-  const d = new Date();
-  return d.toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" }).slice(0, 7);
+  return mesLocalDe(new Date().toISOString());
 }
 function mesLegible(iso) {
   const [a, m] = iso.split("-");
@@ -92,10 +91,10 @@ function pintarResumen() {
   // ventas del mes (no restauradas). Se usa precioFinal = lo que REALMENTE se cobró
   // (ya con descuento, regalo o adicional aplicado). Con precioBase, un regalo sumaba
   // el precio de lista aunque no hubiera entrado plata.
-  const ventasMes = _ventasParaResumen.filter((v) => !v.restaurada && (v.fechaHora || "").slice(0, 7) === mes);
+  const ventasMes = _ventasParaResumen.filter((v) => !v.restaurada && mesLocalDe(v.fechaHora || "") === mes);
   const totalVentasPuras = ventasMes.reduce((a, v) => a + (v.precioFinal != null ? v.precioFinal : (v.precioBase || 0)), 0);
   // cobros de cuenta corriente y señas del mismo mes
-  const cobrosMes = _cobrosExtra.filter((c) => (c.fechaHora || "").slice(0, 7) === mes);
+  const cobrosMes = _cobrosExtra.filter((c) => mesLocalDe(c.fechaHora || "") === mes);
   const totalCobros = cobrosMes.reduce((a, c) => a + c.monto, 0);
   const totalVentas = totalVentasPuras + totalCobros;
 

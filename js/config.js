@@ -64,6 +64,15 @@ function fechaLocalISO(iso) {
   return d.toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
 }
 
+// mes local (Argentina) "yyyy-mm" de un timestamp UTC. Para agrupar/filtrar por mes
+// SIN que una venta de la noche (ej. 31/01 22:00 => 01/02 en UTC) caiga en el mes siguiente.
+// OJO: usar solo con fechas que tienen hora (timestamps). Una fecha tipo "2026-01-31"
+// (sin hora, como la de un gasto) NO debe pasar por acá: ya es local y se correría un día.
+function mesLocalDe(iso) {
+  return fechaLocalISO(iso).slice(0, 7);
+}
+
+
 // estado de alarma de un voucher: "roja" | "amarilla" | "ninguna" | "vencido" | "usado"
 function estadoAlarmaVoucher(v) {
   if (v.usado) return "usado";

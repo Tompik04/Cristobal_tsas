@@ -36,7 +36,7 @@ async function cargarInformes() {
   if (rvo && rvo.ok && rvo.vouchers) rvo.vouchers.filter((v) => v.comprado && (v.pagado || 0) > 0).forEach((v) => _cobrosInf.push({ fecha: v.fecha, monto: v.pagado || 0, tipo: "Voucher" }));
 
   // armar el selector de meses disponibles
-  const meses = [...new Set(_ventasInf.map((v) => (v.fechaHora || "").substring(0, 7)))].filter(Boolean).sort().reverse();
+  const meses = [...new Set(_ventasInf.map((v) => mesLocalDe(v.fechaHora || "")))].filter(Boolean).sort().reverse();
   const opciones = ['<option value="">Todo el tiempo</option>']
     .concat(meses.map((m) => `<option value="${m}"${m === _mesInf ? " selected" : ""}>${nombreMes(m)}</option>`))
     .join("");
@@ -66,7 +66,7 @@ function pintarInformes() {
   const body = document.getElementById("infBody");
   // filtrar por mes si corresponde
   let ventas = _ventasInf.slice();
-  if (_mesInf) ventas = ventas.filter((v) => (v.fechaHora || "").substring(0, 7) === _mesInf);
+  if (_mesInf) ventas = ventas.filter((v) => mesLocalDe(v.fechaHora || "") === _mesInf);
 
   if (!ventas.length) {
     body.innerHTML = `<div class="soon"><i class="ti ti-chart-bar-off"></i><p>No hay ventas en el período seleccionado.</p></div>`;
@@ -94,7 +94,7 @@ function bloqueResumen(ventas) {
 
   // cobros de cuenta corriente y señas del período (plata que entró aparte de las ventas)
   let cobros = _cobrosInf.slice();
-  if (_mesInf) cobros = cobros.filter((c) => (c.fecha || "").substring(0, 7) === _mesInf);
+  if (_mesInf) cobros = cobros.filter((c) => mesLocalDe(c.fecha || "") === _mesInf);
   const totalCobros = cobros.reduce((a, c) => a + c.monto, 0);
 
   return `
@@ -164,7 +164,7 @@ function bloqueMensual() {
   // siempre usa todas las ventas (ignora el filtro de mes, muestra el año)
   const porMes = {};
   _ventasInf.forEach((v) => {
-    const ym = (v.fechaHora || "").substring(0, 7);
+    const ym = mesLocalDe(v.fechaHora || "");
     if (!ym) return;
     if (!porMes[ym]) porMes[ym] = { bruto: 0, neta: 0, unidades: 0 };
     porMes[ym].bruto += v.precioFinal;
@@ -322,7 +322,7 @@ function bloqueMejoresMeses() {
   // por mes, qué categoría vendió más unidades
   const porMesCat = {};
   _ventasInf.forEach((v) => {
-    const ym = (v.fechaHora || "").substring(0, 7);
+    const ym = mesLocalDe(v.fechaHora || "");
     if (!ym) return;
     // deducir categoría del stock actual, o del número del código
     const s = State.stock.find((x) => x.codigo === v.codigo);
