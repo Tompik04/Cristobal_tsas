@@ -138,6 +138,9 @@ button { font-family: inherit; }
   width: min(85%, 1100px); aspect-ratio: 1; z-index: 0; pointer-events: none;
   display: flex; align-items: center; justify-content: center;
   transition: opacity 0.4s ease, filter 0.4s ease;
+  /* red de seguridad: si una vista no define su tinte, el logo queda sutil igual
+     (antes 'facturas' no tenía clase y el logo salía opaco tapando el contenido) */
+  opacity: 0.03; --bg-logo-color: var(--pale-oak);
 }
 .bg-logo svg { width: 100%; height: 100%; }
 /* el logo toma el color de la variable --bg-logo-color (sobreescribe el fill del svg) */
@@ -155,6 +158,7 @@ button { font-family: inherit; }
 .bg-logo.bg-caja { opacity: 0.03; --bg-logo-color: var(--gold); }
 .bg-logo.bg-gastos { opacity: 0.03; --bg-logo-color: var(--terracotta); }
 .bg-logo.bg-informes { opacity: 0.03; --bg-logo-color: var(--teal-bright); }
+.bg-logo.bg-facturas { opacity: 0.03; --bg-logo-color: var(--amber); }
 
 /* el contenido va por encima del fondo */
 .app-header { position: relative; z-index: 10; }
