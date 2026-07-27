@@ -828,21 +828,25 @@ function bindSrowAgrupada(cont, p, f, idx) {
   row.querySelector('[data-act="plus"]').onclick = async () => {
     const r = refVar(); if (!r) return;
     r.cantidad++; qtyEl.textContent = r.cantidad;
-    await API.ajustarStock(r.id, +1);
+    const res = await API.ajustarStock(r.id, +1);
+    if (!res || !res.ok) { r.cantidad--; qtyEl.textContent = r.cantidad; toast("No se pudo actualizar el stock. Revisá la conexión."); }
   };
   row.querySelector('[data-act="minus"]').onclick = async () => {
     const r = refVar(); if (!r || r.cantidad <= 0) return;
     if (r.cantidad === 1) {
-      // al bajar de 1 a 0, se elimina esa variante para que no quede el talle en 0
+      // al bajar de 1 a 0, se elimina esa variante. Confirmamos con la DB ANTES de sacarla
+      // de memoria, así no desaparece de pantalla si el borrado falla.
+      const resDel = await API.eliminarStock(r.id);
+      if (!resDel || !resDel.ok) return toast("No se pudo quitar la prenda. Revisá la conexión.");
       const idx = State.stock.indexOf(r);
       if (idx >= 0) State.stock.splice(idx, 1);
-      await API.eliminarStock(r.id);
       toast(`${r.codigo} ${r.talle}/${r.color} agotado, se quitó`);
       renderStockCategoria(document.getElementById("view"), StockUI.categoria);
       return;
     }
     r.cantidad--; qtyEl.textContent = r.cantidad;
-    await API.ajustarStock(r.id, -1);
+    const res = await API.ajustarStock(r.id, -1);
+    if (!res || !res.ok) { r.cantidad++; qtyEl.textContent = r.cantidad; toast("No se pudo actualizar el stock. Revisá la conexión."); }
   };
   row.querySelector('[data-act="del"]').onclick = () => {
     const r = refVar(); if (!r) return;
@@ -852,9 +856,10 @@ function bindSrowAgrupada(cont, p, f, idx) {
       mensaje2: "Se borra esa combinación del inventario. ¿Confirmás?",
       textoBoton: "Eliminar",
       onOk: async () => {
+        const res = await API.eliminarStock(r.id);
+        if (!res || !res.ok) return toast("No se pudo eliminar el stock. Revisá la conexión.");
         const idx = State.stock.indexOf(r);
         if (idx >= 0) State.stock.splice(idx, 1);
-        await API.eliminarStock(r.id);
         toast(`${r.codigo} ${r.talle}/${r.color} eliminado`);
         renderStockCategoria(document.getElementById("view"), StockUI.categoria);
       },
@@ -929,15 +934,18 @@ function borrarSeleccionadas() {
     mensaje2: "Se borran del inventario. ¿Confirmás?",
     textoBoton: "Borrar todo",
     onOk: async () => {
+      let fallidas = 0;
       for (const g of grupos) {
         for (const v of g.variantes) {
-          await API.eliminarStock(v.id);
+          const res = await API.eliminarStock(v.id);
+          if (!res || !res.ok) { fallidas++; continue; } // no la saco de memoria si no se borró
           const idx = State.stock.findIndex((s) => s.id === v.id);
           if (idx >= 0) State.stock.splice(idx, 1);
         }
       }
       StockUI.seleccionadas.clear();
-      toast(`${totalFilas} variante${totalFilas === 1 ? "" : "s"} eliminada${totalFilas === 1 ? "" : "s"}`);
+      if (fallidas) toast(`${totalFilas - fallidas} eliminada${totalFilas - fallidas === 1 ? "" : "s"}, ${fallidas} fallaron. Revisá la conexión.`);
+      else toast(`${totalFilas} variante${totalFilas === 1 ? "" : "s"} eliminada${totalFilas === 1 ? "" : "s"}`);
       renderStockCategoria(document.getElementById("view"), StockUI.categoria);
     },
   });
@@ -1002,17 +1010,25 @@ function abrirEditarPrecio(p) {
     if (!nuevaMarca) return toast("La marca no puede quedar vacía");
     if (!nuevoCodigo) return toast("El código no puede quedar vacío");
 
-    // actualizar en memoria las variantes de este grupo (por id)
+    // guardar en la base ANTES de tocar memoria, fila por fila (por id, para no tocar otros lotes)
     const idsGrupo = p.variantes.map((v) => v.id);
+    let fallidas = 0;
+    for (const id of idsGrupo) {
+      const res = await API.editarStockFila(id, { marca: nuevaMarca, codigo: nuevoCodigo, precio: nuevoP, costo: nuevoC });
+      if (!res || !res.ok) fallidas++;
+    }
+    if (fallidas) {
+      cerrarModal();
+      toast(`No se pudieron guardar ${fallidas} de ${idsGrupo.length} cambios. Recargá para ver el estado real.`);
+      renderStockCategoria(document.getElementById("view"), StockUI.categoria);
+      return;
+    }
+    // todo OK: recién ahora actualizo memoria
     State.stock.forEach((s) => {
       if (idsGrupo.includes(s.id)) {
         s.precio = nuevoP; s.costo = nuevoC; s.marca = nuevaMarca; s.codigo = nuevoCodigo;
       }
     });
-    // actualizar en la base, fila por fila (por id, para no tocar otros lotes)
-    for (const id of idsGrupo) {
-      await API.editarStockFila(id, { marca: nuevaMarca, codigo: nuevoCodigo, precio: nuevoP, costo: nuevoC });
-    }
     cerrarModal();
     toast(`Prenda actualizada`);
     renderStockCategoria(document.getElementById("view"), StockUI.categoria);
