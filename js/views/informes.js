@@ -59,7 +59,9 @@ function nombreMes(ym) {
 function costoDeVenta(v) {
   // una venta "cambiada": la prenda se devolvió y volvió al stock, así que su costo
   // NO cuenta (sino se descontaría dos veces: acá y cuando la prenda se revenda).
-  if (v.cambiada) return 0;
+  // una venta de seña: la plata ya se contó en los pagos; esta venta es solo para
+  // habilitar el cambio, no debe sumar costo ni margen.
+  if (v.cambiada || v.esSena) return 0;
   // costo guardado al momento de la venta (fijo, no cambia si se repone o borra la prenda).
   // Ventas viejas no lo tienen (null): para esas caemos al costo actual del stock, como antes.
   let costoUnit;
@@ -74,7 +76,7 @@ function costoDeVenta(v) {
 
 // ¿esta venta representa una prenda realmente entregada? (para contar unidades/rankings)
 // Una venta cambiada NO: su prenda volvió al stock. Su plata sí sigue en el bruto.
-function esVentaDePrenda(v) { return !v.cambiada; }
+function esVentaDePrenda(v) { return !v.cambiada && !v.esSena; }
 
 function pintarInformes() {
   const body = document.getElementById("infBody");

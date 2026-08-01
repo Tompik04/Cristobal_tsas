@@ -117,6 +117,8 @@ function ventaDeDB(r) {
     cambiada: !!r.cambiada,
     esCambio: !!r.es_cambio,
     cambioDe: r.cambio_de || null,
+    esSena: !!r.es_sena,
+    senaId: r.sena_id || null,
   };
 }
 // Supabase devuelve timestamps como "2026-06-22 00:55:00+00" (con espacio).
@@ -567,6 +569,39 @@ const API = {
         sena_id: senaId, fecha: fecha || new Date().toISOString(),
         monto: Number(monto) || 0, metodo_pago: metodoPago || "",
       }]);
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
+  // Al completarse una seña, se crea una venta por cada prenda para que se pueda CAMBIAR.
+  // precio_final = 0: la plata ya se contó en los pagos de la seña (no se cuenta de nuevo).
+  // precio_producto = valor de la prenda: es lo que el cambio acredita al devolverla.
+  // El plazo de cambio (inicio/limite) arranca el día que se completó la seña.
+  async registrarVentasDeSena(sena, items, fecha) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try {
+      const fechaISO = fecha || new Date().toISOString();
+      const inicio = fechaLocalISO(fechaISO); // yyyy-mm-dd del completado
+      const limite = sumarDias(inicio, CONFIG.DIAS_CAMBIO);
+      const baseId = "VS-" + Date.now();
+      const filas = items.map((l, i) => {
+        const valor = l.precio * l.cantidad * (1 - (l.oferta || 0) / 100);
+        return {
+          id: baseId + "-" + i,
+          fecha_hora: fechaISO,
+          codigo: l.codigo, marca: l.marca, talle: l.talle, color: l.color,
+          cantidad: l.cantidad, oferta: l.oferta || 0,
+          precio_base: l.precio * l.cantidad,
+          precio_producto: valor,
+          precio_final: 0,
+          precio_costo: 0, // sena_items no guarda costo; no afecta (es_sena se excluye del margen)
+          metodo_pago: "Seña",
+          inicio_cambio: inicio, limite_cambio: limite, restaurada: false,
+          es_cambio: false, cambio_de: null,
+          es_sena: true, sena_id: sena.id,
+        };
+      });
+      await SB.insert("ventas", filas);
       return { ok: true };
     } catch (e) { return { ok: false, error: String(e) }; }
   },

@@ -83,7 +83,7 @@ async function cargarHistorial() {
     if (v.esCambio && v.cambioDe) _cambioPorOrigen[v.cambioDe] = v; // original → prenda que se llevó
   });
 
-  _ventasHist = res.ventas.concat(pagosCC).concat(pagosSE).concat(ingresosVO)
+  _ventasHist = res.ventas.filter((v) => !v.esSena).concat(pagosCC).concat(pagosSE).concat(ingresosVO)
     .filter((v) => new Date(v.fechaHora) >= desde)
     .sort((a, b) => new Date(b.fechaHora) - new Date(a.fechaHora));
 

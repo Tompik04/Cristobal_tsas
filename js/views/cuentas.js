@@ -718,10 +718,17 @@ function abrirPagoSena(s, saldo) {
     }
     // si completó el total, la seña queda completada (la prenda ya salió del stock al señar)
     const completa = (monto >= saldo);
-    if (completa) await API.actualizarEstadoSena(s.id, "completada");
+    let avisoCambio = "";
+    if (completa) {
+      await API.actualizarEstadoSena(s.id, "completada");
+      // crear una venta por cada prenda para que se pueda cambiar (el plazo arranca hoy)
+      const itemsSena = _senaItems.filter((i) => i.senaId === s.id);
+      const resVta = await API.registrarVentasDeSena(s, itemsSena, fecha);
+      if (!resVta || !resVta.ok) avisoCambio = " (no se pudo habilitar el cambio, revisalo)";
+    }
 
     cerrarModal();
-    toast(completa ? "Seña completada · El cliente se lleva la prenda" : `Pago registrado · ${formatPrecio(monto)}`);
+    toast(completa ? `Seña completada · El cliente se lleva la prenda${avisoCambio}` : `Pago registrado · ${formatPrecio(monto)}`);
     cargarSenas();
   };
 }
