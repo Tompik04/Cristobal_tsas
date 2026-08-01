@@ -580,6 +580,10 @@ const API = {
   async registrarVentasDeSena(sena, items, fecha) {
     if (CONFIG.MODO_PRUEBA) return { ok: true };
     try {
+      // idempotente: si esta seña ya tiene su venta de cambio, no la duplicamos.
+      // (protege el completado normal y el botón "Habilitar cambio" de las viejas)
+      const yaHay = await SB.select("ventas", "select=id&es_sena=eq.true&sena_id=eq." + enc(sena.id));
+      if (yaHay && yaHay.length) return { ok: true, yaExistia: true };
       const fechaISO = fecha || new Date().toISOString();
       const inicio = fechaLocalISO(fechaISO); // yyyy-mm-dd del completado
       const limite = sumarDias(inicio, CONFIG.DIAS_CAMBIO);

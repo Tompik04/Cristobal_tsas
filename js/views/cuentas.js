@@ -594,11 +594,30 @@ function abrirDetalleSena(senaId) {
         ${s.estado === "activa" ? `
           <button class="btn-ghost sd-cancelar" id="sdCancelar">Cancelar seña</button>
           <button class="btn-primary" id="sdPagar">Registrar pago</button>` : ""}
+        ${s.estado === "completada" ? `
+          <button class="btn-primary" id="sdHabilitarCambio">Habilitar cambio</button>` : ""}
       </div>
     </div>`;
 
   document.getElementById("sdOv").onclick = cerrarModal;
   document.getElementById("sdCerrar").onclick = cerrarModal;
+
+  // habilitar el cambio de una seña YA completada (viejas, o para volver a habilitar).
+  // Crea la venta de cambio con plazo desde hoy. Es idempotente: si ya existe, no duplica.
+  const btnHab = document.getElementById("sdHabilitarCambio");
+  if (btnHab) btnHab.onclick = async () => {
+    btnHab.disabled = true; btnHab.textContent = "Habilitando...";
+    const res = await API.registrarVentasDeSena(s, items, new Date().toISOString());
+    if (!res || !res.ok) {
+      btnHab.disabled = false; btnHab.textContent = "Habilitar cambio";
+      return toast("No se pudo habilitar el cambio. Revisá la conexión.");
+    }
+    cerrarModal();
+    toast(res.yaExistia
+      ? "El cambio ya estaba habilitado para esta seña"
+      : `Cambio habilitado · ${CONFIG.DIAS_CAMBIO} días para cambiar la prenda`);
+    cargarSenas();
+  };
 
   if (s.estado !== "activa") return;
 
