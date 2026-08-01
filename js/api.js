@@ -536,6 +536,16 @@ const API = {
     } catch (e) { return { ok: false, error: String(e) }; }
   },
 
+  // ids de señas que YA tienen su venta de cambio creada (para no re-habilitarlas).
+  // Va aparte de getSenas para que, si falla, no rompa la carga de señas.
+  async getSenasHabilitadas() {
+    if (CONFIG.MODO_PRUEBA) return { ok: true, ids: [] };
+    try {
+      const rows = await SB.select("ventas", "select=sena_id&es_sena=eq.true");
+      return { ok: true, ids: [...new Set(rows.map((r) => r.sena_id).filter(Boolean))] };
+    } catch (e) { return { ok: false, ids: [] }; }
+  },
+
   // Crea la seña: guarda cabecera, prendas y el primer pago, y descuenta el stock
   async crearSena(sena, lineas, pagoInicial) {
     if (CONFIG.MODO_PRUEBA) return { ok: true };

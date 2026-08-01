@@ -470,15 +470,16 @@ function abrirPagoCuenta(cuentaId, deuda) {
    las prendas vuelven al stock.
    ============================================================ */
 
-let _senas = [], _senaItems = [], _senaPagos = [];
+let _senas = [], _senaItems = [], _senaPagos = [], _senasHabilitadas = new Set();
 
 async function cargarSenas() {
-  const res = await API.getSenas();
+  const [res, rh] = await Promise.all([API.getSenas(), API.getSenasHabilitadas()]);
   if (!res.ok) {
     document.getElementById("senaList").innerHTML = `<div class="soon"><i class="ti ti-alert-triangle"></i><p>No se pudieron cargar las señas.</p></div>`;
     return;
   }
   _senas = res.senas; _senaItems = res.items; _senaPagos = res.pagos;
+  _senasHabilitadas = new Set(rh && rh.ok ? rh.ids : []);
 
   const fcont = document.getElementById("senaFiltros");
   fcont.innerHTML = "";
@@ -557,6 +558,12 @@ function abrirDetalleSena(senaId) {
   const pagado = pagadoSena(senaId);
   const saldo = saldoSena(s);
 
+  // botón de acción para señas completadas: habilitar el cambio, o mostrar que ya está.
+  const yaHabilitada = _senasHabilitadas.has(s.id);
+  const btnCompletada = s.estado !== "completada" ? "" : (yaHabilitada
+    ? `<button class="btn-ghost" disabled>Cambio habilitado ✓</button>`
+    : `<button class="btn-primary" id="sdHabilitarCambio">Habilitar cambio</button>`);
+
   const itemsHTML = items.map((i) => `
     <div class="sd-item">
       <span>${escAttr(i.marca || i.codigo)} · ${i.talle}/${i.color} · x${i.cantidad}</span>
@@ -594,8 +601,7 @@ function abrirDetalleSena(senaId) {
         ${s.estado === "activa" ? `
           <button class="btn-ghost sd-cancelar" id="sdCancelar">Cancelar seña</button>
           <button class="btn-primary" id="sdPagar">Registrar pago</button>` : ""}
-        ${s.estado === "completada" ? `
-          <button class="btn-primary" id="sdHabilitarCambio">Habilitar cambio</button>` : ""}
+        ${s.estado === "completada" ? btnCompletada : ""}
       </div>
     </div>`;
 
@@ -613,6 +619,7 @@ function abrirDetalleSena(senaId) {
       return toast("No se pudo habilitar el cambio. Revisá la conexión.");
     }
     cerrarModal();
+    if (!res.yaExistia) _senasHabilitadas.add(s.id);
     toast(res.yaExistia
       ? "El cambio ya estaba habilitado para esta seña"
       : `Cambio habilitado · ${CONFIG.DIAS_CAMBIO} días para cambiar la prenda`);
