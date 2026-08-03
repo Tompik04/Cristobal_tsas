@@ -396,6 +396,12 @@ button { font-family: inherit; }
 .inf-bar-bruto, .inf-bar-neta { width: 40%; border-radius: 4px 4px 0 0; min-height: 2px; transition: height 0.4s ease; }
 .inf-bar-bruto { background: linear-gradient(to top, var(--teal), var(--teal-bright)); }
 .inf-bar-neta { background: linear-gradient(to top, #5BA47F, var(--gold-bright)); }
+/* barras de prendas por mes (entraron vs vendidas) */
+.dot-entraron { background: var(--teal-bright); }
+.dot-vendidas { background: var(--terracotta); }
+.inf-bar-entraron, .inf-bar-vendidas { width: 40%; border-radius: 4px 4px 0 0; min-height: 2px; transition: height 0.4s ease; }
+.inf-bar-entraron { background: linear-gradient(to top, var(--teal), var(--teal-bright)); }
+.inf-bar-vendidas { background: linear-gradient(to top, #A65A3E, var(--terracotta)); }
 .inf-barmes-label { font-size: 11px; color: var(--oak-60); white-space: nowrap; }
 .inf-barmes-val { font-size: 10px; color: var(--oak-55); }
 

@@ -6,6 +6,7 @@
 
 let _ventasInf = [];   // ventas cargadas (sin restauradas)
 let _cobrosInf = [];   // cobros de cuenta corriente y señas
+let _ingresosInf = []; // log de ingresos de stock (prendas que entraron por mes)
 let _mesInf = "";      // filtro de mes actual ("" = todo el tiempo)
 
 function renderInformes(root) {
@@ -20,13 +21,14 @@ function renderInformes(root) {
 }
 
 async function cargarInformes() {
-  const [res, rc, rs, rvo] = await Promise.all([API.getVentas(), API.getCuentas(), API.getSenas(), API.getVouchers()]);
+  const [res, rc, rs, rvo, ri] = await Promise.all([API.getVentas(), API.getCuentas(), API.getSenas(), API.getVouchers(), API.getIngresosStock()]);
   if (!res.ok) {
     document.getElementById("infBody").innerHTML = `<div class="soon"><i class="ti ti-alert-triangle"></i><p>No se pudieron cargar las ventas.</p></div>`;
     return;
   }
   // excluir ventas restauradas (no cuentan como venta real)
   _ventasInf = res.ventas.filter((v) => !v.restaurada);
+  _ingresosInf = ri && ri.ok ? ri.ingresos : [];
 
   // cobros de cuenta corriente y señas: son plata que entró, pero no son
   // "ventas de prenda", así que se muestran aparte y no ensucian el margen.
@@ -93,6 +95,7 @@ function pintarInformes() {
     bloqueResumen(ventas) +
     bloqueValorStock() +
     bloqueMensual() +
+    bloquePrendasMensual() +
     bloqueTopPrendas(ventas) +
     bloqueTopTalles(ventas) +
     bloqueRecomendaciones(ventas) +
@@ -212,6 +215,51 @@ function bloqueMensual() {
       <div class="inf-legend">
         <span><i class="inf-dot dot-bruto"></i> Ingresos brutos</span>
         <span><i class="inf-dot dot-neta"></i> Ganancia neta</span>
+      </div>
+      <div class="inf-barmes-grid">${barras}</div>
+    </div>`;
+}
+
+// Prendas que entraron vs se vendieron, mes a mes (conteo de unidades, no plata)
+function bloquePrendasMensual() {
+  const porMes = {};
+  const tocar = (ym) => { if (!porMes[ym]) porMes[ym] = { entraron: 0, vendidas: 0 }; };
+  _ingresosInf.forEach((i) => {
+    const ym = mesLocalDe(i.fecha || "");
+    if (!ym) return;
+    tocar(ym); porMes[ym].entraron += i.cantidad || 0;
+  });
+  _ventasInf.forEach((v) => {
+    if (!esVentaDePrenda(v)) return; // no cuenta cambiadas ni ventas de seña
+    const ym = mesLocalDe(v.fechaHora || "");
+    if (!ym) return;
+    tocar(ym); porMes[ym].vendidas += v.cantidad || 0;
+  });
+  const meses = Object.keys(porMes).sort();
+  if (!meses.length) return "";
+
+  const maxVal = Math.max(1, ...meses.map((m) => Math.max(porMes[m].entraron, porMes[m].vendidas)));
+  const barras = meses.map((m) => {
+    const d = porMes[m];
+    const hEnt = (d.entraron / maxVal) * 100;
+    const hVen = (d.vendidas / maxVal) * 100;
+    return `
+      <div class="inf-barmes">
+        <div class="inf-barmes-bars" title="${nombreMes(m)}: entraron ${d.entraron}, vendidas ${d.vendidas}">
+          <div class="inf-bar-entraron" style="height:${hEnt}%"></div>
+          <div class="inf-bar-vendidas" style="height:${hVen}%"></div>
+        </div>
+        <span class="inf-barmes-label">${m.substring(5)}/${m.substring(2, 4)}</span>
+        <span class="inf-barmes-val">${d.entraron}/${d.vendidas}</span>
+      </div>`;
+  }).join("");
+
+  return `
+    <div class="inf-section">
+      <h3 class="inf-h3"><i class="ti ti-hanger"></i> Prendas por mes</h3>
+      <div class="inf-legend">
+        <span><i class="inf-dot dot-entraron"></i> Entraron</span>
+        <span><i class="inf-dot dot-vendidas"></i> Vendidas</span>
       </div>
       <div class="inf-barmes-grid">${barras}</div>
     </div>`;
