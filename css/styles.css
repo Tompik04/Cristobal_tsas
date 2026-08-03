@@ -665,6 +665,7 @@ button { font-family: inherit; }
 .resumen-mes { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 0.5rem 2.5% 1rem; }
 .mes-nav { background: var(--oak-08); border: 1px solid var(--oak-25); color: var(--pale-oak); border-radius: 9px; width: 38px; height: 38px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
 .mes-nav:hover { background: var(--oak-20); }
+.mes-nav[disabled] { opacity: 0.3; cursor: default; pointer-events: none; }
 .mes-label { font-size: 18px; letter-spacing: 0.06em; color: var(--pale-oak); min-width: 180px; text-align: center; }
 .resumen-cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; padding: 0 2.5% 1.5rem; }
 .rcard { background: var(--oak-08); border: 1px solid var(--oak-25); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 6px; align-items: center; }

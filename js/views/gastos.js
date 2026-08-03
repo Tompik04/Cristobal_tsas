@@ -72,6 +72,31 @@ async function cargarGastos() {
 function mesActualISO() {
   return mesLocalDe(new Date().toISOString());
 }
+
+// mes en que se compró el local (arranca la data). No se puede ir más atrás.
+const MES_INICIO_LOCAL = "2026-06";
+
+// prendas en el local al FIN del mes dado.
+// - mes actual (o futuro): el stock real y vivo (cambia con cada venta/ingreso).
+// - meses pasados: reconstruido = acumulado de (entraron − vendidas) hasta ese mes inclusive.
+function prendasEnLocalDe(mes) {
+  const stockReal = (typeof State !== "undefined" && State.stock ? State.stock : [])
+    .reduce((a, s) => a + (s.cantidad || 0), 0);
+  if (mes >= mesActualISO()) return stockReal;
+  const entraron = _ingresosStock
+    .filter((i) => mesLocalDe(i.fecha || "") <= mes)
+    .reduce((a, i) => a + (i.cantidad || 0), 0);
+  const vendidas = _ventasParaResumen
+    .filter((v) => !v.restaurada && !v.cambiada && !v.esSena && mesLocalDe(v.fechaHora || "") <= mes)
+    .reduce((a, v) => a + (v.cantidad || 0), 0);
+  return entraron - vendidas;
+}
+
+// etiqueta del mes; junio 2026 es el "Mes 0" (compra del local)
+function mesLegibleConHito(iso) {
+  return iso === MES_INICIO_LOCAL ? "Mes 0 - " + mesLegible(iso) : mesLegible(iso);
+}
+
 function mesLegible(iso) {
   const [a, m] = iso.split("-");
   const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -115,16 +140,20 @@ function pintarResumen() {
   const prendasVendidas = _ventasParaResumen
     .filter((v) => !v.restaurada && !v.cambiada && !v.esSena && mesLocalDe(v.fechaHora || "") === mes)
     .reduce((a, v) => a + (v.cantidad || 0), 0);
-  const prendasEnLocal = (typeof State !== "undefined" && State.stock ? State.stock : [])
-    .reduce((a, s) => a + (s.cantidad || 0), 0);
+  // en el local: el mes ACTUAL usa el stock real y vivo; los meses pasados se reconstruyen
+  // como acumulado (todo lo que entró − todo lo que se vendió hasta el fin de ese mes).
+  const prendasEnLocal = prendasEnLocalDe(mes);
 
   const privado = modoPrivadoActivo();
+  // límites de navegación: no ir antes de la compra del local, ni después del mes actual
+  const prevOff = mes <= MES_INICIO_LOCAL;
+  const nextOff = mes >= mesActualISO();
   // en modo normal: solo mes actual (sin flechas) y solo la tarjeta de Gastos
   const navMeses = privado
-    ? `<button class="mes-nav" id="mesPrev"><i class="ti ti-chevron-left"></i></button>
-       <span class="mes-label">${mesLegible(mes)}</span>
-       <button class="mes-nav" id="mesNext"><i class="ti ti-chevron-right"></i></button>`
-    : `<span class="mes-label">${mesLegible(mes)}</span>`;
+    ? `<button class="mes-nav" id="mesPrev"${prevOff ? " disabled" : ""}><i class="ti ti-chevron-left"></i></button>
+       <span class="mes-label">${mesLegibleConHito(mes)}</span>
+       <button class="mes-nav" id="mesNext"${nextOff ? " disabled" : ""}><i class="ti ti-chevron-right"></i></button>`
+    : `<span class="mes-label">${mesLegibleConHito(mes)}</span>`;
 
   let cardsHTML;
   if (privado) {
@@ -149,8 +178,10 @@ function pintarResumen() {
     <div id="checklistGastos"></div>`;
 
   if (privado) {
-    document.getElementById("mesPrev").onclick = () => { _mesGastos = correrMes(mes, -1); pintarResumen(); pintarGastos(filtrosGasto()); };
-    document.getElementById("mesNext").onclick = () => { _mesGastos = correrMes(mes, 1); pintarResumen(); pintarGastos(filtrosGasto()); };
+    const bPrev = document.getElementById("mesPrev");
+    const bNext = document.getElementById("mesNext");
+    if (bPrev) bPrev.onclick = () => { if (mes <= MES_INICIO_LOCAL) return; _mesGastos = correrMes(mes, -1); pintarResumen(); pintarGastos(filtrosGasto()); };
+    if (bNext) bNext.onclick = () => { if (mes >= mesActualISO()) return; _mesGastos = correrMes(mes, 1); pintarResumen(); pintarGastos(filtrosGasto()); };
   }
 
   pintarChecklist(gastosDelMes);
