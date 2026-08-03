@@ -213,9 +213,22 @@ const API = {
     try {
       // traer stock actual para sumar cantidades a lo existente
       const actual = await SB.select("stock", "select=*");
-      const ingresos = []; // log de lo que entró (por atrás, para el conteo mensual)
+      // unificar items repetidos del MISMO lote (misma variante y precios) para no
+      // crear filas duplicadas: si la variante viene 2 veces, se suma la cantidad.
+      const mapa = new Map();
       for (const it of items) {
         const cat = it.categoria || categoriaDeCodigo(it.codigo);
+        const key = [it.codigo, it.talle, it.color, cat, Number(it.precio), Number(it.costo)].join("|");
+        if (mapa.has(key)) {
+          mapa.get(key).cantidad += Number(it.cantidad) || 0;
+        } else {
+          mapa.set(key, { ...it, categoria: cat, cantidad: Number(it.cantidad) || 0 });
+        }
+      }
+      const itemsUnicos = [...mapa.values()];
+      const ingresos = []; // log de lo que entró (por atrás, para el conteo mensual)
+      for (const it of itemsUnicos) {
+        const cat = it.categoria;
         // una fila existente coincide si: mismo código, talle, color, categoría Y mismos precios.
         // Si el precio difiere, es un lote nuevo → fila separada.
         const ex = actual.find((r) =>
