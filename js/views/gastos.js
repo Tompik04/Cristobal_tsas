@@ -5,11 +5,12 @@
 let _gastos = [];
 let _ventasParaResumen = [];
 let _cobrosExtra = []; // pagos de cuenta corriente y señas (también son ingresos)
+let _ingresosStock = []; // log de prendas que entraron (para el conteo mensual)
 let _mesGastos = null; // "yyyy-mm" del mes mostrado en el resumen
 
 function renderGastos(root) {
   root.innerHTML = `
-    <p class="view-title">GASTOS</p>
+    <p class="view-title">GASTOS - GANANCIAS</p>
     <div id="gastosResumen"></div>
     <div class="gastos-top">
       <button class="btn-primary v-new-btn" id="gNewBtn"><i class="ti ti-plus"></i> Nuevo gasto</button>
@@ -21,8 +22,8 @@ function renderGastos(root) {
 }
 
 async function cargarGastos() {
-  const [rg, rv, rc, rs, rvo] = await Promise.all([
-    API.getGastos(), API.getVentas(), API.getCuentas(), API.getSenas(), API.getVouchers(),
+  const [rg, rv, rc, rs, rvo, ri] = await Promise.all([
+    API.getGastos(), API.getVentas(), API.getCuentas(), API.getSenas(), API.getVouchers(), API.getIngresosStock(),
   ]);
   if (!rg.ok) {
     document.getElementById("gastosList").innerHTML = `<div class="soon"><i class="ti ti-alert-triangle"></i><p>No se pudieron cargar los gastos.</p></div>`;
@@ -30,6 +31,7 @@ async function cargarGastos() {
   }
   _gastos = rg.gastos;
   _ventasParaResumen = rv.ok ? rv.ventas : [];
+  _ingresosStock = ri && ri.ok ? ri.ingresos : [];
 
   // Los cobros de cuenta corriente y de señas también son plata que entra:
   // se suman como ingresos del día en que se cobraron (igual que en el historial).
@@ -105,6 +107,17 @@ function pintarResumen() {
   const neta = totalVentas - totalGastos;
   const signo = neta >= 0 ? "pos" : "neg";
 
+  // --- prendas: entraron y se vendieron en el mes, y total en el local ---
+  const prendasEntraron = _ingresosStock
+    .filter((i) => mesLocalDe(i.fecha || "") === mes)
+    .reduce((a, i) => a + (i.cantidad || 0), 0);
+  // vendidas del mes: solo prendas realmente entregadas (no cambiadas, no restauradas, no venta de seña)
+  const prendasVendidas = _ventasParaResumen
+    .filter((v) => !v.restaurada && !v.cambiada && !v.esSena && mesLocalDe(v.fechaHora || "") === mes)
+    .reduce((a, v) => a + (v.cantidad || 0), 0);
+  const prendasEnLocal = (typeof State !== "undefined" && State.stock ? State.stock : [])
+    .reduce((a, s) => a + (s.cantidad || 0), 0);
+
   const privado = modoPrivadoActivo();
   // en modo normal: solo mes actual (sin flechas) y solo la tarjeta de Gastos
   const navMeses = privado
@@ -127,6 +140,11 @@ function pintarResumen() {
     <div class="resumen-mes">${navMeses}</div>
     <div class="resumen-cards ${privado ? "" : "resumen-1"}">
       ${cardsHTML}
+    </div>
+    <div class="resumen-cards resumen-prendas">
+      <div class="rcard"><span class="rc-label">Entraron (mes)</span><span class="rc-val">${prendasEntraron}</span></div>
+      <div class="rcard"><span class="rc-label">Vendidas (mes)</span><span class="rc-val">${prendasVendidas}</span></div>
+      <div class="rcard"><span class="rc-label">En el local</span><span class="rc-val">${prendasEnLocal}</span></div>
     </div>
     <div id="checklistGastos"></div>`;
 

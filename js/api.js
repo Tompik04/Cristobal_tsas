@@ -213,6 +213,7 @@ const API = {
     try {
       // traer stock actual para sumar cantidades a lo existente
       const actual = await SB.select("stock", "select=*");
+      const ingresos = []; // log de lo que entró (por atrás, para el conteo mensual)
       for (const it of items) {
         const cat = it.categoria || categoriaDeCodigo(it.codigo);
         // una fila existente coincide si: mismo código, talle, color, categoría Y mismos precios.
@@ -234,7 +235,11 @@ const API = {
             precio_venta: it.precio, precio_costo: it.costo, cantidad: it.cantidad,
           }]);
         }
+        ingresos.push({ fecha: new Date().toISOString(), cantidad: Number(it.cantidad) || 0, codigo: it.codigo, categoria: cat });
       }
+      // log de ingresos: es secundario, si falla NO rompe la carga de stock (ya se hizo)
+      try { if (ingresos.length) await SB.insert("stock_ingresos", ingresos); }
+      catch (e) { console.error("No se pudo registrar el log de ingresos de stock:", e); }
       return { ok: true };
     } catch (e) { return { ok: false, error: String(e) }; }
   },
@@ -250,6 +255,21 @@ const API = {
       await SB.update("stock", "id=eq." + enc(id), { cantidad: nueva });
       return { ok: true };
     } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
+  // lee el log de ingresos de stock (para contar cuántas prendas entraron por mes)
+  async getIngresosStock() {
+    if (CONFIG.MODO_PRUEBA) return { ok: true, ingresos: [] };
+    try {
+      const rows = await SB.select("stock_ingresos", "select=*&order=fecha");
+      return {
+        ok: true,
+        ingresos: rows.map((r) => ({
+          fecha: normalizarFechaISO(r.fecha), cantidad: Number(r.cantidad) || 0,
+          codigo: r.codigo, categoria: r.categoria,
+        })),
+      };
+    } catch (e) { return { ok: false, ingresos: [] }; }
   },
 
   // ajusta stock por variante (codigo+talle+color) cuando no se tiene el id.

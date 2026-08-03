@@ -665,6 +665,9 @@ button { font-family: inherit; }
 .rcard.rc-net { border-color: var(--oak-55); background: var(--oak-10); }
 .rc-label { font-size: 12px; letter-spacing: 0.08em; color: var(--oak-55); text-transform: uppercase; }
 .rc-val { font-size: 22px; font-weight: 600; }
+/* fila de conteo de prendas (entraron/vendidas/en el local): secundaria, más chica */
+.resumen-prendas { padding-top: 0; }
+.resumen-prendas .rc-val { font-size: 18px; color: var(--gold-bright); }
 .rc-val.pos { color: var(--sage); }
 .rc-val.neg { color: var(--danger); }
 .gasto-row { grid-template-columns: 1fr auto auto; }
