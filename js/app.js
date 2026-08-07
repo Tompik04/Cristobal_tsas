@@ -473,7 +473,9 @@ async function iniciarApp() {
 function consolidarStock(stock) {
   const mapa = {};
   stock.forEach((s) => {
-    const k = s.codigo + "|" + s.talle + "|" + s.color;
+    // agrupar por variante Y precios: así solo se juntan duplicados REALES (misma
+    // variante y mismo precio/costo), no lotes distintos del mismo talle/color.
+    const k = s.codigo + "|" + s.talle + "|" + s.color + "|" + s.precio + "|" + s.costo;
     if (mapa[k]) {
       mapa[k].cantidad += s.cantidad;
     } else {

@@ -131,6 +131,10 @@ function agregarTodasLasFilas() {
   const validas = [];
   let incompletas = 0;
   filas.forEach((row) => {
+    // si esta fila ya fue confirmada (con su ✓), NO la volvemos a agregar:
+    // sino la misma variante entra dos veces a pendientes y se duplica la cantidad.
+    const addBtn = row.querySelector('[data-act="add"]');
+    if (addBtn && addBtn.classList.contains("confirmed")) return;
     const d = leerFila(row);
     if (!d.precio) { const p = precioConocido(d.codigo); if (p != null) d.precio = p; }
     if (!d.costo) { const c = costoConocido(d.codigo); if (c != null) d.costo = c; }
@@ -452,6 +456,8 @@ function bindFilaCarga(row) {
 
   // agrega la prenda a pendientes (tras validar). Se separa para poder llamarla tras confirmar advertencia.
   function confirmarAgregar(d) {
+    // idempotente: si esta fila ya está confirmada, no la agregamos de nuevo
+    if (addBtn.classList.contains("confirmed")) return;
     d.categoria = StockUI.categoria;
     d._pid = "p" + _pendSeq++;
     StockUI.pendientes.push(d);
@@ -604,9 +610,10 @@ async function confirmarPendientes() {
   const res = await API.agregarStock(StockUI.pendientes);
   if (res.ok) {
     // recargar el stock desde la base para que el estado en memoria quede
-    // exactamente igual (ids, categorías y lotes correctos) sin desincronización
+    // exactamente igual (ids, categorías y lotes correctos) sin desincronización.
+    // Se consolida igual que en el arranque, así se ve lo mismo antes y después de recargar.
     const rec = await API.getStock();
-    if (rec.ok) State.stock = rec.stock;
+    if (rec.ok) State.stock = consolidarStock(rec.stock);
     StockUI.pendientes = [];
     _pendAbierto = false;
     limpiarBorrador(StockUI.categoria); // ya se subieron, el borrador se descarta
