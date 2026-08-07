@@ -216,8 +216,18 @@ const API = {
       // unificar items repetidos del MISMO lote (misma variante y precios) para no
       // crear filas duplicadas: si la variante viene 2 veces, se suma la cantidad.
       const mapa = new Map();
+      // resuelve la categoría de un item de forma robusta:
+      // 1) la que trae el item (si es una categoría real, no "__TODOS__" ni vacía)
+      // 2) la de una fila de stock existente del MISMO código (hereda su categoría)
+      // 3) la derivada del número del código
+      const resolverCat = (it) => {
+        if (it.categoria && it.categoria !== "__TODOS__" && it.categoria !== "—") return it.categoria;
+        const ex = actual.find((r) => r.codigo === it.codigo && r.categoria && r.categoria !== "—");
+        if (ex) return ex.categoria;
+        return categoriaDeCodigo(it.codigo);
+      };
       for (const it of items) {
-        const cat = it.categoria || categoriaDeCodigo(it.codigo);
+        const cat = resolverCat(it);
         const key = [it.codigo, it.talle, it.color, cat, Number(it.precio), Number(it.costo)].join("|");
         if (mapa.has(key)) {
           mapa.get(key).cantidad += Number(it.cantidad) || 0;
