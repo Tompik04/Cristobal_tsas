@@ -459,8 +459,14 @@ document.addEventListener("click", (e) => {
 
 async function iniciarApp() {
   document.getElementById("app").classList.remove("hidden");
-  // leer el recargo de tarjeta configurado en Supabase (si existe)
-  await API.cargarRecargoTarjeta();
+  // leer el recargo de tarjeta configurado en Supabase (si existe).
+  // Si falla, avisar: antes quedaba en silencio usando el valor por defecto y
+  // cambiar el recargo en Supabase no tenía ningún efecto visible.
+  const resRecargo = await API.cargarRecargoTarjeta();
+  if (!resRecargo.ok) {
+    console.warn("No se pudo leer el recargo de tarjeta:", resRecargo.error);
+    toast(`No se pudo leer el recargo: se usa ${Math.round(CONFIG.RECARGO_TARJETA * 100)}%`);
+  }
   Carritos.init(); // recuperar carritos guardados (o crear el primero)
   // Precarga del stock
   const res = await API.getStock();

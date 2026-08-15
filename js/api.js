@@ -185,13 +185,16 @@ const API = {
 
   // lee el recargo de tarjeta desde la tabla config de Supabase y actualiza CONFIG.
   // Acepta el valor como porcentaje (25) o como fracción (0.25).
+  // OJO: la clave en la tabla config se llama "RecargoTarjeta" (no RECARGO_TARJETA).
+  // PostgREST compara texto sensible a mayúsculas: si no coincide, no matchea nunca
+  // y la app se queda en silencio con el valor por defecto de config.js.
   async cargarRecargoTarjeta() {
     if (CONFIG.MODO_PRUEBA) return { ok: true };
     try {
-      const rows = await SB.select("config", "clave=eq.RECARGO_TARJETA&select=valor");
-      if (!rows.length) return { ok: false };
+      const rows = await SB.select("config", "clave=eq.RecargoTarjeta&select=valor");
+      if (!rows.length) return { ok: false, error: "No existe la clave RecargoTarjeta en config" };
       let v = Number(rows[0].valor);
-      if (isNaN(v) || v < 0) return { ok: false };
+      if (isNaN(v) || v < 0) return { ok: false, error: "Valor inválido: " + rows[0].valor };
       // si viene como 25 (porcentaje), pasarlo a 0.25; si ya viene 0.25, dejarlo
       if (v > 1) v = v / 100;
       CONFIG.RECARGO_TARJETA = v;
