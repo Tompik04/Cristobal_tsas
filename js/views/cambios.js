@@ -6,16 +6,20 @@ function renderCambios(root) {
   root.innerHTML = `
     <p class="view-title">CAMBIOS</p>
     <div id="cambiosFiltros"></div>
-    <div class="cambios-list" id="cambiosList"><div class="soon"><i class="ti ti-loader"></i><p>Cargando ventas...</p></div></div>`;
+    <div class="cambios-list" id="cambiosList"><div class="soon"><i class="ti ti-loader"></i><p>Cargando ventas...</p></div></div>
+    <div id="cambiosBarra"></div>`;
   cargarCambios();
 }
 
 let _ventasCambios = [];
 // fecha en que se realiza el cambio (elegible: puede ser un día anterior)
 let _fechaCambio = null;
+// ids de ventas seleccionadas para un cambio de VARIAS prendas
+let _cambiosSel = new Set();
 
 async function cargarCambios() {
   const list = document.getElementById("cambiosList");
+  _cambiosSel = new Set(); // limpiar selección al recargar
   const res = await API.getVentas();
   if (!res.ok) { list.innerHTML = `<div class="soon"><i class="ti ti-alert-triangle"></i><p>No se pudieron cargar las ventas.</p></div>`; return; }
 
@@ -55,10 +59,38 @@ function pintarCambios(f) {
 
   if (!lista.length) {
     list.innerHTML = `<div class="soon"><i class="ti ti-receipt-off"></i><p>Sin ventas que coincidan.</p></div>`;
+    actualizarBarraCambios();
     return;
   }
   list.innerHTML = lista.map(crowHTML).join("");
   lista.forEach((v) => bindCrow(list, v));
+  actualizarBarraCambios();
+}
+
+// barra inferior para el cambio de VARIAS prendas (aparece con 1+ seleccionadas)
+function actualizarBarraCambios() {
+  const cont = document.getElementById("cambiosBarra");
+  if (!cont) return;
+  const ids = [..._cambiosSel].filter((id) => _ventasCambios.some((v) => v.id === id));
+  _cambiosSel = new Set(ids); // descartar ids que ya no están en la lista
+  if (!ids.length) { cont.innerHTML = ""; return; }
+  cont.innerHTML = `
+    <div class="cambios-actionbar">
+      <span><i class="ti ti-checkbox"></i> ${ids.length} seleccionada${ids.length === 1 ? "" : "s"}</span>
+      <div class="cab-btns">
+        <button class="btn-ghost" id="cambSelLimpiar">Limpiar</button>
+        <button class="btn-primary" id="cambSelIr">Cambiar seleccionadas</button>
+      </div>
+    </div>`;
+  document.getElementById("cambSelLimpiar").onclick = () => {
+    _cambiosSel.clear();
+    document.querySelectorAll('.crow [data-act="selc"]').forEach((c) => (c.checked = false));
+    actualizarBarraCambios();
+  };
+  document.getElementById("cambSelIr").onclick = () => {
+    const ventas = _ventasCambios.filter((v) => _cambiosSel.has(v.id));
+    if (ventas.length) abrirIntercambio(ventas);
+  };
 }
 
 // estado de la ventana de cambio de una venta
@@ -92,6 +124,7 @@ function crowHTML(v) {
   const ofertaTxt = v.oferta ? ` · ${v.oferta}% off` : "";
   return `
     <div class="crow ${claseFila}" data-id="${v.id}">
+      <label class="crow-sel"><input type="checkbox" data-act="selc"></label>
       <div class="pcell">
         <img class="pimg" src="${imgPrenda(v.codigo, categoriaDeStock(v.codigo))}" alt="" onerror="this.style.opacity=0.3">
         <div class="pinfo"><span class="pmarca">${v.marca}</span><span class="pcod">${v.codigo}</span></div>
@@ -119,53 +152,79 @@ function bindCrow(list, v) {
         mensaje1: `La venta de ${v.codigo} está fuera del período de cambio (vencido).`,
         mensaje2: "Vas a hacer un cambio de forma excepcional sobre una venta vencida. ¿Confirmás?",
         textoBoton: "Hacer cambio igual",
-        onOk: () => abrirIntercambio(v),
+        onOk: () => abrirIntercambio([v]),
       });
     } else {
-      abrirIntercambio(v);
+      abrirIntercambio([v]);
     }
   };
+  // checkbox de selección para cambio de VARIAS prendas
+  const chk = row.querySelector('[data-act="selc"]');
+  if (chk) {
+    chk.checked = _cambiosSel.has(v.id);
+    chk.onclick = (e) => {
+      e.stopPropagation();
+      if (chk.checked) _cambiosSel.add(v.id); else _cambiosSel.delete(v.id);
+      actualizarBarraCambios();
+    };
+  }
 }
 
 // ---- Popup de intercambio ----
-function abrirIntercambio(venta) {
+function abrirIntercambio(ventas) {
+  const lista = Array.isArray(ventas) ? ventas : [ventas];
+  if (!lista.length) return;
   if (!State.carrito.length) {
     return toast("Primero agregá las prendas nuevas al carrito (en Ventas)");
   }
 
   const totalNuevas = State.carrito.reduce((a, l) => a + precioLinea(l), 0);
 
-  // ===== Valor que se le acredita al cliente por la prenda que devuelve =====
-  // Por defecto: lo que REALMENTE pagó (con descuento), para no regalar plata.
-  // Pero el descuento "persiste" (se acredita el precio PLENO de lista) cuando la
-  // prenda nueva vale lo mismo de lista que la original, O es el mismo modelo (código).
-  // Así, cambiar una prenda con descuento por otra equivalente no le cuesta nada al cliente.
-  const pagoConDescuento = venta.precioProducto != null ? venta.precioProducto : venta.precioBase;
-  const precioListaOriginal = venta.precioBase || 0;
-  const tuvoDescuento = pagoConDescuento < precioListaOriginal - 0.5;
+  // valor que realmente pagó una prenda (con su descuento)
+  const valorPagado = (v) => (v.precioProducto != null ? v.precioProducto : v.precioBase) || 0;
 
-  // ¿alguna prenda nueva es "equivalente" a la original? (mismo modelo o mismo precio de lista)
-  const hayEquivalente = State.carrito.some((l) => {
-    const listaNueva = precioListaDeLinea(l);
-    const mismoModelo = l.codigo === venta.codigo;
-    const mismoPrecio = Math.abs(listaNueva - precioListaOriginal) < 0.5;
-    return mismoModelo || mismoPrecio;
-  });
-
-  const descuentoPersiste = tuvoDescuento && hayEquivalente;
-  const valorDevuelto = descuentoPersiste ? precioListaOriginal : pagoConDescuento;
+  // ===== Valor que se le acredita al cliente por lo que devuelve =====
+  let valorDevuelto, descuentoPersiste = false, pagoConDescuento = 0;
+  if (lista.length === 1) {
+    // Cambio de 1 prenda: el descuento "persiste" (se acredita el precio PLENO de lista)
+    // si la prenda nueva es del mismo modelo o vale lo mismo de lista. Así, cambiar una
+    // prenda con descuento por otra equivalente no le cuesta nada al cliente.
+    const venta = lista[0];
+    pagoConDescuento = valorPagado(venta);
+    const precioListaOriginal = venta.precioBase || 0;
+    const tuvoDescuento = pagoConDescuento < precioListaOriginal - 0.5;
+    const hayEquivalente = State.carrito.some((l) => {
+      const listaNueva = precioListaDeLinea(l);
+      return l.codigo === venta.codigo || Math.abs(listaNueva - precioListaOriginal) < 0.5;
+    });
+    descuentoPersiste = tuvoDescuento && hayEquivalente;
+    valorDevuelto = descuentoPersiste ? precioListaOriginal : pagoConDescuento;
+  } else {
+    // Cambio de VARIAS prendas: se acredita lo que pagó por cada una, sumado.
+    valorDevuelto = lista.reduce((a, v) => a + valorPagado(v), 0);
+  }
   const diferencia = totalNuevas - valorDevuelto; // + cliente paga / - voucher
 
-  const cardDevuelta = `
-    <div class="swap-card">
-      <img src="${imgPrenda(venta.codigo, categoriaDeStock(venta.codigo))}" onerror="this.style.opacity=0.3">
-      <div class="sc-info">
-        <strong>${venta.marca}</strong>
-        <span class="sc-cod">${venta.codigo} · ${venta.talle}/${venta.color}</span>
-        <span class="sc-price">${formatPrecio(valorDevuelto)}</span>
-        ${descuentoPersiste ? `<span class="sc-desc-persiste"><i class="ti ti-discount-check"></i> Descuento trasladado (pagó ${formatPrecio(pagoConDescuento)})</span>` : ""}
-      </div>
-    </div>`;
+  // tarjeta(s) de lo que devuelve
+  const cardDevuelta = (lista.length === 1)
+    ? `<div class="swap-card">
+        <img src="${imgPrenda(lista[0].codigo, categoriaDeStock(lista[0].codigo))}" onerror="this.style.opacity=0.3">
+        <div class="sc-info">
+          <strong>${lista[0].marca}</strong>
+          <span class="sc-cod">${lista[0].codigo} · ${lista[0].talle}/${lista[0].color}</span>
+          <span class="sc-price">${formatPrecio(valorDevuelto)}</span>
+          ${descuentoPersiste ? `<span class="sc-desc-persiste"><i class="ti ti-discount-check"></i> Descuento trasladado (pagó ${formatPrecio(pagoConDescuento)})</span>` : ""}
+        </div>
+      </div>`
+    : lista.map((venta) => `
+      <div class="swap-card">
+        <img src="${imgPrenda(venta.codigo, categoriaDeStock(venta.codigo))}" onerror="this.style.opacity=0.3">
+        <div class="sc-info">
+          <strong>${venta.marca}</strong>
+          <span class="sc-cod">${venta.codigo} · ${venta.talle}/${venta.color}</span>
+          <span class="sc-price">${formatPrecio(valorPagado(venta))}</span>
+        </div>
+      </div>`).join("");
 
   const cardsNuevas = State.carrito.map((l) => `
     <div class="swap-card">
@@ -195,8 +254,8 @@ function abrirIntercambio(venta) {
       <h2>Intercambio</h2>
       <div class="swap-cols">
         <div class="swap-side">
-          <h3>Devuelve</h3>
-          ${cardDevuelta}
+          <h3>Devuelve (${lista.length})</h3>
+          <div class="swap-list">${cardDevuelta}</div>
         </div>
         <div class="swap-arrow"><i class="ti ti-arrows-exchange"></i></div>
         <div class="swap-side">
@@ -222,17 +281,17 @@ function abrirIntercambio(venta) {
     const fv = document.getElementById("swapFecha").value;
     _fechaCambio = fv ? new Date(fv).toISOString() : new Date().toISOString();
     if (diferencia > 0) {
-      abrirPagoDiferencia(venta, diferencia);
+      abrirPagoDiferencia(lista, diferencia);
     } else if (diferencia < 0) {
-      abrirDatosVoucher(venta, -diferencia);
+      abrirDatosVoucher(lista, -diferencia);
     } else {
-      confirmarIntercambio(venta, { diferencia, voucher: 0, metodoPago: null, datosVoucher: null });
+      confirmarIntercambio(lista, { diferencia, voucher: 0, metodoPago: null, datosVoucher: null });
     }
   };
 }
 
 // pedir nombre + teléfono para el voucher del saldo a favor
-function abrirDatosVoucher(venta, monto) {
+function abrirDatosVoucher(ventas, monto) {
   document.getElementById("modalRoot").innerHTML = `
     <div class="modal-overlay" id="ov"></div>
     <div class="modal">
@@ -247,13 +306,13 @@ function abrirDatosVoucher(venta, monto) {
       </div>
     </div>`;
   document.getElementById("ov").onclick = cerrarModal;
-  document.getElementById("vCancel").onclick = () => abrirIntercambio(venta);
+  document.getElementById("vCancel").onclick = () => abrirIntercambio(ventas);
   document.getElementById("vConfirm").onclick = () => {
     const nombre = document.getElementById("vName").value.trim();
     const telefono = document.getElementById("vPhone").value.trim();
     if (!nombre) return toast("Falta el nombre");
     if (!telefono) return toast("Falta el teléfono");
-    confirmarIntercambio(venta, {
+    confirmarIntercambio(ventas, {
       diferencia: -monto, voucher: monto, metodoPago: null,
       datosVoucher: { nombre, telefono },
     });
@@ -261,7 +320,7 @@ function abrirDatosVoucher(venta, monto) {
 }
 
 // si el cliente debe pagar, pedir método de pago (simple o dividido, con vuelto y voucher)
-async function abrirPagoDiferencia(venta, diferencia) {
+async function abrirPagoDiferencia(ventas, diferencia) {
   let modoDividido = false;
   let metodo1 = null;
   let voucherSel = null;
@@ -362,7 +421,7 @@ async function abrirPagoDiferencia(venta, diferencia) {
   const descLabel = document.getElementById("descLabel");
 
   document.getElementById("ov").onclick = cerrarModal;
-  document.getElementById("payCancel").onclick = () => abrirIntercambio(venta);
+  document.getElementById("payCancel").onclick = () => abrirIntercambio(ventas);
 
   // --- descuento / adicional sobre la diferencia a pagar ---
   const difAjusCheck = document.getElementById("difAjusCheck");
@@ -535,7 +594,7 @@ async function abrirPagoDiferencia(venta, diferencia) {
       };
     }
 
-    confirmarIntercambio(venta, {
+    confirmarIntercambio(ventas, {
       diferencia: base, voucher: 0, metodoPago: metodoTxt, pagos: partes,
       voucherUsado: voucherSel ? voucherSel.id : null,
       sobranteVoucher,
@@ -543,7 +602,7 @@ async function abrirPagoDiferencia(venta, diferencia) {
   };
 }
 
-async function confirmarIntercambio(venta, info) {
+async function confirmarIntercambio(ventas, info) {
   // construir voucher si corresponde
   let voucher = null;
   if (info.voucher > 0) {
@@ -557,14 +616,14 @@ async function confirmarIntercambio(venta, info) {
       monto: info.voucher,
       nombre: dv.nombre || "",
       telefono: dv.telefono || "",
-      origen: `Cambio de ${venta.codigo}`,
+      origen: `Cambio de ${ventas.map((v) => v.codigo).join(", ")}`,
       avisado: false,
       usado: false,
     };
   }
 
   const res = await API.registrarIntercambio({
-    ventaDevuelta: venta,
+    ventasDevueltas: ventas,
     lineasNuevas: State.carrito.slice(),
     diferencia: info.diferencia,
     fecha: _fechaCambio || new Date().toISOString(),
@@ -581,9 +640,11 @@ async function confirmarIntercambio(venta, info) {
       const v = State.stock.find((s) => s.codigo === l.codigo && s.talle === l.talle && s.color === l.color);
       if (v) v.cantidad -= l.cantidad;
     });
-    // reponer stock de la prenda devuelta
-    const dev = State.stock.find((s) => s.codigo === venta.codigo && s.talle === venta.talle && s.color === venta.color);
-    if (dev) dev.cantidad += venta.cantidad;
+    // reponer stock de cada prenda devuelta
+    ventas.forEach((venta) => {
+      const dev = State.stock.find((s) => s.codigo === venta.codigo && s.talle === venta.talle && s.color === venta.color);
+      if (dev) dev.cantidad += venta.cantidad;
+    });
     // vaciar carrito (mismo patron que ventas.js: sin sync el carrito revive
     // desde Carritos.lista/localStorage al cambiar de pestana o recargar)
     State.carrito = [];

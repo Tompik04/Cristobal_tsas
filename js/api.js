@@ -482,14 +482,18 @@ const API = {
       await SB.update("ventas", "id=eq." + enc(id), { restaurada: true });
 
       // Si esta venta salió de un CAMBIO, hay que deshacer el cambio entero:
-      // la prenda original (que había vuelto al stock) sale de nuevo (el cliente se la queda),
+      // cada prenda original (que había vuelto al stock) sale de nuevo (el cliente se la queda),
       // y su venta se desmarca para que pueda volver a cambiarse.
+      // cambio_de puede tener varios ids separados por coma (cambio de varias prendas).
       if (v.es_cambio && v.cambio_de) {
-        const orig = await SB.select("ventas", "select=*&id=eq." + enc(v.cambio_de));
-        if (orig.length) {
-          const o = orig[0];
-          await this.ajustarStockPorVariante(o.codigo, o.talle, o.color, -(Number(o.cantidad) || 0));
-          await SB.update("ventas", "id=eq." + enc(o.id), { cambiada: false });
+        const ids = String(v.cambio_de).split(",").map((s) => s.trim()).filter(Boolean);
+        for (const oid of ids) {
+          const orig = await SB.select("ventas", "select=*&id=eq." + enc(oid));
+          if (orig.length) {
+            const o = orig[0];
+            await this.ajustarStockPorVariante(o.codigo, o.talle, o.color, -(Number(o.cantidad) || 0));
+            await SB.update("ventas", "id=eq." + enc(o.id), { cambiada: false });
+          }
         }
       }
       return {
@@ -513,14 +517,20 @@ const API = {
       // fecha en que se hace el cambio (puede ser un día anterior al actual)
       const fechaCambio = p.fecha || new Date().toISOString();
 
-      if (p.ventaDevuelta) {
-        const v = p.ventaDevuelta;
-        // la prenda vuelve al stock...
+      // soporta una o varias prendas devueltas. Compatibilidad: si viene el campo
+      // viejo ventaDevuelta (una sola), se usa como lista de un elemento.
+      const devueltas = (p.ventasDevueltas && p.ventasDevueltas.length)
+        ? p.ventasDevueltas
+        : (p.ventaDevuelta ? [p.ventaDevuelta] : []);
+      for (const v of devueltas) {
+        // cada prenda vuelve al stock...
         await this.ajustarStockPorVariante(v.codigo, v.talle, v.color, v.cantidad || 1);
         // ...pero la venta NO se anula: la plata sigue contando el día que se cobró.
         // Solo se marca como "cambiada" para que no se pueda volver a cambiar/restaurar.
         await SB.update("ventas", "id=eq." + enc(v.id), { cambiada: true });
       }
+      // ids de todas las devueltas, para poder deshacer el cambio entero al restaurar
+      const cambioDeIds = devueltas.map((v) => v.id).join(",");
       if (p.lineasNuevas && p.lineasNuevas.length) {
         // construir el objeto de pago con desglose (para que entre bien en la caja)
         let pago;
@@ -538,8 +548,8 @@ const API = {
           inicioCambio: fechaCambio.slice(0, 10),
           precioFinal: cobradoHoy,
           esCambio: true,
-          // vínculo con la venta original, para poder deshacer el cambio si se restaura
-          cambioDe: p.ventaDevuelta ? p.ventaDevuelta.id : null,
+          // vínculo con las ventas originales (una o varias), para poder deshacer el cambio
+          cambioDe: cambioDeIds || (p.ventaDevuelta ? p.ventaDevuelta.id : null),
         });
       }
       if (p.voucher) await this.crearVoucher(p.voucher);
