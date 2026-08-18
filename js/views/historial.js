@@ -289,81 +289,17 @@ function bindHistRow(list, v) {
 
   const btnVou = row.querySelector('[data-act="voucher"]');
   if (btnVou && !btnVou.disabled) {
-    btnVou.onclick = () => abrirVoucherDesdeVenta(v);
+    // la implementación vive en vouchers.js (la comparten Historial y Cambios).
+    // Acá se sigue proponiendo el precio final cobrado, como venía siendo en
+    // Historial; en Cambios se propone el valor de la prenda (sin recargo).
+    btnVou.onclick = () => abrirVoucherDesdeVenta(v, {
+      montoSugerido: v.precioFinal != null ? v.precioFinal : (v.precioBase || 0),
+      onListo: cargarHistorial,
+    });
   }
 }
 
-// Genera un voucher a partir de una venta: la prenda vuelve al stock,
-// la venta NO se anula (el valor del día se mantiene) y el cliente recibe
-// un voucher por el monto que pagó.
-function abrirVoucherDesdeVenta(v) {
-  const monto = v.precioFinal != null ? v.precioFinal : (v.precioBase || 0);
-  const venceDefault = (() => {
-    const d = new Date(); d.setDate(d.getDate() + CONFIG.DIAS_VENCIMIENTO_VOUCHER);
-    return fechaLocalISO(d);
-  })();
-
-  document.getElementById("modalRoot").innerHTML = `
-    <div class="modal-overlay" id="gvOv"></div>
-    <div class="modal">
-      <h2>Generar voucher</h2>
-      <p class="dc-msg">Por la venta de <strong>${escAttr(v.marca || v.codigo)}</strong> (${v.talle}/${v.color}).</p>
-      <div class="gv-monto">
-        <span>Valor del voucher</span>
-        <strong>${formatPrecio(monto)}</strong>
-      </div>
-      <div class="field"><label>Nombre</label><input class="sinput" id="gvNom" placeholder="Nombre y apellido"></div>
-      <div class="field"><label>Teléfono</label><input class="sinput" id="gvTel" placeholder="Ej. 2915551234" inputmode="numeric"></div>
-      <div class="field"><label>Vencimiento</label><input class="sinput" type="date" id="gvVence" value="${venceDefault}"></div>
-      <p class="gv-aviso"><i class="ti ti-info-circle"></i> La prenda vuelve al stock y la venta sigue contando en el día.</p>
-      <div class="modal-actions">
-        <button class="btn-ghost" id="gvCancel">Cancelar</button>
-        <button class="btn-primary" id="gvSave">Generar voucher</button>
-      </div>
-    </div>`;
-
-  document.getElementById("gvOv").onclick = cerrarModal;
-  document.getElementById("gvCancel").onclick = cerrarModal;
-
-  document.getElementById("gvSave").onclick = async () => {
-    const nombre = document.getElementById("gvNom").value.trim();
-    const telefono = document.getElementById("gvTel").value.trim();
-    const vencimiento = document.getElementById("gvVence").value;
-    if (!nombre) return toast("Falta el nombre");
-    if (!telefono) return toast("Falta el teléfono");
-    if (monto <= 0) return toast("La venta no tiene monto para generar voucher");
-
-    const btn = document.getElementById("gvSave");
-    btn.disabled = true; btn.textContent = "Generando...";
-
-    const idVoucher = "VCH-" + Date.now();
-    const res = await API.crearVoucher({
-      id: idVoucher, tipo: "monto", monto,
-      fecha: new Date().toISOString(), vencimiento,
-      nombre, telefono,
-      origen: `Devolución de ${v.codigo}`,
-      avisado: false, usado: false, comprado: false,
-    });
-    if (!res.ok) {
-      btn.disabled = false; btn.textContent = "Generar voucher";
-      return toast("No se pudo crear el voucher");
-    }
-
-    // la prenda vuelve al stock (es una devolución)
-    await API.ajustarStockPorVariante(v.codigo, v.talle, v.color, v.cantidad);
-    const s = State.stock.find((x) => x.codigo === v.codigo && x.talle === v.talle && x.color === v.color);
-    if (s) s.cantidad += v.cantidad;
-
-    // marcar la venta: ya generó voucher (no se puede volver a generar ni restaurar)
-    await API.marcarVoucherGenerado(v.id, idVoucher);
-    v.voucherGenerado = idVoucher;
-
-    cerrarModal();
-    toast(`Voucher de ${formatPrecio(monto)} generado · Prenda repuesta`);
-    cargarHistorial();
-    actualizarCampanitaVouchers();
-  };
-}
+// abrirVoucherDesdeVenta() vive en js/views/vouchers.js: la comparten Historial y Cambios.
 
 // Detalle del cambio en la fila del historial: muestra las DOS puntas del cambio
 // (la prenda que volvió al stock y la que se llevó el cliente).

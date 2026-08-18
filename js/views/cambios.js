@@ -135,6 +135,9 @@ function crowHTML(v) {
         <span class="c-estado ${claseEstado}">${est.label}</span>
       </div>
       <div class="c-precio">${formatPrecio(v.precioProducto != null ? v.precioProducto : v.precioBase)}</div>
+      <button class="c-swap c-voucher" data-act="voucher" title="Cambiar por un voucher">
+        <i class="ti ti-ticket"></i>
+      </button>
       <button class="c-swap" data-act="swap" title="Realizar cambio">
         <i class="ti ti-arrows-exchange"></i>
       </button>
@@ -156,6 +159,26 @@ function bindCrow(list, v) {
       });
     } else {
       abrirIntercambio([v]);
+    }
+  };
+  // cambiar la prenda por un voucher en vez de por otra prenda.
+  // Misma implementación que usa Historial (vive en vouchers.js): la prenda vuelve
+  // al stock, la venta sigue contando el día que se cobró y queda marcada como que
+  // ya generó voucher, así no se puede cambiar ni restaurar después.
+  const vou = row.querySelector('[data-act="voucher"]');
+  if (vou) vou.onclick = () => {
+    const abrir = () => abrirVoucherDesdeVenta(v, { onListo: cargarCambios });
+    const est = estadoCambio(v);
+    if (est.tipo === "vencido") {
+      dobleConfirmacion({
+        titulo: "Cambio fuera de fecha",
+        mensaje1: `La venta de ${v.codigo} está fuera del período de cambio (vencido).`,
+        mensaje2: "Vas a generar un voucher de forma excepcional sobre una venta vencida. ¿Confirmás?",
+        textoBoton: "Generar voucher igual",
+        onOk: abrir,
+      });
+    } else {
+      abrir();
     }
   };
   // checkbox de selección para cambio de VARIAS prendas

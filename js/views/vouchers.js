@@ -344,6 +344,211 @@ function abrirNuevoVoucher() {
   };
 }
 
+/* ============================================================
+   GENERAR VOUCHER A PARTIR DE UNA VENTA (devolución sin cambio)
+   ============================================================
+   La prenda vuelve al stock, la venta NO se anula (la plata del día se mantiene)
+   y el cliente recibe un voucher. La venta queda marcada con voucher_generado,
+   así no se puede volver a cambiar ni restaurar.
+
+   Vive acá (y no en una vista) porque la usan Cambios e Historial.
+   opts: { montoSugerido, onListo }
+     montoSugerido → número precargado en el campo (queda editable)
+     onListo       → callback tras generar, para que cada vista repinte lo suyo
+   ============================================================ */
+async function abrirVoucherDesdeVenta(v, opts) {
+  opts = opts || {};
+  // por defecto, el valor de la prenda para el cliente (lo mismo que acreditaría
+  // un cambio normal), no el precio final cobrado: ese incluye recargo de tarjeta.
+  const montoSugerido = opts.montoSugerido != null
+    ? opts.montoSugerido
+    : (v.precioProducto != null ? v.precioProducto : (v.precioBase || 0));
+
+  const venceDefault = (() => {
+    const d = new Date(); d.setDate(d.getDate() + CONFIG.DIAS_VENCIMIENTO_VOUCHER);
+    return fechaLocalISO(d);
+  })();
+
+  // vouchers ya existentes: sirven para autocompletar al cliente y para acumular
+  const rv = await API.getVouchers();
+  const existentes = rv.ok ? rv.vouchers : [];
+  // solo se acumula sobre un voucher de monto fijo, vigente, sin usar y NO comprado.
+  // Un voucher comprado entró como ingreso (pagado); mezclarlo con una devolución
+  // ensuciaría los informes.
+  const esAcumulable = (x) => x.tipo === "monto" && !x.usado && !x.comprado && diasParaVencer(x.vencimiento) >= 0;
+
+  const soloDigitos = (s) => String(s || "").replace(/\D/g, "");
+  // busca el voucher del cliente: primero por teléfono (clave más confiable que el
+  // nombre, que puede repetirse entre clientes distintos), después por nombre.
+  function voucherDelCliente(nombre, telefono, lista) {
+    const tel = soloDigitos(telefono);
+    if (tel) {
+      const porTel = lista.find((x) => soloDigitos(x.telefono) === tel);
+      if (porTel) return porTel;
+    }
+    const nom = normaliza(nombre);
+    if (!nom) return null;
+    return lista.find((x) => normaliza(x.nombre) === nom) || null;
+  }
+
+  // clientes conocidos, para el autocompletado del nombre
+  const clientes = [];
+  existentes.forEach((x) => {
+    if (x.nombre && !clientes.some((c) => normaliza(c.nombre) === normaliza(x.nombre))) {
+      clientes.push({ nombre: x.nombre, telefono: x.telefono || "" });
+    }
+  });
+
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-overlay" id="gvOv"></div>
+    <div class="modal">
+      <h2>Generar voucher</h2>
+      <p class="dc-msg">Por la venta de <strong>${escAttr(v.marca || v.codigo)}</strong> (${escAttr(v.talle)}/${escAttr(v.color)}).</p>
+      <div class="field">
+        <label>Monto del voucher <span style="color:var(--oak-55)">— lo que pagó por la prenda</span></label>
+        <input class="sinput" type="number" min="0" id="gvMonto" value="${montoSugerido}">
+      </div>
+      <div class="field">
+        <label>Nombre</label>
+        <input class="sinput" id="gvNom" list="gvClientes" placeholder="Nombre y apellido" autocomplete="off">
+        <datalist id="gvClientes">${clientes.map((c) => `<option value="${escAttr(c.nombre)}">`).join("")}</datalist>
+      </div>
+      <div class="field"><label>Teléfono</label><input class="sinput" id="gvTel" placeholder="Ej. 2915551234" inputmode="numeric"></div>
+      <div class="field"><label>Vencimiento</label><input class="sinput" type="date" id="gvVence" value="${venceDefault}"></div>
+      <div id="gvAcum"></div>
+      <p class="gv-aviso"><i class="ti ti-info-circle"></i> La prenda vuelve al stock y la venta sigue contando en el día.</p>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="gvCancel">Cancelar</button>
+        <button class="btn-primary" id="gvSave">Generar voucher</button>
+      </div>
+    </div>`;
+
+  const inpNom = document.getElementById("gvNom");
+  const inpTel = document.getElementById("gvTel");
+  const inpMonto = document.getElementById("gvMonto");
+  const inpVence = document.getElementById("gvVence");
+  const contAcum = document.getElementById("gvAcum");
+
+  let acumulaEn = null; // voucher existente al que se le va a sumar (o null)
+
+  // muestra el cartel de acumulación según el cliente que se esté tipeando
+  function refrescarAcumulacion() {
+    const nombre = inpNom.value.trim();
+    const telefono = inpTel.value.trim();
+    const previo = voucherDelCliente(nombre, telefono, existentes);
+
+    if (!previo) { acumulaEn = null; contAcum.innerHTML = ""; return; }
+
+    if (!esAcumulable(previo)) {
+      // hay un voucher del cliente pero no se puede sumar: explicar por qué
+      const motivo = previo.usado ? "ya fue usado"
+        : previo.comprado ? "fue comprado (cuenta como ingreso)"
+        : previo.tipo !== "monto" ? "es de descuento por porcentaje"
+        : "está vencido";
+      acumulaEn = null;
+      contAcum.innerHTML = `<p class="gv-acum-no"><i class="ti ti-info-circle"></i> ${escAttr(previo.nombre)} ya tiene un voucher, pero ${motivo}. Se va a crear uno nuevo.</p>`;
+      return;
+    }
+
+    acumulaEn = previo;
+    const nuevoMonto = (Number(inpMonto.value) || 0) + previo.monto;
+    // al sumar, el vencimiento se renueva al más lejano de los dos: si no,
+    // la plata nueva heredaría el vencimiento viejo y podría morir enseguida
+    const vencFinal = (inpVence.value && inpVence.value > previo.vencimiento) ? inpVence.value : previo.vencimiento;
+    contAcum.innerHTML = `
+      <div class="gv-acum">
+        <label class="g-check">
+          <input type="checkbox" id="gvSumar" checked>
+          Sumar al voucher que ya tiene ${escAttr(previo.nombre)}
+        </label>
+        <div class="gv-acum-detalle">
+          <span>Tenía ${formatPrecio(previo.monto)} · vence ${fmtFecha(previo.vencimiento)}</span>
+          <strong>Queda en ${formatPrecio(nuevoMonto)} · vence ${fmtFecha(vencFinal)}</strong>
+        </div>
+      </div>`;
+    document.getElementById("gvSumar").onchange = (e) => { acumulaEn = e.target.checked ? previo : null; };
+  }
+
+  // al elegir un cliente conocido, completar el teléfono solo
+  inpNom.addEventListener("input", () => {
+    const c = clientes.find((x) => normaliza(x.nombre) === normaliza(inpNom.value.trim()));
+    if (c && !inpTel.value.trim()) inpTel.value = c.telefono;
+    refrescarAcumulacion();
+  });
+  inpTel.addEventListener("input", () => {
+    // si el teléfono identifica a un cliente y el nombre está vacío, completarlo
+    const previo = voucherDelCliente("", inpTel.value, existentes);
+    if (previo && !inpNom.value.trim()) inpNom.value = previo.nombre || "";
+    refrescarAcumulacion();
+  });
+  inpMonto.addEventListener("input", refrescarAcumulacion);
+  inpVence.addEventListener("change", refrescarAcumulacion);
+
+  document.getElementById("gvOv").onclick = cerrarModal;
+  document.getElementById("gvCancel").onclick = cerrarModal;
+
+  document.getElementById("gvSave").onclick = async () => {
+    const nombre = inpNom.value.trim();
+    const telefono = inpTel.value.trim();
+    const vencimiento = inpVence.value;
+    const monto = Number(inpMonto.value) || 0;
+    if (!nombre) return toast("Falta el nombre");
+    if (!telefono) return toast("Falta el teléfono");
+    if (!vencimiento) return toast("Falta el vencimiento");
+    if (monto <= 0) return toast("El monto tiene que ser mayor a 0");
+
+    const btn = document.getElementById("gvSave");
+    btn.disabled = true; btn.textContent = "Generando...";
+
+    const origenPrenda = `Devolución de ${v.codigo}`;
+    let idVoucher, res, sumado = false, montoFinal = monto;
+
+    if (acumulaEn) {
+      // sumar sobre el voucher existente
+      montoFinal = acumulaEn.monto + monto;
+      const vencFinal = vencimiento > acumulaEn.vencimiento ? vencimiento : acumulaEn.vencimiento;
+      res = await API.actualizarVoucher(acumulaEn.id, {
+        monto: montoFinal,
+        vencimiento: vencFinal,
+        // el origen se acumula para no perder de qué prendas salió la plata
+        origen: (acumulaEn.origen ? acumulaEn.origen + " + " : "") + origenPrenda,
+        avisado: false, // volvió a tener saldo nuevo: el aviso anterior ya no vale
+      });
+      idVoucher = acumulaEn.id;
+      sumado = true;
+    } else {
+      idVoucher = "VCH-" + Date.now();
+      res = await API.crearVoucher({
+        id: idVoucher, tipo: "monto", monto,
+        fecha: new Date().toISOString(), vencimiento,
+        nombre, telefono, origen: origenPrenda,
+        avisado: false, usado: false, comprado: false,
+      });
+    }
+
+    if (!res || !res.ok) {
+      btn.disabled = false; btn.textContent = "Generar voucher";
+      return toast("No se pudo generar el voucher. Revisá la conexión e intentá de nuevo.");
+    }
+
+    // la prenda vuelve al stock (es una devolución)
+    await API.ajustarStockPorVariante(v.codigo, v.talle, v.color, v.cantidad);
+    const s = State.stock.find((x) => x.codigo === v.codigo && x.talle === v.talle && x.color === v.color);
+    if (s) s.cantidad += v.cantidad;
+
+    // marcar la venta: ya generó voucher (no se puede volver a generar ni restaurar)
+    await API.marcarVoucherGenerado(v.id, idVoucher);
+    v.voucherGenerado = idVoucher;
+
+    cerrarModal();
+    toast(sumado
+      ? `Sumado al voucher de ${nombre}: ${formatPrecio(montoFinal)} · Prenda repuesta`
+      : `Voucher de ${formatPrecio(monto)} generado · Prenda repuesta`);
+    if (typeof opts.onListo === "function") opts.onListo();
+    actualizarCampanitaVouchers();
+  };
+}
+
 // ---- Compartir como imagen ----
 function compartirVoucher(v) {
   const canvas = document.createElement("canvas");

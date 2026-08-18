@@ -827,6 +827,10 @@ const API = {
       if (cambios.usado !== undefined) c.usado = cambios.usado;
       if (cambios.avisado !== undefined) c.avisado = cambios.avisado;
       if (cambios.vencimiento !== undefined) c.vencimiento = cambios.vencimiento;
+      // monto y origen: los usa la acumulación de vouchers (varias devoluciones
+      // del mismo cliente se suman en un único voucher en vez de quedar sueltas)
+      if (cambios.monto !== undefined) c.monto = cambios.monto;
+      if (cambios.origen !== undefined) c.origen = cambios.origen;
       await SB.update("vouchers", "id=eq." + enc(id), c);
       return { ok: true };
     } catch (e) { return { ok: false, error: String(e) }; }
