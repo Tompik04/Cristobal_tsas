@@ -7,7 +7,7 @@
    ============================================================ */
 
 const CONFIG = {
-  // ===== SUPABASE =====
+  // ===== SUPABASEEE =====
   SUPABASE_URL: "https://gsqvjfxybiyozgvfhdbn.supabase.co",
   SUPABASE_KEY: "sb_publishable_7XQzlfzQq4MLmnKekugNyg_veY8RXxV",
 
