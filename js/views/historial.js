@@ -290,12 +290,11 @@ function bindHistRow(list, v) {
   const btnVou = row.querySelector('[data-act="voucher"]');
   if (btnVou && !btnVou.disabled) {
     // la implementación vive en vouchers.js (la comparten Historial y Cambios).
-    // Acá se sigue proponiendo el precio final cobrado, como venía siendo en
-    // Historial; en Cambios se propone el valor de la prenda (sin recargo).
-    btnVou.onclick = () => abrirVoucherDesdeVenta(v, {
-      montoSugerido: v.precioFinal != null ? v.precioFinal : (v.precioBase || 0),
-      onListo: cargarHistorial,
-    });
+    // El monto propuesto sale del default compartido: el VALOR DE LA PRENDA
+    // (precio_producto), no el precio final cobrado. Con precio_final, una venta
+    // pagada con tarjeta proponía un 25% de más (el recargo no es mercadería) y
+    // una pagada con voucher o seña proponía $0, que la validación rechaza.
+    btnVou.onclick = () => abrirVoucherDesdeVenta(v, { onListo: cargarHistorial });
   }
 }
 
