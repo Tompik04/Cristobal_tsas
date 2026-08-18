@@ -67,56 +67,96 @@ async function cargarCuentas() {
   pintarCuentas({});
 }
 
-// ¿una prenda de cuenta corriente está vencida? (35 días desde que se agregó)
-function itemVencido(item) {
-  if (!item.fecha) return false;
-  const limite = new Date(item.fecha);
-  limite.setDate(limite.getDate() + CONFIG.DIAS_VENCIMIENTO_VOUCHER);
-  return new Date() > limite;
-}
-// precio efectivo de una prenda: si venció, sube +20% (precio de lista)
-function precioItemEfectivo(item) {
-  const base = item.precio * item.cantidad;
-  return itemVencido(item) ? base * (1 + CONFIG.RECARGO_TARJETA) : base;
-}
-// fecha de vencimiento de una prenda
+// fecha de vencimiento de una prenda (35 días desde que se agregó)
 function vencimientoItem(item) {
   if (!item.fecha) return null;
   const limite = new Date(item.fecha);
   limite.setDate(limite.getDate() + CONFIG.DIAS_VENCIMIENTO_VOUCHER);
   return limite;
 }
+// ¿la prenda ya estaba vencida en una fecha dada?
+function itemVencidoEn(item, fecha) {
+  const limite = vencimientoItem(item);
+  return limite ? fecha > limite : false;
+}
+// ¿está vencida hoy? (solo para el cartelito de las prendas pendientes)
+function itemVencido(item) {
+  return itemVencidoEn(item, new Date());
+}
+// precio de una prenda valuado a una fecha: si a esa fecha ya había vencido,
+// corresponde el precio de lista (+recargo); si no, el precio base.
+function precioItemEnFecha(item, fecha) {
+  const base = item.precio * item.cantidad;
+  return itemVencidoEn(item, fecha) ? base * (1 + CONFIG.RECARGO_TARJETA) : base;
+}
 
-// deuda total de una cuenta: suma de prendas (vencidas +20%) − suma saldada por pagos
+// Reparte los pagos (en orden cronológico) sobre las prendas, de la más vieja a la más nueva.
+//
+// La clave: una prenda se CONGELA apenas queda cubierta. El precio con el que se saldó no
+// se vuelve a recalcular nunca más, y deja de sumar a la deuda.
+// Antes el precio se recomputaba en cada render según si la prenda estaba vencida HOY, sin
+// mirar si ya estaba paga: al cumplirse el vencimiento se le agregaba el recargo a una prenda
+// ya saldada y la cuenta volvía a figurar con deuda de la nada.
+//
+// Cada pago se valúa al día en que se hizo: si cuando se pagó la prenda ya estaba vencida,
+// se cobra el precio de lista; si se pagó en fecha, el precio base. Las prendas que siguen
+// sin cubrir se valúan a hoy, así el recargo por vencimiento sigue corriendo solo para esas.
+function itemsConEstadoPago(cuentaId) {
+  const items = _ccItems.filter((i) => i.cuentaId === cuentaId)
+    .slice()
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha)); // más vieja primero
+  const pagos = _ccPagos.filter((p) => p.cuentaId === cuentaId)
+    .slice()
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+  const estado = items.map((i) => ({ item: i, abonado: 0, pagada: false, precioFinal: 0, fechaSaldada: null }));
+
+  let idx = 0; // prenda más vieja que todavía no quedó cubierta
+  for (const p of pagos) {
+    let restante = p.salda != null ? p.salda : p.monto;
+    const fechaPago = new Date(p.fecha);
+    while (restante > 0.5 && idx < estado.length) {
+      const e = estado[idx];
+      const precio = precioItemEnFecha(e.item, fechaPago);
+      const falta = precio - e.abonado;
+      if (restante >= falta - 0.5) {
+        // alcanza para cubrirla: se congela acá y no se recalcula más
+        e.abonado = precio;
+        e.precioFinal = precio;
+        e.pagada = true;
+        e.fechaSaldada = p.fecha;
+        restante -= falta;
+        idx++;
+      } else {
+        e.abonado += restante;
+        restante = 0;
+      }
+    }
+  }
+
+  return estado.map((e) => {
+    // saldada → precio congelado; pendiente → se valúa a hoy
+    const precio = e.pagada ? e.precioFinal : precioItemEnFecha(e.item, new Date());
+    return Object.assign({}, e.item, {
+      precioActual: precio,
+      abonado: e.abonado,
+      falta: Math.max(0, precio - e.abonado),
+      pagada: e.pagada,
+      fechaSaldada: e.fechaSaldada,
+    });
+  });
+}
+
+// deuda total: solo lo que falta de las prendas NO saldadas.
+// Una prenda saldada aporta 0 y ya no vuelve a contar, pase lo que pase con su vencimiento.
 function deudaCuenta(cuentaId) {
-  const items = _ccItems.filter((i) => i.cuentaId === cuentaId);
-  const pagos = _ccPagos.filter((p) => p.cuentaId === cuentaId);
-  const totalItems = items.reduce((a, i) => a + precioItemEfectivo(i), 0);
-  const totalSaldado = pagos.reduce((a, p) => a + (p.salda != null ? p.salda : p.monto), 0);
-  return totalItems - totalSaldado;
+  return itemsConEstadoPago(cuentaId).reduce((a, i) => a + (i.pagada ? 0 : i.falta), 0);
 }
 
 // total saldado (suma de lo que bajó la deuda con todos los pagos)
 function totalSaldado(cuentaId) {
   return _ccPagos.filter((p) => p.cuentaId === cuentaId)
     .reduce((a, p) => a + (p.salda != null ? p.salda : p.monto), 0);
-}
-
-// reparte el total saldado sobre las prendas ordenadas de más vieja a más nueva.
-// devuelve cada prenda con: pagada (bool), abonado (cuánto se le aplicó), falta (cuánto resta)
-function itemsConEstadoPago(cuentaId) {
-  const items = _ccItems.filter((i) => i.cuentaId === cuentaId)
-    .slice()
-    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha)); // más vieja primero
-  let restante = totalSaldado(cuentaId);
-  return items.map((i) => {
-    const precio = precioItemEfectivo(i);
-    let abonado = 0;
-    if (restante >= precio) { abonado = precio; restante -= precio; }
-    else { abonado = restante; restante = 0; }
-    const pagada = abonado >= precio - 0.5;
-    return Object.assign({}, i, { precioActual: precio, abonado, falta: precio - abonado, pagada });
-  });
 }
 
 function pintarCuentas(f) {
@@ -192,10 +232,11 @@ function abrirDetalleCuenta(cuentaId) {
   const deuda = deudaCuenta(cuentaId);
   const deudaCredito = deuda * (1 + CONFIG.RECARGO_TARJETA); // referencia con recargo
 
-  // prendas con su estado de pago (FIFO): las pagadas no se muestran
+  // prendas con su estado de pago (FIFO): las saldadas van aparte, en un desplegable
   const itemsEstado = itemsConEstadoPago(cuentaId);
   const itemsPendientes = itemsEstado.filter((i) => !i.pagada);
-  const cantPagadas = itemsEstado.length - itemsPendientes.length;
+  const itemsSaldados = itemsEstado.filter((i) => i.pagada);
+  const cantPagadas = itemsSaldados.length;
 
   const itemsHTML = itemsPendientes.length
     ? itemsPendientes.map((i) => {
@@ -222,6 +263,31 @@ function abrirDetalleCuenta(cuentaId) {
         </div>`;
       }).join("")
     : `<p class="cc-vacio">${cantPagadas > 0 ? "Todas las prendas están saldadas." : "Sin prendas cargadas."}</p>`;
+
+  // desplegable con las prendas ya saldadas (antes solo se veía el contador "N saldadas")
+  const saldadosHTML = itemsSaldados.length
+    ? `<details class="cc-saldadas">
+        <summary>
+          <i class="ti ti-chevron-right cc-saldadas-chev"></i>
+          <span>Prendas saldadas</span>
+          <span class="cc-pagadas-tag">${itemsSaldados.length}</span>
+        </summary>
+        <div class="cc-items cc-saldadas-body">
+          ${itemsSaldados.map((i) => `
+            <div class="cc-item cc-item-saldado">
+              <img class="cc-item-img" src="${imgPrenda(i.codigo, categoriaDeStock(i.codigo))}" onerror="this.style.opacity=0.3">
+              <div class="cc-item-info">
+                <span>${i.marca} · ${i.codigo}</span>
+                <span class="cc-item-var">Talle ${i.talle} · ${i.color} · x${i.cantidad}</span>
+                <span class="cc-item-saldada-tag"><i class="ti ti-check"></i> Saldada${i.fechaSaldada ? " el " + fmtFecha(i.fechaSaldada) : ""}</span>
+              </div>
+              <div class="cc-item-precios">
+                <span class="cc-item-precio">${formatPrecio(i.precioActual)}</span>
+              </div>
+            </div>`).join("")}
+        </div>
+      </details>`
+    : "";
 
   const pagosHTML = pagos.length
     ? pagos.map((p) => {
@@ -257,6 +323,7 @@ function abrirDetalleCuenta(cuentaId) {
           <button class="btn-mini" id="ccAddItem"><i class="ti ti-plus"></i> Agregar del stock</button>
         </div>
         <div class="cc-items">${itemsHTML}</div>
+        ${saldadosHTML}
       </div>
 
       <div class="cc-section">

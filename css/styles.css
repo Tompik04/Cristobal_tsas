@@ -833,6 +833,17 @@ button { font-family: inherit; }
 .cc-pago-monto { color: var(--sage); }
 .cc-vacio { color: var(--oak-55); font-size: 13px; padding: 8px; text-align: center; }
 
+/* ---- Desplegable de prendas saldadas ---- */
+.cc-saldadas { margin-top: 10px; }
+.cc-saldadas summary { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 12px; background: var(--oak-08); border: 1px solid var(--oak-20); border-radius: 8px; font-size: 13px; color: var(--oak-55); list-style: none; }
+.cc-saldadas summary::-webkit-details-marker { display: none; }
+.cc-saldadas summary:hover { color: var(--pale-oak); }
+.cc-saldadas-chev { transition: transform 0.2s ease; }
+.cc-saldadas[open] .cc-saldadas-chev { transform: rotate(90deg); }
+.cc-saldadas-body { margin-top: 8px; }
+.cc-item-saldado { opacity: 0.75; }
+.cc-item-saldada-tag { font-size: 10px; color: var(--sage); display: flex; align-items: center; gap: 3px; }
+
 /* ============ TAGS DE MÉTODO DE PAGO ============ */
 .pago-tag {
   display: inline-block; font-size: 13px; font-weight: 600; letter-spacing: 0.03em;
