@@ -147,12 +147,13 @@ Respetá siempre estos tokens. No inventes colores ni tipografías.
 
 Síntomas reportados (sin diagnosticar todavía):
 
-- Al filtrar por colo o talle en prendas para poder ver la cantidad, aparecen algunos litados con otro talle o color y no el que se quiere filtrar
+- Al filtrar por color o talle en prendas para poder ver la cantidad, aparecen algunos litados con otro talle o color y no el que se quiere filtrar
 - Variacion de disponibles en stock, entre subida de stock y ventas de las prendas a veces deberia aparecer 1 prenda y salen 2, o no deberia haber y sale 1 disponible. (Podria deberse a error al stockear, pero vale la pena revisar)
 - Muestra en historial de cambios o ventas, cambios realizados sin mostrar bien los detalles de prendas salientes y prendas entrantes
 - Muestra en historial de vouchers y demas realizados sin descripcion ni detalle
+- Espaciado de items en las diferentes tarjetas, no tienen una buena disposicion y no se ve bien, no se aprovecha todo el espacio
 
-### Confirmado en la base (2026-08-15)
+### Confirmado en la base (2026-08-18)
 
 **1. Filas duplicadas en `stock` — explica la variación de disponibles.**
 `stock` no tiene ningún índice único sobre la variante: la única restricción es la PK `id`. Nada impide dos filas idénticas. Hoy hay **9 variantes con 2 filas cada una**, iguales en *todos* los campos (código, talle, color, categoría, marca, precio_venta, precio_costo) — no son lotes distintos. Ejemplos:
