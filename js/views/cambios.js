@@ -135,12 +135,14 @@ function crowHTML(v) {
         <span class="c-estado ${claseEstado}">${est.label}</span>
       </div>
       <div class="c-precio">${formatPrecio(v.precioProducto != null ? v.precioProducto : v.precioBase)}</div>
-      <button class="c-swap c-voucher" data-act="voucher" title="Cambiar por un voucher">
-        <i class="ti ti-ticket"></i>
-      </button>
-      <button class="c-swap" data-act="swap" title="Realizar cambio">
-        <i class="ti ti-arrows-exchange"></i>
-      </button>
+      <div class="c-acts">
+        <button class="c-swap c-voucher" data-act="voucher" title="Cambiar por un voucher">
+          <i class="ti ti-ticket"></i>
+        </button>
+        <button class="c-swap" data-act="swap" title="Realizar cambio">
+          <i class="ti ti-arrows-exchange"></i>
+        </button>
+      </div>
     </div>`;
 }
 
