@@ -193,34 +193,33 @@ function cuentaHTML(c) {
 
   // alarma con el mismo criterio que los vouchers: roja si ya venció,
   // ámbar si le quedan DIAS_ALARMA_VOUCHER días o menos.
-  let badge = "", alerta = "", claseFila = "";
+  let badge = "", claseFila = "";
   if (prox) {
     if (prox.dias < 0) {
-      badge = `<span class="v-badge red">Vencida hace ${-prox.dias}d · precio de lista</span>`;
+      badge = `<span class="v-badge red">Vencida hace ${-prox.dias}d</span>`;
       claseFila = "alarm-row-red";
-      alerta = `<button class="v-icon alerta" data-act="alerta" title="Prenda vencida: avisale al cliente"><i class="ti ti-bell-filled"></i></button>`;
     } else if (prox.dias <= CONFIG.DIAS_ALARMA_VOUCHER) {
       badge = `<span class="v-badge yellow">Vence en ${prox.dias}d · ${fmtFecha(prox.fecha.toISOString())}</span>`;
       claseFila = "alarm-row-yellow";
-      alerta = `<button class="v-icon alerta pronto" data-act="alerta" title="Vence pronto: avisale al cliente"><i class="ti ti-bell"></i></button>`;
     } else {
       badge = `<span class="v-badge ok">Vence ${fmtFecha(prox.fecha.toISOString())}</span>`;
     }
   }
+  // botón de compartir: arma una tarjeta con el resumen para mandarle al cliente.
+  // Mismo criterio que el compartir de Vouchers. Solo tiene sentido si debe algo.
+  const alerta = saldada ? "" :
+    `<button class="v-icon ${prox && prox.dias <= CONFIG.DIAS_ALARMA_VOUCHER ? (prox.dias < 0 ? "alerta" : "alerta pronto") : ""}" data-act="avisar" title="Compartir resumen para avisarle al cliente"><i class="ti ti-share"></i></button>`;
 
+  // una celda por dato, en línea: nombre | teléfono | prendas | vencimiento | saldo | acciones
   return `
     <div class="crow cuenta-row ${claseFila}" data-id="${c.id}">
-      <div class="c-meta">
-        <span class="c-vars"><strong>${c.nombre} ${c.apellido || ""}</strong></span>
-        <span class="c-fecha">${c.telefono || "—"}</span>
-      </div>
-      <div class="cc-col-detalle">
-        ${saldada
-          ? `<span class="cc-prendas"><i class="ti ti-check"></i> Sin prendas pendientes</span>`
-          : `<span class="cc-prendas"><i class="ti ti-hanger"></i> ${unidades} prenda${unidades === 1 ? "" : "s"} pendiente${unidades === 1 ? "" : "s"}</span>`}
-        ${badge}
-      </div>
-      <div class="v-value ${saldada ? "" : "neg"}">${saldada ? "Saldada" : "Debe " + formatPrecio(deuda)}</div>
+      <span class="cc-c-nombre">${c.nombre} ${c.apellido || ""}</span>
+      <span class="cc-c-tel">${c.telefono || "—"}</span>
+      <span class="cc-c-prendas">${saldada
+        ? `<i class="ti ti-check"></i> Sin pendientes`
+        : `<i class="ti ti-hanger"></i> ${unidades} prenda${unidades === 1 ? "" : "s"}`}</span>
+      <span class="cc-c-venc">${badge || `<span class="v-badge gray">—</span>`}</span>
+      <span class="v-value ${saldada ? "" : "neg"}">${saldada ? "Saldada" : "Debe " + formatPrecio(deuda)}</span>
       <div class="v-actions">
         ${alerta}
         <button class="c-swap" data-act="ver" title="Ver detalle"><i class="ti ti-chevron-right"></i></button>
@@ -231,10 +230,75 @@ function cuentaHTML(c) {
 function bindCuenta(list, c) {
   const row = list.querySelector(`.cuenta-row[data-id="${c.id}"]`);
   row.querySelector('[data-act="ver"]').onclick = () => abrirDetalleCuenta(c.id);
-  // la campanita también abre el detalle, así no queda como un botón muerto
-  const alerta = row.querySelector('[data-act="alerta"]');
-  if (alerta) alerta.onclick = (e) => { e.stopPropagation(); abrirDetalleCuenta(c.id); };
+  const avisar = row.querySelector('[data-act="avisar"]');
+  if (avisar) avisar.onclick = (e) => { e.stopPropagation(); compartirCuenta(c); };
   row.onclick = (e) => { if (!e.target.closest("button")) abrirDetalleCuenta(c.id); };
+}
+
+// ---- Compartir el resumen de la cuenta como imagen ----
+// Misma idea que compartirVoucher: una tarjeta lista para mandarle al cliente
+// por WhatsApp con lo que debe y cuándo le vence la próxima prenda.
+function compartirCuenta(c) {
+  const deuda = deudaCuenta(c.id);
+  const pendientes = itemsConEstadoPago(c.id).filter((i) => !i.pagada);
+  const unidades = pendientes.reduce((a, i) => a + (i.cantidad || 0), 0);
+  const prox = proximoVencimientoCuenta(c.id);
+
+  const canvas = document.createElement("canvas");
+  const W = 600, H = 380;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#041F1E"; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "#DCCAAC"; ctx.lineWidth = 3;
+  ctx.strokeRect(16, 16, W - 32, H - 32);
+
+  ctx.fillStyle = "#DCCAAC";
+  ctx.textAlign = "center";
+  ctx.font = "bold 34px Georgia";
+  ctx.fillText("CRISTOBAL", W / 2, 70);
+  ctx.font = "16px Georgia";
+  ctx.fillStyle = "#C9A24B";
+  ctx.fillText("CUENTA CORRIENTE", W / 2, 100);
+
+  ctx.fillStyle = "#DCCAAC";
+  ctx.font = "20px Georgia";
+  ctx.fillText(`${c.nombre} ${c.apellido || ""}`.trim(), W / 2, 145);
+
+  ctx.font = "bold 54px Georgia";
+  ctx.fillText(formatPrecio(Math.max(0, deuda)), W / 2, 215);
+  ctx.font = "15px Georgia";
+  ctx.fillStyle = "rgba(220,202,172,0.7)";
+  ctx.fillText("Saldo adeudado", W / 2, 240);
+
+  ctx.font = "16px Georgia";
+  ctx.fillStyle = "#DCCAAC";
+  ctx.fillText(`${unidades} prenda${unidades === 1 ? "" : "s"} pendiente${unidades === 1 ? "" : "s"}`, W / 2, 285);
+
+  if (prox) {
+    // si ya venció, se avisa que rige el precio de lista (es lo que cambia el monto)
+    ctx.font = "15px Georgia";
+    ctx.fillStyle = prox.dias < 0 ? "#C97A6D" : "rgba(220,202,172,0.7)";
+    ctx.fillText(prox.dias < 0
+      ? `Vencida hace ${-prox.dias} días · rige precio de lista`
+      : `Próximo vencimiento: ${fmtFecha(prox.fecha.toISOString())} (${prox.dias} días)`, W / 2, 315);
+  }
+
+  canvas.toBlob(async (blob) => {
+    const file = new File([blob], `cuenta-${c.nombre}.png`, { type: "image/png" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: "Cuenta corriente CRISTOBAL" });
+        return;
+      } catch (e) { /* canceló, cae a descarga */ }
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `cuenta-${c.nombre}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast("Imagen del resumen descargada");
+  }, "image/png");
 }
 
 // ---- Nueva cuenta ----

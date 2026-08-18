@@ -748,11 +748,15 @@ button { font-family: inherit; }
 }
 .srow-agrup.row-sel { border-color: var(--gold); background: rgba(127,196,160,0.06); }
 /* distribución propia de la fila de stock agrupado.
-   Talle y color se achican (son valores cortos: "L", "XXL", "Azul") para
-   liberar ancho al bloque de precio/costo/porcentaje, que es el dato que
-   más se lee y antes quedaba comprimido contra el borde derecho. */
+   TODAS las columnas flexibles van en fr, para que se repartan el ancho y no
+   queden huecos. Talle y color llevan una fracción menor que antes (eran 1fr
+   cada una y quedaban larguísimas para valores como "L" o "Azul"), y esa
+   fracción pasa al bloque de precio/costo/porcentaje.
+   OJO: no topar estas columnas con un max en px. Si se topan, el sobrante se
+   lo lleva igual la columna del precio, que alinea a la derecha, y aparece un
+   hueco enorme entre el color y el precio. */
 .srow-agrup {
-  grid-template-columns: minmax(220px, 1.5fr) 132px minmax(150px, 190px) minmax(190px, 1.1fr) auto auto auto;
+  grid-template-columns: minmax(240px, 1.2fr) minmax(120px, 0.9fr) minmax(140px, 1fr) minmax(200px, 0.5fr) auto auto auto;
   gap: 14px;
 }
 .srow-agrup .eprice { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
@@ -1189,21 +1193,26 @@ button { font-family: inherit; }
 .voucher-row .c-fecha { font-size: 12px; }
 .voucher-row .v-value { font-size: 20px; }
 
-/* Cuenta corriente: nombre+teléfono | prendas y vencimiento | saldo | acciones */
-.cuenta-row { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto auto; gap: 18px; cursor: pointer; }
-.cuenta-row .c-vars strong { font-size: 16px; letter-spacing: 0.03em; }
-.cuenta-row .c-fecha { font-size: 13px; }
-.cuenta-row .v-value { font-size: 20px; }
-.cc-col-detalle { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; font-size: 12px; color: var(--oak-55); }
-.cc-col-detalle .cc-prendas { display: flex; align-items: center; gap: 5px; }
+/* Cuenta corriente: un dato por columna, todos en línea.
+   nombre | teléfono | prendas pendientes | próximo vencimiento | saldo | acciones */
+.cuenta-row {
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  gap: 16px; cursor: pointer; align-items: center;
+}
+.cc-c-nombre { font-size: 16px; letter-spacing: 0.03em; color: var(--pale-oak); font-weight: 600; }
+.cc-c-tel { font-size: 14px; color: var(--oak-55); }
+.cc-c-prendas { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--oak-60); }
+.cc-c-venc { display: flex; }
+.cuenta-row .v-value { font-size: 19px; text-align: right; }
 .cuenta-row .v-icon.alerta { border-color: rgba(201,122,109,0.5); color: var(--danger); }
 .cuenta-row .v-icon.alerta.pronto { border-color: rgba(201,162,75,0.5); color: var(--gold); }
 
 @media (max-width: 860px) {
   .gasto-row, .voucher-row { grid-template-columns: minmax(0, 1fr) auto; }
   .gasto-row .v-actions, .voucher-row .v-actions { grid-column: 1 / -1; justify-content: flex-end; }
-  .cuenta-row { grid-template-columns: minmax(0, 1fr) auto auto; }
-  .cuenta-row .cc-col-detalle { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; gap: 10px; }
+  .cuenta-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .cuenta-row .cc-c-tel, .cuenta-row .cc-c-prendas, .cuenta-row .cc-c-venc { grid-column: 1; }
+  .cuenta-row .v-actions { grid-row: 1 / span 2; }
 }
 
 /* popup de intercambio */
