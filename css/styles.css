@@ -462,9 +462,16 @@ button { font-family: inherit; }
 /* ============ LISTA DE PRODUCTOS ============ */
 .prod-list { padding: 0 1.5% 7rem; display: flex; flex-direction: column; gap: 12px; }
 .prow {
-  display: grid; grid-template-columns: minmax(240px, 1fr) 104px 140px 104px auto 136px auto; gap: 14px; align-items: center;
+  /* prenda | talle | color | descuento | oferta | cantidad | acciones.
+     Los desplegables van en fracciones (no en px fijos) para que acompañen el
+     ancho de la fila, igual que en Stock: con 104/140/104px fijos quedaban
+     apretados y sobraba espacio a la derecha en pantallas grandes. */
+  display: grid;
+  grid-template-columns: minmax(220px, 1.6fr) minmax(104px, 1fr) minmax(130px, 1.25fr) minmax(104px, 1fr) auto minmax(120px, 1fr) auto;
+  gap: 14px; align-items: center;
   background: var(--oak-08); border: 1px solid var(--oak-25); border-radius: var(--r); padding: 14px 16px;
 }
+.prow select { width: 100%; }
 .pcell { display: flex; align-items: center; gap: 12px; }
 .e-repo {
   flex-shrink: 0; width: 34px; height: 34px; border-radius: 8px;
@@ -740,12 +747,17 @@ button { font-family: inherit; }
   transform: rotate(45deg);
 }
 .srow-agrup.row-sel { border-color: var(--gold); background: rgba(127,196,160,0.06); }
-/* distribución propia de la fila de stock agrupado */
+/* distribución propia de la fila de stock agrupado.
+   Talle y color se achican (son valores cortos: "L", "XXL", "Azul") para
+   liberar ancho al bloque de precio/costo/porcentaje, que es el dato que
+   más se lee y antes quedaba comprimido contra el borde derecho. */
 .srow-agrup {
-  grid-template-columns: 280px minmax(110px, 1fr) minmax(110px, 1fr) auto auto auto auto;
-  gap: 16px;
+  grid-template-columns: minmax(220px, 1.5fr) 132px minmax(150px, 190px) minmax(190px, 1.1fr) auto auto auto;
+  gap: 14px;
 }
 .srow-agrup .eprice { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
+.srow-agrup .eprice-val { font-size: 19px; }
+.srow-agrup .eprice-cost { font-size: 12px; white-space: nowrap; }
 .srow-agrup .stepper { justify-self: center; }
 .srow-agrup .e-del { justify-self: end; }
 .srow-agrup .evar-check { justify-self: center; margin-right: 0; }
@@ -1153,6 +1165,46 @@ button { font-family: inherit; }
 .c-swap:hover:not(:disabled) { background: var(--sage); border-color: var(--sage); color: #08130c; }
 .c-swap:disabled { opacity: 0.3; cursor: not-allowed; }
 .c-swap i { font-size: 22px; }
+
+/* ============================================================
+   DISTRIBUCIÓN DE LAS FILAS QUE REUSAN .crow
+   ============================================================
+   OJO: .crow define 5 columnas (auto 250px 1fr auto auto) para la fila de
+   Cambios, que es la que más celdas tiene. Gastos, Vouchers y Cuentas usan
+   la misma clase pero con 3 celdas, así que necesitan su propia grilla.
+   Estos overrides tienen que ir DESPUÉS de .crow: misma especificidad, gana
+   el último. Antes estaban más arriba en el archivo y .crow los pisaba: el
+   monto quedaba clavado en 250px y los iconos pegados al medio de la fila.
+   ============================================================ */
+
+/* Gastos: concepto ocupa lo que sobra, monto e iconos al final */
+.gasto-row { grid-template-columns: minmax(0, 1fr) auto auto; gap: 18px; }
+.gasto-row .c-vars strong { font-size: 15px; letter-spacing: 0.03em; }
+.gasto-row .c-fecha { font-size: 13px; }
+.gasto-row .v-value { font-size: 20px; }
+
+/* Vouchers: datos del cliente ocupan lo que sobra, monto e iconos al final */
+.voucher-row { grid-template-columns: minmax(0, 1fr) auto auto; gap: 18px; }
+.voucher-row .c-vars { font-size: 15px; }
+.voucher-row .c-fecha { font-size: 12px; }
+.voucher-row .v-value { font-size: 20px; }
+
+/* Cuenta corriente: nombre+teléfono | prendas y vencimiento | saldo | acciones */
+.cuenta-row { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto auto; gap: 18px; cursor: pointer; }
+.cuenta-row .c-vars strong { font-size: 16px; letter-spacing: 0.03em; }
+.cuenta-row .c-fecha { font-size: 13px; }
+.cuenta-row .v-value { font-size: 20px; }
+.cc-col-detalle { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; font-size: 12px; color: var(--oak-55); }
+.cc-col-detalle .cc-prendas { display: flex; align-items: center; gap: 5px; }
+.cuenta-row .v-icon.alerta { border-color: rgba(201,122,109,0.5); color: var(--danger); }
+.cuenta-row .v-icon.alerta.pronto { border-color: rgba(201,162,75,0.5); color: var(--gold); }
+
+@media (max-width: 860px) {
+  .gasto-row, .voucher-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .gasto-row .v-actions, .voucher-row .v-actions { grid-column: 1 / -1; justify-content: flex-end; }
+  .cuenta-row { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .cuenta-row .cc-col-detalle { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; gap: 10px; }
+}
 
 /* popup de intercambio */
 .swap-modal { max-width: 720px; }

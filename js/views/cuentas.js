@@ -174,23 +174,66 @@ function pintarCuentas(f) {
   lista.forEach((c) => bindCuenta(list, c));
 }
 
+// próxima prenda pendiente en vencer: devuelve { fecha, dias } o null.
+// Solo mira las NO saldadas: una prenda ya paga no vuelve a vencer para nadie.
+function proximoVencimientoCuenta(cuentaId) {
+  const pendientes = itemsConEstadoPago(cuentaId).filter((i) => !i.pagada);
+  const fechas = pendientes.map((i) => vencimientoItem(i)).filter(Boolean).sort((a, b) => a - b);
+  if (!fechas.length) return null;
+  const f = fechas[0];
+  return { fecha: f, dias: Math.ceil((f - new Date()) / 86400000) };
+}
+
 function cuentaHTML(c) {
   const deuda = deudaCuenta(c.id);
   const saldada = deuda <= 0.5;
+  const pendientes = itemsConEstadoPago(c.id).filter((i) => !i.pagada);
+  const unidades = pendientes.reduce((a, i) => a + (i.cantidad || 0), 0);
+  const prox = saldada ? null : proximoVencimientoCuenta(c.id);
+
+  // alarma con el mismo criterio que los vouchers: roja si ya venció,
+  // ámbar si le quedan DIAS_ALARMA_VOUCHER días o menos.
+  let badge = "", alerta = "", claseFila = "";
+  if (prox) {
+    if (prox.dias < 0) {
+      badge = `<span class="v-badge red">Vencida hace ${-prox.dias}d · precio de lista</span>`;
+      claseFila = "alarm-row-red";
+      alerta = `<button class="v-icon alerta" data-act="alerta" title="Prenda vencida: avisale al cliente"><i class="ti ti-bell-filled"></i></button>`;
+    } else if (prox.dias <= CONFIG.DIAS_ALARMA_VOUCHER) {
+      badge = `<span class="v-badge yellow">Vence en ${prox.dias}d · ${fmtFecha(prox.fecha.toISOString())}</span>`;
+      claseFila = "alarm-row-yellow";
+      alerta = `<button class="v-icon alerta pronto" data-act="alerta" title="Vence pronto: avisale al cliente"><i class="ti ti-bell"></i></button>`;
+    } else {
+      badge = `<span class="v-badge ok">Vence ${fmtFecha(prox.fecha.toISOString())}</span>`;
+    }
+  }
+
   return `
-    <div class="crow cuenta-row" data-id="${c.id}">
+    <div class="crow cuenta-row ${claseFila}" data-id="${c.id}">
       <div class="c-meta">
         <span class="c-vars"><strong>${c.nombre} ${c.apellido || ""}</strong></span>
         <span class="c-fecha">${c.telefono || "—"}</span>
       </div>
+      <div class="cc-col-detalle">
+        ${saldada
+          ? `<span class="cc-prendas"><i class="ti ti-check"></i> Sin prendas pendientes</span>`
+          : `<span class="cc-prendas"><i class="ti ti-hanger"></i> ${unidades} prenda${unidades === 1 ? "" : "s"} pendiente${unidades === 1 ? "" : "s"}</span>`}
+        ${badge}
+      </div>
       <div class="v-value ${saldada ? "" : "neg"}">${saldada ? "Saldada" : "Debe " + formatPrecio(deuda)}</div>
-      <button class="c-swap" data-act="ver" title="Ver detalle"><i class="ti ti-chevron-right"></i></button>
+      <div class="v-actions">
+        ${alerta}
+        <button class="c-swap" data-act="ver" title="Ver detalle"><i class="ti ti-chevron-right"></i></button>
+      </div>
     </div>`;
 }
 
 function bindCuenta(list, c) {
   const row = list.querySelector(`.cuenta-row[data-id="${c.id}"]`);
   row.querySelector('[data-act="ver"]').onclick = () => abrirDetalleCuenta(c.id);
+  // la campanita también abre el detalle, así no queda como un botón muerto
+  const alerta = row.querySelector('[data-act="alerta"]');
+  if (alerta) alerta.onclick = (e) => { e.stopPropagation(); abrirDetalleCuenta(c.id); };
   row.onclick = (e) => { if (!e.target.closest("button")) abrirDetalleCuenta(c.id); };
 }
 
