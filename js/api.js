@@ -507,6 +507,18 @@ const API = {
     } catch (e) { return { ok: false, error: String(e) }; }
   },
 
+  // corre a mano el límite de la ventana de cambio de una venta (excepción).
+  // fecha = "yyyy-mm-dd". A diferencia del vencimiento de cuenta corriente, acá
+  // la columna siempre tiene valor: "volver al de siempre" es recalcular
+  // inicio_cambio + DIAS_CAMBIO y guardar eso.
+  async actualizarLimiteCambio(idVenta, fecha) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try {
+      await SB.update("ventas", "id=eq." + enc(idVenta), { limite_cambio: fecha || null });
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
   async anularVenta(id) {
     if (CONFIG.MODO_PRUEBA) return this._mock("anularVenta", { id });
     try { await SB.remove("ventas", "id=eq." + enc(id)); return { ok: true }; }

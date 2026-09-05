@@ -1130,6 +1130,8 @@ button { font-family: inherit; }
 /* acciones de la fila del historial (voucher + restaurar) */
 .c-acts { display: flex; gap: 6px; }
 .c-voucher:not(:disabled):hover { background: rgba(224,164,88,0.25); color: var(--amber); border-color: rgba(224,164,88,0.5); }
+.c-fecha-btn:not(:disabled):hover { background: rgba(87,176,171,0.2); color: var(--teal-bright); border-color: rgba(87,176,171,0.5); }
+.c-estado .ti-calendar-check { font-size: 13px; color: var(--teal-bright); vertical-align: -2px; }
 .c-estado-voucher {
   display: inline-flex; align-items: center; gap: 5px;
   background: rgba(224,164,88,0.15); border: 1px solid rgba(224,164,88,0.4);

@@ -93,6 +93,17 @@ function actualizarBarraCambios() {
   };
 }
 
+// límite que le correspondería a la venta por defecto (inicio + DIAS_CAMBIO).
+// A diferencia del vencimiento de cuenta corriente, acá la columna siempre tiene
+// valor, así que "corrido a mano" se deduce comparando contra este cálculo.
+function limiteCambioPorDefecto(v) {
+  return v.inicioCambio ? sumarDias(v.inicioCambio, CONFIG.DIAS_CAMBIO) : null;
+}
+function limiteCambioCorrido(v) {
+  const def = limiteCambioPorDefecto(v);
+  return !!(def && v.limiteCambio && v.limiteCambio !== def);
+}
+
 // estado de la ventana de cambio de una venta
 function estadoCambio(v) {
   const hoy = new Date(); hoy.setHours(0,0,0,0);
@@ -132,10 +143,13 @@ function crowHTML(v) {
       <div class="c-meta">
         <span class="c-vars">Talle <strong>${v.talle}</strong> · Color <strong>${v.color}</strong> · x${v.cantidad}${ofertaTxt}</span>
         <span class="c-fecha">${fmtFechaHora(v.fechaHora)}</span>
-        <span class="c-estado ${claseEstado}">${est.label}</span>
+        <span class="c-estado ${claseEstado}">${est.label}${limiteCambioCorrido(v) ? ` <i class="ti ti-calendar-check" title="Fecha corrida a mano"></i>` : ""}</span>
       </div>
       <div class="c-precio">${formatPrecio(v.precioProducto != null ? v.precioProducto : v.precioBase)}</div>
       <div class="c-acts">
+        <button class="c-swap c-fecha-btn" data-act="editlimite" title="Corregir la fecha límite de cambio">
+          <i class="ti ti-calendar"></i>
+        </button>
         <button class="c-swap c-voucher" data-act="voucher" title="Cambiar por un voucher">
           <i class="ti ti-ticket"></i>
         </button>
@@ -183,6 +197,9 @@ function bindCrow(list, v) {
       abrir();
     }
   };
+  // corregir la fecha límite de cambio (excepción manual)
+  const lim = row.querySelector('[data-act="editlimite"]');
+  if (lim) lim.onclick = (e) => { e.stopPropagation(); abrirEditarLimiteCambio(v); };
   // checkbox de selección para cambio de VARIAS prendas
   const chk = row.querySelector('[data-act="selc"]');
   if (chk) {
@@ -193,6 +210,61 @@ function bindCrow(list, v) {
       actualizarBarraCambios();
     };
   }
+}
+
+// ---- Corregir la fecha límite de cambio de una venta ----
+// Caso de uso: la ventana de cambio se pasó de fecha pero se le quiere dar unos
+// días más al cliente. Antes solo se podía forzar el cambio con doble
+// confirmación, que quedaba como excepción forzada en vez de fecha corregida.
+function abrirEditarLimiteCambio(v) {
+  const pordef = limiteCambioPorDefecto(v);
+  const corrido = limiteCambioCorrido(v);
+  const est = estadoCambio(v);
+
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-overlay" id="elOv"></div>
+    <div class="modal">
+      <h2>Corregir fecha de cambio</h2>
+      <p class="dc-msg"><strong>${escAttr(v.marca || v.codigo)}</strong> · ${escAttr(v.talle)}/${escAttr(v.color)}</p>
+      <div class="field">
+        <label>Se puede cambiar hasta el</label>
+        <input class="sinput" type="date" id="elFecha" value="${v.limiteCambio || ""}" min="${v.inicioCambio || ""}">
+      </div>
+      <p class="ev-nota">
+        Vendida el <strong>${fmtFecha(v.fechaHora)}</strong> · estado actual: <strong>${est.label}</strong>.
+        ${pordef ? `<br>Por defecto vencía el <strong>${fmtFecha(pordef)}</strong> (${CONFIG.DIAS_CAMBIO} días desde la venta).` : ""}
+        ${corrido ? `<br>Hoy tiene una corrección manual cargada.` : ""}
+      </p>
+      <p class="gv-aviso"><i class="ti ti-info-circle"></i> Corriendo la fecha, la venta vuelve a estar en período de cambio y deja de pedir confirmación por vencida.</p>
+      <div class="modal-actions">
+        ${corrido && pordef ? `<button class="btn-ghost" id="elReset">Volver al de siempre</button>` : ""}
+        <button class="btn-ghost" id="elCancel">Cancelar</button>
+        <button class="btn-primary" id="elSave">Guardar</button>
+      </div>
+    </div>`;
+
+  document.getElementById("elOv").onclick = cerrarModal;
+  document.getElementById("elCancel").onclick = cerrarModal;
+
+  const guardar = async (fecha, btn, msg) => {
+    btn.disabled = true; btn.textContent = "Guardando...";
+    const r = await API.actualizarLimiteCambio(v.id, fecha);
+    if (!r.ok) { btn.disabled = false; btn.textContent = "Guardar"; return toast("No se pudo guardar la fecha"); }
+    v.limiteCambio = fecha;
+    cerrarModal();
+    toast(msg);
+    cargarCambios();
+  };
+
+  const btnReset = document.getElementById("elReset");
+  if (btnReset) btnReset.onclick = () => guardar(pordef, btnReset, `Vuelto al límite de siempre (${fmtFecha(pordef)})`);
+
+  document.getElementById("elSave").onclick = () => {
+    const nueva = document.getElementById("elFecha").value;
+    if (!nueva) return toast("Elegí una fecha");
+    if (v.inicioCambio && nueva < v.inicioCambio) return toast("La fecha no puede ser anterior a la venta");
+    guardar(nueva, document.getElementById("elSave"), `Se puede cambiar hasta el ${fmtFecha(nueva)}`);
+  };
 }
 
 // ---- Popup de intercambio ----
