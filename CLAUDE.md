@@ -81,7 +81,7 @@ Todos los montos son `numeric` (pesos completos, no centavos). `fecha_hora`/`fec
 | `sena_items` | `id` (bigint seq) | `sena_id → senas.id`, `codigo, marca, talle, color, cantidad, precio, oferta` | FK real. Índice en `sena_id`. No guarda costo. |
 | `sena_pagos` | `id` (bigint seq) | `sena_id → senas.id`, `fecha, monto, metodo_pago` | FK real. Índice en `sena_id`. |
 | `cuentas` | `id` (text) | `nombre, apellido, telefono, creada` | |
-| `cuenta_items` | `id` (text) | `cuenta_id → cuentas.id`, `codigo, marca, talle, color, cantidad, precio, fecha` | FK real. |
+| `cuenta_items` | `id` (text) | `cuenta_id → cuentas.id`, `codigo, marca, talle, color, cantidad, precio, fecha, vencimiento` | FK real. `vencimiento` (date) es **NULL casi siempre**: solo se completa cuando se corre el vencimiento a mano desde la app. NULL = derivado (`fecha + DIAS_VENCIMIENTO_VOUCHER`). |
 | `cuenta_pagos` | `id` (text) | `cuenta_id → cuentas.id`, `monto, salda, metodo_pago, fecha` | FK real. `monto` = lo cobrado (con recargo si es tarjeta), `salda` = cuánto baja la deuda base. |
 | `gastos` | `id` (text) | `concepto, monto, fecha, categoria, recurrente` | |
 | `caja` | `denominacion` (int) | `cantidad` | Una fila por denominación (`DENOMINACIONES` en `config.js`). Se actualiza, nunca se insertan filas nuevas. |

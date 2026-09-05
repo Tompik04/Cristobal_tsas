@@ -824,6 +824,10 @@ button { font-family: inherit; }
 .cc-item-precios { display: flex; flex-direction: column; align-items: flex-end; }
 .cc-item-precio-old { font-size: 11px; color: var(--oak-55); text-decoration: line-through; }
 .cc-item-parcial { font-size: 10px; color: var(--gold-bright); font-weight: 600; }
+.cc-item-venc-manual { font-size: 10px; color: var(--teal-bright); display: flex; align-items: center; gap: 4px; }
+.cc-item-acts { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.ev-nota { font-size: 12px; color: var(--oak-55); margin: 2px 0 8px; line-height: 1.5; }
+.ev-nota strong { color: var(--pale-oak); }
 .cc-pagadas-tag { font-size: 11px; color: var(--sage); background: rgba(126,155,122,0.15); padding: 2px 8px; border-radius: 6px; letter-spacing: 0.02em; }
 .cc-pago-cobrado { font-size: 11px; color: var(--oak-55); }
 .sinput:disabled { opacity: 0.45; cursor: not-allowed; }

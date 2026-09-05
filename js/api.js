@@ -912,7 +912,9 @@ const API = {
       return {
         ok: true,
         cuentas: cuentas.map((c) => ({ id: c.id, nombre: c.nombre, apellido: c.apellido || "", telefono: String(c.telefono || ""), creada: normalizarFechaISO(c.creada) })),
-        items: items.map((i) => ({ id: i.id, cuentaId: i.cuenta_id, codigo: i.codigo, marca: i.marca, talle: String(i.talle), color: i.color, cantidad: Number(i.cantidad) || 0, precio: Number(i.precio) || 0, fecha: normalizarFechaISO(i.fecha) })),
+        // vencimiento: fecha sin hora (yyyy-mm-dd) y NULL en la mayoría de las filas.
+        // NULL = se deriva de la fecha; solo tiene valor si se corrió a mano.
+        items: items.map((i) => ({ id: i.id, cuentaId: i.cuenta_id, codigo: i.codigo, marca: i.marca, talle: String(i.talle), color: i.color, cantidad: Number(i.cantidad) || 0, precio: Number(i.precio) || 0, fecha: normalizarFechaISO(i.fecha), vencimiento: i.vencimiento || null })),
         pagos: pagos.map((p) => ({ id: p.id, cuentaId: p.cuenta_id, monto: Number(p.monto) || 0, salda: p.salda != null ? Number(p.salda) : null, metodoPago: p.metodo_pago, fecha: normalizarFechaISO(p.fecha) })),
       };
     } catch (e) { return { ok: false, error: String(e) }; }
@@ -943,6 +945,16 @@ const API = {
       return { ok: true };
     } catch (e) { return { ok: false, error: String(e) }; }
   },
+  // corre a mano el vencimiento de una prenda de cuenta corriente (excepción).
+  // fecha = "yyyy-mm-dd", o null para volver al vencimiento derivado de siempre.
+  async actualizarVencimientoItem(itemId, fecha) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true };
+    try {
+      await SB.update("cuenta_items", "id=eq." + enc(itemId), { vencimiento: fecha || null });
+      return { ok: true };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
   async quitarItemCuenta(itemId, item) {
     if (CONFIG.MODO_PRUEBA) return { ok: true };
     try {

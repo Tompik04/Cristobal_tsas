@@ -67,12 +67,28 @@ async function cargarCuentas() {
   pintarCuentas({});
 }
 
-// fecha de vencimiento de una prenda (35 días desde que se agregó)
+// fecha de vencimiento de una prenda.
+// Por defecto son 35 días desde que se la llevó, pero si tiene un vencimiento
+// cargado a mano (excepción: se pasó de fecha y se le perdonó el recargo),
+// ese manda. Como es una fecha SIN hora (yyyy-mm-dd) se arma con T00:00:00
+// para que no se corra un día por zona horaria.
 function vencimientoItem(item) {
+  if (item.vencimiento) return new Date(item.vencimiento + "T00:00:00");
   if (!item.fecha) return null;
   const limite = new Date(item.fecha);
   limite.setDate(limite.getDate() + CONFIG.DIAS_VENCIMIENTO_VOUCHER);
   return limite;
+}
+// ¿esta prenda tiene el vencimiento corrido a mano?
+function tieneVencimientoManual(item) {
+  return !!item.vencimiento;
+}
+// vencimiento por defecto (el que tendría sin la excepción), en yyyy-mm-dd
+function vencimientoPorDefecto(item) {
+  if (!item.fecha) return "";
+  const d = new Date(item.fecha);
+  d.setDate(d.getDate() + CONFIG.DIAS_VENCIMIENTO_VOUCHER);
+  return fechaLocalISO(d);
 }
 // ¿la prenda ya estaba vencida en una fecha dada?
 function itemVencidoEn(item, fecha) {
@@ -358,15 +374,19 @@ function abrirDetalleCuenta(cuentaId) {
             <span>${i.marca} · ${i.codigo}</span>
             <span class="cc-item-var">Talle ${i.talle} · ${i.color} · x${i.cantidad}</span>
             ${vencido
-              ? `<span class="cc-item-venc vencido">Vencida · precio de lista (+20%)</span>`
+              ? `<span class="cc-item-venc vencido">Vencida · precio de lista (+${Math.round(CONFIG.RECARGO_TARJETA * 100)}%)</span>`
               : `<span class="cc-item-venc">Vence en ${dias}d · ${fmtFecha(venc.toISOString())}</span>`}
+            ${tieneVencimientoManual(i) ? `<span class="cc-item-venc-manual"><i class="ti ti-calendar-check"></i> Vencimiento corregido a mano</span>` : ""}
             ${parcial ? `<span class="cc-item-parcial">Abonado ${formatPrecio(i.abonado)} · falta ${formatPrecio(i.falta)}</span>` : ""}
           </div>
           <div class="cc-item-precios">
             ${vencido ? `<span class="cc-item-precio-old">${formatPrecio(i.precio * i.cantidad)}</span>` : ""}
             <span class="cc-item-precio">${formatPrecio(i.precioActual)}</span>
           </div>
-          <button class="v-icon danger" data-quitar="${i.id}" title="Quitar (repone stock)"><i class="ti ti-x"></i></button>
+          <div class="cc-item-acts">
+            <button class="v-icon" data-venc="${i.id}" title="Corregir vencimiento"><i class="ti ti-calendar"></i></button>
+            <button class="v-icon danger" data-quitar="${i.id}" title="Quitar (repone stock)"><i class="ti ti-x"></i></button>
+          </div>
         </div>`;
       }).join("")
     : `<p class="cc-vacio">${cantPagadas > 0 ? "Todas las prendas están saldadas." : "Sin prendas cargadas."}</p>`;
@@ -453,6 +473,12 @@ function abrirDetalleCuenta(cuentaId) {
   const btnPago = document.getElementById("ccAddPago");
   if (btnPago) btnPago.onclick = () => abrirPagoCuenta(cuentaId, deuda);
 
+  // corregir el vencimiento de una prenda pendiente (excepción manual)
+  itemsPendientes.forEach((i) => {
+    const b = document.querySelector(`[data-venc="${i.id}"]`);
+    if (b) b.onclick = () => abrirEditarVencimiento(cuentaId, i, itemsPendientes);
+  });
+
   items.forEach((i) => {
     const b = document.querySelector(`[data-quitar="${i.id}"]`);
     if (b) b.onclick = () => {
@@ -505,6 +531,81 @@ function abrirDetalleCuenta(cuentaId) {
         cargarCuentas();
       },
     });
+  };
+}
+
+// ---- Corregir el vencimiento de una prenda ----
+// Caso de uso: la prenda se pasó de fecha pero el cliente pagó al día siguiente,
+// y no se le quiere cobrar el recargo por vencida. Al correr el vencimiento más
+// allá de la fecha del pago, itemsConEstadoPago() la valúa a precio base y el
+// recargo desaparece solo (los pagos se valúan al día en que se hicieron).
+function abrirEditarVencimiento(cuentaId, item, pendientes) {
+  const actual = vencimientoItem(item);
+  const actualISO = actual ? fechaLocalISO(actual) : "";
+  const pordef = vencimientoPorDefecto(item);
+  const manual = tieneVencimientoManual(item);
+  const otras = pendientes.filter((p) => p.id !== item.id).length;
+
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-overlay" id="evOv"></div>
+    <div class="modal">
+      <h2>Corregir vencimiento</h2>
+      <p class="dc-msg"><strong>${escAttr(item.marca || item.codigo)}</strong> · ${escAttr(item.talle)}/${escAttr(item.color)}</p>
+      <div class="field">
+        <label>Vence el</label>
+        <input class="sinput" type="date" id="evFecha" value="${actualISO}">
+      </div>
+      <p class="ev-nota">
+        Por defecto vencía el <strong>${fmtFecha(pordef)}</strong> (${CONFIG.DIAS_VENCIMIENTO_VOUCHER} días desde que se la llevó).
+        ${manual ? `<br>Hoy tiene una corrección manual cargada.` : ""}
+      </p>
+      ${otras ? `<label class="g-check"><input type="checkbox" id="evTodas"> Aplicar la misma fecha a las otras ${otras} prenda${otras === 1 ? "" : "s"} pendiente${otras === 1 ? "" : "s"}</label>` : ""}
+      <p class="gv-aviso"><i class="ti ti-info-circle"></i> Si la nueva fecha es posterior al pago, la prenda deja de contar el recargo por vencida.</p>
+      <div class="modal-actions">
+        ${manual ? `<button class="btn-ghost" id="evReset">Volver al de siempre</button>` : ""}
+        <button class="btn-ghost" id="evCancel">Cancelar</button>
+        <button class="btn-primary" id="evSave">Guardar</button>
+      </div>
+    </div>`;
+
+  document.getElementById("evOv").onclick = cerrarModal;
+  document.getElementById("evCancel").onclick = cerrarModal;
+
+  // quitar la excepción: vuelve al vencimiento derivado de la fecha
+  const btnReset = document.getElementById("evReset");
+  if (btnReset) btnReset.onclick = async () => {
+    btnReset.disabled = true;
+    const r = await API.actualizarVencimientoItem(item.id, null);
+    if (!r.ok) { btnReset.disabled = false; return toast("No se pudo quitar la corrección"); }
+    cerrarModal();
+    toast("Vencimiento vuelto al de siempre");
+    await recargarYReabrir(cuentaId);
+  };
+
+  document.getElementById("evSave").onclick = async () => {
+    const nueva = document.getElementById("evFecha").value;
+    if (!nueva) return toast("Elegí una fecha");
+    const chkTodas = document.getElementById("evTodas");
+    const objetivo = (chkTodas && chkTodas.checked) ? pendientes : [item];
+
+    const btn = document.getElementById("evSave");
+    btn.disabled = true; btn.textContent = "Guardando...";
+
+    const fallaron = [];
+    for (const p of objetivo) {
+      const r = await API.actualizarVencimientoItem(p.id, nueva);
+      if (!r.ok) fallaron.push(p.codigo);
+    }
+    if (fallaron.length) {
+      btn.disabled = false; btn.textContent = "Guardar";
+      return toast(`No se pudo actualizar: ${fallaron.join(", ")}`);
+    }
+
+    cerrarModal();
+    toast(objetivo.length > 1
+      ? `Vencimiento corregido en ${objetivo.length} prendas`
+      : `Vence el ${fmtFecha(nueva)}`);
+    await recargarYReabrir(cuentaId);
   };
 }
 
