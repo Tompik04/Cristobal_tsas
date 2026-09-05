@@ -692,6 +692,13 @@ button { font-family: inherit; }
 .rc-val.neg { color: var(--danger); }
 .gasto-row { grid-template-columns: 1fr auto auto; }
 .g-rec { color: var(--gold); font-size: 11px; }
+.g-mes-aviso {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 12px;
+  font-size: 12px; color: var(--teal-bright);
+  background: rgba(87,176,171,0.1); border: 1px solid rgba(87,176,171,0.28);
+  border-radius: 8px; padding: 8px 11px;
+}
+.g-mes-aviso strong { color: var(--pale-oak); }
 .g-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--oak-60); cursor: pointer; margin: 4px 0; }
 .g-check input { accent-color: var(--gold); cursor: pointer; }
 .chk-block { padding: 0 2.5% 0.75rem; }

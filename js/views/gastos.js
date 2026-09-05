@@ -285,14 +285,31 @@ function abrirNuevoGasto(gasto) {
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
   const cats = CATEGORIAS_GASTO.map((c) => `<option value="${c}"${preCat === c ? " selected" : ""}>${c}</option>`).join("");
 
+  // El alta queda atada al mes que se está viendo. Antes la fecha arrancaba
+  // SIEMPRE en hoy: si estabas parado en un mes anterior y no la cambiabas a
+  // mano, el gasto se guardaba en el mes actual y desaparecía de la lista (que
+  // filtra por mes), con lo cual parecía que no se había guardado.
+  // En EDICIÓN no se limita el mes a propósito: hace falta para poder mover un
+  // gasto que quedó cargado en el mes equivocado.
+  const mesVista = _mesGastos || mesActualISO();
+  const [anio, nmes] = mesVista.split("-").map(Number);
+  const ultimoDia = new Date(anio, nmes, 0).getDate(); // día 0 del mes siguiente
+  const minMes = `${mesVista}-01`;
+  const maxMes = `${mesVista}-${String(ultimoDia).padStart(2, "0")}`;
+  const esMesActual = mesVista === mesActualISO();
+  // en el mes en curso, hoy; en un mes pasado, el día 1 de ese mes
+  const fechaDefault = esMesActual ? hoy : minMes;
+  const limites = esEdicion ? "" : ` min="${minMes}" max="${maxMes}"`;
+
   document.getElementById("modalRoot").innerHTML = `
     <div class="modal-overlay" id="ov"></div>
     <div class="modal">
       <h2>${esEdicion ? "Editar gasto" : "Nuevo gasto"}</h2>
+      ${!esEdicion ? `<p class="g-mes-aviso"><i class="ti ti-calendar-event"></i> Se registra en <strong>${mesLegible(mesVista)}</strong>${esMesActual ? "" : " (el mes que estás viendo)"}</p>` : ""}
       <div class="field"><label>Concepto</label><input class="sinput" id="gConcepto" placeholder="Ej. Alquiler local" value="${preConcepto}"></div>
       <div class="field"><label>Monto ($)</label><input class="sinput" type="number" min="0" id="gMonto" placeholder="$" value="${esEdicion ? gasto.monto : ""}"></div>
       <div class="field"><label>Categoría</label><select class="sinput" id="gCat">${cats}</select></div>
-      <div class="field"><label>Fecha</label><input class="sinput" type="date" id="gFecha" value="${esEdicion ? gasto.fecha : hoy}"></div>
+      <div class="field"><label>Fecha</label><input class="sinput" type="date" id="gFecha" value="${esEdicion ? gasto.fecha : fechaDefault}"${limites}></div>
       <div class="modal-actions">
         <button class="btn-ghost" id="gCancel">Cancelar</button>
         <button class="btn-primary" id="gSave">${esEdicion ? "Guardar" : "Crear gasto"}</button>
@@ -314,15 +331,35 @@ function abrirNuevoGasto(gasto) {
     if (!concepto) return toast("Falta el concepto");
     if (monto <= 0) return toast("Monto inválido");
     if (!fecha) return toast("Falta la fecha");
-
-    if (esEdicion) {
-      await API.actualizarGasto(gasto.id, { concepto, monto, categoria, fecha });
-      toast("Gasto actualizado");
-    } else {
-      await API.crearGasto({ id: "G-" + Date.now(), concepto, monto, categoria, fecha });
-      toast("Gasto registrado");
+    // en alta, la fecha tiene que caer en el mes que se está viendo: si no, el
+    // gasto se guardaría en otro mes y no aparecería en la lista
+    if (!esEdicion && fecha.slice(0, 7) !== mesVista) {
+      return toast(`La fecha tiene que ser de ${mesLegible(mesVista)}`);
     }
+
+    const btn = document.getElementById("gSave");
+    btn.disabled = true; btn.textContent = "Guardando...";
+
+    // antes no se chequeaba el resultado: si el guardado fallaba, igual decía
+    // "Gasto registrado" y el gasto no existía en ningún lado
+    const res = esEdicion
+      ? await API.actualizarGasto(gasto.id, { concepto, monto, categoria, fecha })
+      : await API.crearGasto({ id: "G-" + Date.now(), concepto, monto, categoria, fecha });
+
+    if (!res || !res.ok) {
+      btn.disabled = false; btn.textContent = esEdicion ? "Guardar" : "Crear gasto";
+      return toast(esEdicion ? "No se pudo guardar el gasto" : "No se pudo registrar el gasto");
+    }
+
+    // si en la edición se movió el gasto a otro mes, seguirlo hasta ahí para que
+    // no parezca que desapareció
+    const mesDestino = fecha.slice(0, 7);
+    if (esEdicion && mesDestino !== mesVista) _mesGastos = mesDestino;
+
     cerrarModal();
+    toast(esEdicion
+      ? (mesDestino !== mesVista ? `Gasto movido a ${mesLegible(mesDestino)}` : "Gasto actualizado")
+      : `Gasto registrado en ${mesLegible(mesVista)}`);
     cargarGastos();
   };
 }
