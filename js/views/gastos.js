@@ -156,12 +156,10 @@ function pintarResumen() {
 
   let cardsHTML;
   if (privado) {
-    const signoRent = r.rentabilidad >= 0 ? "pos" : "neg";
     cardsHTML = `
       <div class="rcard"><span class="rc-label">Ingresos</span><span class="rc-val pos">${formatPrecio(totalVentas)}</span></div>
       <div class="rcard"><span class="rc-label">Gastos</span><span class="rc-val neg">${formatPrecio(totalGastos)}</span></div>
-      <div class="rcard rc-net"><span class="rc-label">Caja del mes</span><span class="rc-val ${signo}">${formatPrecio(neta)}</span></div>
-      <div class="rcard rc-net"><span class="rc-label">Rentabilidad</span><span class="rc-val ${signoRent}">${formatPrecio(r.rentabilidad)}</span></div>`;
+      <div class="rcard rc-net"><span class="rc-label">Caja del mes</span><span class="rc-val ${signo}">${formatPrecio(neta)}</span></div>`;
   } else {
     cardsHTML = `<div class="rcard"><span class="rc-label">Gastos del mes</span><span class="rc-val neg">${formatPrecio(totalGastos)}</span></div>`;
   }

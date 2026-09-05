@@ -84,44 +84,7 @@ function pintarInformes() {
     bloqueTopTalles(ventas) +
     bloqueRecomendaciones(ventas) +
     bloqueMejoresMeses() +
-    `<p class="inf-nota"><i class="ti ti-info-circle"></i> La ganancia neta usa el costo guardado en cada venta. Ventas anteriores a esta mejora usan el costo actual del stock, así que son una estimación.</p>`;
-}
-
-// Caja del período: la otra mitad de la foto. Acá la compra de mercadería SÍ
-// resta, porque es plata que salió del local aunque haya quedado como stock.
-function bloqueCaja(r) {
-  const signo = r.caja >= 0 ? "" : "neg";
-  return `
-    <div class="inf-caja">
-      <div class="inf-caja-head">
-        <span><i class="ti ti-wallet"></i> Caja del período</span>
-        <strong class="${signo}">${formatPrecio(r.caja)}</strong>
-      </div>
-      <p class="inf-caja-detalle">
-        ${formatPrecio(r.ingresos)} que entraron − ${formatPrecio(r.gastosTotales)} de gastos
-        ${r.gastosMercaderia > 0 ? `(incluye ${formatPrecio(r.gastosMercaderia)} de compra de mercadería)` : ""}
-      </p>
-      <p class="inf-caja-nota">
-        <i class="ti ti-info-circle"></i>
-        La <strong>rentabilidad</strong> mide cuánto ganaste con lo que vendiste; la <strong>caja</strong>, cuánta plata quedó.
-        ${r.gastosMercaderia > 0
-          ? `La diferencia de ${formatPrecio(Math.abs(r.rentabilidad - r.caja))} es, sobre todo, mercadería que compraste y todavía no vendiste: no es pérdida, es stock en el local.`
-          : `Este período no tuvo compras de mercadería.`}
-      </p>
-    </div>`;
-}
-
-// aviso para los meses con ventas anteriores a la columna precio_costo
-function avisoVentasSinCosto(r) {
-  if (!r.ventasSinCosto) return "";
-  const pct = r.ventasDePrenda ? Math.round((r.ventasSinCosto / r.ventasDePrenda) * 100) : 0;
-  return `
-    <p class="inf-aviso-costo">
-      <i class="ti ti-alert-triangle"></i>
-      <span><strong>${r.ventasSinCosto} de ${r.ventasDePrenda} ventas (${pct}%)</strong> no tienen el costo guardado: son anteriores a que se registrara.
-      Para esas se usa el costo actual del stock y, si la prenda ya no está, se asume cero.
-      La rentabilidad y el margen de este período están <strong>sobreestimados</strong>.</span>
-    </p>`;
+    `<p class="inf-nota"><i class="ti ti-info-circle"></i> La caja es la plata que entró menos todos los gastos del período, incluida la compra de mercadería. Los cobros de cuenta corriente, señas y vouchers comprados cuentan como ingreso el día que se cobraron.</p>`;
 }
 
 // gastos y cobros del período mostrado (o de todo el tiempo si no hay mes elegido).
@@ -139,22 +102,23 @@ function bloqueResumen(ventas) {
   const r = resumenEconomico(ventas, cobrosDelPeriodo(), gastosDelPeriodo());
   const unidades = ventas.reduce((a, v) => a + (esVentaDePrenda(v) ? v.cantidad : 0), 0);
 
+  // La vista es de CAJA: la plata que queda en mano. resumenEconomico() sigue
+  // devolviendo rentabilidad y margen por si algún día se quieren mostrar, pero
+  // hoy no se pintan: lo que importa es cuánto entró, cuánto salió y qué quedó.
+  const signo = r.caja >= 0 ? "" : "neg";
   return `
     <div class="inf-section">
       <h3 class="inf-h3"><i class="ti ti-cash"></i> Resumen ${_mesInf ? "de " + nombreMes(_mesInf) : "de todo el tiempo"}</h3>
       <div class="inf-cards">
-        <div class="inf-card"><span class="inf-card-label">Ingresos totales</span><span class="inf-card-val">${formatPrecio(r.ingresos)}</span></div>
-        <div class="inf-card"><span class="inf-card-label">Costo de lo vendido</span><span class="inf-card-val neg">${formatPrecio(r.costoVendido)}</span></div>
-        <div class="inf-card"><span class="inf-card-label">Gastos operativos</span><span class="inf-card-val neg">${formatPrecio(r.gastosOperativos)}</span></div>
-        <div class="inf-card inf-card-destacada"><span class="inf-card-label">Rentabilidad</span><span class="inf-card-val" style="color:var(--gold-bright)">${formatPrecio(r.rentabilidad)}</span></div>
-        <div class="inf-card"><span class="inf-card-label">Margen</span><span class="inf-card-val">${r.margen}%</span></div>
-      </div>
-      ${bloqueCaja(r)}
-      <div class="inf-cards" style="margin-top:12px">
+        <div class="inf-card"><span class="inf-card-label">Ingresos</span><span class="inf-card-val pos">${formatPrecio(r.ingresos)}</span></div>
+        <div class="inf-card"><span class="inf-card-label">Gastos</span><span class="inf-card-val neg">${formatPrecio(r.gastosTotales)}</span></div>
+        <div class="inf-card inf-card-destacada"><span class="inf-card-label">Caja ${_mesInf ? "del mes" : "acumulada"}</span><span class="inf-card-val ${signo}" style="${r.caja >= 0 ? "color:var(--gold-bright)" : ""}">${formatPrecio(r.caja)}</span></div>
         <div class="inf-card"><span class="inf-card-label">Prendas vendidas</span><span class="inf-card-val">${unidades}</span></div>
         ${r.ingresosCobros > 0 ? `<div class="inf-card"><span class="inf-card-label">De cta cte / señas</span><span class="inf-card-val" style="color:var(--teal-bright)">${formatPrecio(r.ingresosCobros)}</span></div>` : ""}
       </div>
-      ${avisoVentasSinCosto(r)}
+      <p class="inf-caja-detalle">
+        Entraron ${formatPrecio(r.ingresos)} y salieron ${formatPrecio(r.gastosTotales)} de gastos${r.gastosMercaderia > 0 ? `, de los cuales ${formatPrecio(r.gastosMercaderia)} fueron compra de mercadería` : ""}.
+      </p>
     </div>`;
 }
 
@@ -223,16 +187,17 @@ function bloqueMensual() {
     );
   });
 
-  // la escala se toma del ingreso más alto; la rentabilidad puede ser negativa
-  // (un mes con mucha compra de mercadería), así que se dibuja desde cero.
+  // la escala se toma del ingreso más alto. La caja puede dar negativa (un mes
+  // con mucha compra de mercadería), y en ese caso la barra queda en cero: el
+  // número real igual se lee en el tooltip.
   const maxIngreso = Math.max(...meses.map((m) => porMes[m].ingresos));
   const barras = meses.map((m) => {
     const d = porMes[m];
     const hBruto = maxIngreso > 0 ? (d.ingresos / maxIngreso) * 100 : 0;
-    const hNeta = maxIngreso > 0 ? (Math.max(0, d.rentabilidad) / maxIngreso) * 100 : 0;
+    const hNeta = maxIngreso > 0 ? (Math.max(0, d.caja) / maxIngreso) * 100 : 0;
     return `
       <div class="inf-barmes">
-        <div class="inf-barmes-bars" title="${nombreMes(m)}: ${formatPrecio(d.ingresos)} de ingresos · ${formatPrecio(d.rentabilidad)} de rentabilidad · caja ${formatPrecio(d.caja)}">
+        <div class="inf-barmes-bars" title="${nombreMes(m)}: entraron ${formatPrecio(d.ingresos)} · gastos ${formatPrecio(d.gastosTotales)} · queda ${formatPrecio(d.caja)}">
           <div class="inf-bar-bruto" style="height:${hBruto}%"></div>
           <div class="inf-bar-neta" style="height:${hNeta}%"></div>
         </div>
@@ -243,10 +208,10 @@ function bloqueMensual() {
 
   return `
     <div class="inf-section">
-      <h3 class="inf-h3"><i class="ti ti-calendar-stats"></i> Ventas por mes</h3>
+      <h3 class="inf-h3"><i class="ti ti-calendar-stats"></i> Ingresos y caja por mes</h3>
       <div class="inf-legend">
-        <span><i class="inf-dot dot-bruto"></i> Ingresos brutos</span>
-        <span><i class="inf-dot dot-neta"></i> Ganancia neta</span>
+        <span><i class="inf-dot dot-bruto"></i> Ingresos</span>
+        <span><i class="inf-dot dot-neta"></i> Caja (lo que quedó)</span>
       </div>
       <div class="inf-barmes-grid">${barras}</div>
     </div>`;
