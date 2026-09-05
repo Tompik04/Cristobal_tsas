@@ -1058,6 +1058,91 @@ function formatPrecio(n) {
   return "$" + Number(n).toLocaleString("es-AR");
 }
 
+/* ============================================================
+   RESUMEN ECONÓMICO DE UN PERÍODO
+   ============================================================
+   Una sola cuenta, compartida por Informes y Gastos. Antes cada vista hacía
+   la suya y mostraban números distintos con el mismo nombre ("Ganancia neta"):
+   Informes restaba el costo de la mercadería pero no los gastos, y Gastos
+   restaba los gastos pero no el costo. Ninguna daba la ganancia real.
+
+   Devuelve DOS medidas. No son intercambiables, responden preguntas distintas:
+
+     caja         = ingresos − TODOS los gastos (incluida la compra de mercadería)
+                    → "cuánta plata me quedó este mes"
+     rentabilidad = ingresos − costo de lo VENDIDO − gastos operativos
+                    → "cuánto gané con lo que vendí"
+
+   La compra de mercadería sale de la rentabilidad a propósito: ese costo ya
+   entra por "costo de lo vendido" cuando la prenda se vende. Restarla de los
+   dos lados contaría la mercadería dos veces. La diferencia entre las dos
+   medidas es, justamente, el stock comprado y todavía no vendido.
+
+   Recibe las listas YA filtradas por período.
+   ============================================================ */
+function resumenEconomico(ventas, cobros, gastos) {
+  const vs = ventas || [], cs = cobros || [], gs = gastos || [];
+
+  // precioFinal = lo que REALMENTE se cobró (con descuento/recargo ya aplicados)
+  const ingresosVentas = vs.reduce((a, v) => a + (v.precioFinal != null ? v.precioFinal : (v.precioBase || 0)), 0);
+  // cobros de cuenta corriente, señas y vouchers comprados: plata que entró
+  // sin ser una venta de prenda del período
+  const ingresosCobros = cs.reduce((a, c) => a + (c.monto || 0), 0);
+  const ingresos = ingresosVentas + ingresosCobros;
+
+  const costoVendido = vs.reduce((a, v) => a + costoDeVenta(v), 0);
+
+  const gastosTotales = gs.reduce((a, g) => a + (g.monto || 0), 0);
+  const gastosMercaderia = gs.filter((g) => g.categoria === GASTO_MERCADERIA)
+    .reduce((a, g) => a + (g.monto || 0), 0);
+  const gastosOperativos = gastosTotales - gastosMercaderia;
+
+  const rentabilidad = ingresos - costoVendido - gastosOperativos;
+
+  // ventas sin costo guardado: son anteriores a la columna precio_costo. Para
+  // esas se cae al costo actual del stock y, si la prenda ya no está, se asume
+  // costo cero — o sea, el margen queda inflado. Se informa para no presentar
+  // un número irreal como si fuera exacto.
+  const dePrenda = vs.filter(esVentaDePrenda);
+  const sinCosto = dePrenda.filter((v) => v.precioCosto == null);
+
+  return {
+    ingresosVentas, ingresosCobros, ingresos,
+    costoVendido,
+    gastosTotales, gastosMercaderia, gastosOperativos,
+    caja: ingresos - gastosTotales,
+    rentabilidad,
+    margen: ingresos > 0 ? Math.round((rentabilidad / ingresos) * 100) : 0,
+    ventasSinCosto: sinCosto.length,
+    ventasDePrenda: dePrenda.length,
+    brutoSinCosto: sinCosto.reduce((a, v) => a + (v.precioFinal || 0), 0),
+  };
+}
+
+// costo de una venta, al momento en que se vendió.
+// Vive acá (y no en una vista) porque lo usan Informes y el resumen económico.
+function costoDeVenta(v) {
+  // una venta "cambiada": la prenda se devolvió y volvió al stock, así que su costo
+  // NO cuenta (sino se descontaría dos veces: acá y cuando la prenda se revenda).
+  // una venta de seña: la plata ya se contó en los pagos; esta venta es solo para
+  // habilitar el cambio, no debe sumar costo ni margen.
+  if (v.cambiada || v.esSena) return 0;
+  // costo guardado al vender (fijo, no cambia si se repone o se borra la prenda).
+  // Ventas viejas no lo tienen (null): para esas se cae al costo actual del stock.
+  let costoUnit;
+  if (v.precioCosto != null) {
+    costoUnit = v.precioCosto;
+  } else {
+    const s = (typeof State !== "undefined" && State.stock) ? State.stock.find((x) => x.codigo === v.codigo) : null;
+    costoUnit = s ? s.costo : 0;
+  }
+  return costoUnit * v.cantidad;
+}
+
+// ¿esta venta representa una prenda realmente entregada? (para contar unidades)
+// Una venta cambiada NO: su prenda volvió al stock. Su plata sí sigue en el bruto.
+function esVentaDePrenda(v) { return !v.cambiada && !v.esSena; }
+
 // URL de la imagen de una prenda según su código.
 // Usa Supabase Storage si está configurado; si no, cae al repo local (img/).
 // nombre del archivo de imagen: {codigo}_{categoria}.png (así cada categoría tiene su foto).

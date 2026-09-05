@@ -119,17 +119,16 @@ function pintarResumen() {
   // (ya con descuento, regalo o adicional aplicado). Con precioBase, un regalo sumaba
   // el precio de lista aunque no hubiera entrado plata.
   const ventasMes = _ventasParaResumen.filter((v) => !v.restaurada && mesLocalDe(v.fechaHora || "") === mes);
-  const totalVentasPuras = ventasMes.reduce((a, v) => a + (v.precioFinal != null ? v.precioFinal : (v.precioBase || 0)), 0);
-  // cobros de cuenta corriente y señas del mismo mes
   const cobrosMes = _cobrosExtra.filter((c) => mesLocalDe(c.fechaHora || "") === mes);
-  const totalCobros = cobrosMes.reduce((a, c) => a + c.monto, 0);
-  const totalVentas = totalVentasPuras + totalCobros;
-
-  // gastos del mes
   const gastosDelMes = _gastos.filter((g) => (g.fecha || "").slice(0, 7) === mes);
-  const totalGastos = gastosDelMes.reduce((a, g) => a + g.monto, 0);
 
-  const neta = totalVentas - totalGastos;
+  // MISMA cuenta que usa Informes (resumenEconomico en api.js), para que las dos
+  // vistas no vuelvan a mostrar números distintos con el mismo nombre.
+  // _cobrosExtra usa 'fechaHora'; resumenEconomico solo mira 'monto', así que entra igual.
+  const r = resumenEconomico(ventasMes, cobrosMes, gastosDelMes);
+  const totalVentas = r.ingresos;
+  const totalGastos = r.gastosTotales;
+  const neta = r.caja;
   const signo = neta >= 0 ? "pos" : "neg";
 
   // --- prendas: entraron y se vendieron en el mes, y total en el local ---
@@ -157,10 +156,12 @@ function pintarResumen() {
 
   let cardsHTML;
   if (privado) {
+    const signoRent = r.rentabilidad >= 0 ? "pos" : "neg";
     cardsHTML = `
-      <div class="rcard"><span class="rc-label">Ventas</span><span class="rc-val pos">${formatPrecio(totalVentas)}</span></div>
+      <div class="rcard"><span class="rc-label">Ingresos</span><span class="rc-val pos">${formatPrecio(totalVentas)}</span></div>
       <div class="rcard"><span class="rc-label">Gastos</span><span class="rc-val neg">${formatPrecio(totalGastos)}</span></div>
-      <div class="rcard rc-net"><span class="rc-label">Ganancia neta</span><span class="rc-val ${signo}">${formatPrecio(neta)}</span></div>`;
+      <div class="rcard rc-net"><span class="rc-label">Caja del mes</span><span class="rc-val ${signo}">${formatPrecio(neta)}</span></div>
+      <div class="rcard rc-net"><span class="rc-label">Rentabilidad</span><span class="rc-val ${signoRent}">${formatPrecio(r.rentabilidad)}</span></div>`;
   } else {
     cardsHTML = `<div class="rcard"><span class="rc-label">Gastos del mes</span><span class="rc-val neg">${formatPrecio(totalGastos)}</span></div>`;
   }

@@ -6,6 +6,7 @@
 
 let _ventasInf = [];   // ventas cargadas (sin restauradas)
 let _cobrosInf = [];   // cobros de cuenta corriente y señas
+let _gastosInf = [];   // gastos del local (entran en la ganancia neta)
 let _ingresosInf = []; // log de ingresos de stock (prendas que entraron por mes)
 let _mesInf = "";      // filtro de mes actual ("" = todo el tiempo)
 
@@ -21,7 +22,7 @@ function renderInformes(root) {
 }
 
 async function cargarInformes() {
-  const [res, rc, rs, rvo, ri] = await Promise.all([API.getVentas(), API.getCuentas(), API.getSenas(), API.getVouchers(), API.getIngresosStock()]);
+  const [res, rc, rs, rvo, ri, rg] = await Promise.all([API.getVentas(), API.getCuentas(), API.getSenas(), API.getVouchers(), API.getIngresosStock(), API.getGastos()]);
   if (!res.ok) {
     document.getElementById("infBody").innerHTML = `<div class="soon"><i class="ti ti-alert-triangle"></i><p>No se pudieron cargar las ventas.</p></div>`;
     return;
@@ -29,6 +30,9 @@ async function cargarInformes() {
   // excluir ventas restauradas (no cuentan como venta real)
   _ventasInf = res.ventas.filter((v) => !v.restaurada);
   _ingresosInf = ri && ri.ok ? ri.ingresos : [];
+  // los gastos entran en la ganancia neta: sin ellos el número no cerraba con Gastos
+  _gastosInf = rg && rg.ok ? rg.gastos : [];
+  if (rg && !rg.ok) toast("No se pudieron cargar los gastos: la ganancia neta va a quedar incompleta");
 
   // cobros de cuenta corriente y señas: son plata que entró, pero no son
   // "ventas de prenda", así que se muestran aparte y no ensucian el margen.
@@ -57,28 +61,8 @@ function nombreMes(ym) {
   return `${nombres[Number(m) - 1] || m} ${a}`;
 }
 
-// costo estimado de una venta
-function costoDeVenta(v) {
-  // una venta "cambiada": la prenda se devolvió y volvió al stock, así que su costo
-  // NO cuenta (sino se descontaría dos veces: acá y cuando la prenda se revenda).
-  // una venta de seña: la plata ya se contó en los pagos; esta venta es solo para
-  // habilitar el cambio, no debe sumar costo ni margen.
-  if (v.cambiada || v.esSena) return 0;
-  // costo guardado al momento de la venta (fijo, no cambia si se repone o borra la prenda).
-  // Ventas viejas no lo tienen (null): para esas caemos al costo actual del stock, como antes.
-  let costoUnit;
-  if (v.precioCosto != null) {
-    costoUnit = v.precioCosto;
-  } else {
-    const s = State.stock.find((x) => x.codigo === v.codigo);
-    costoUnit = s ? s.costo : 0;
-  }
-  return costoUnit * v.cantidad;
-}
-
-// ¿esta venta representa una prenda realmente entregada? (para contar unidades/rankings)
-// Una venta cambiada NO: su prenda volvió al stock. Su plata sí sigue en el bruto.
-function esVentaDePrenda(v) { return !v.cambiada && !v.esSena; }
+// costoDeVenta() y esVentaDePrenda() viven en js/api.js: los comparten esta vista
+// y resumenEconomico(), que es la cuenta que usan Informes y Gastos por igual.
 
 function pintarInformes() {
   const body = document.getElementById("infBody");
@@ -103,30 +87,74 @@ function pintarInformes() {
     `<p class="inf-nota"><i class="ti ti-info-circle"></i> La ganancia neta usa el costo guardado en cada venta. Ventas anteriores a esta mejora usan el costo actual del stock, así que son una estimación.</p>`;
 }
 
+// Caja del período: la otra mitad de la foto. Acá la compra de mercadería SÍ
+// resta, porque es plata que salió del local aunque haya quedado como stock.
+function bloqueCaja(r) {
+  const signo = r.caja >= 0 ? "" : "neg";
+  return `
+    <div class="inf-caja">
+      <div class="inf-caja-head">
+        <span><i class="ti ti-wallet"></i> Caja del período</span>
+        <strong class="${signo}">${formatPrecio(r.caja)}</strong>
+      </div>
+      <p class="inf-caja-detalle">
+        ${formatPrecio(r.ingresos)} que entraron − ${formatPrecio(r.gastosTotales)} de gastos
+        ${r.gastosMercaderia > 0 ? `(incluye ${formatPrecio(r.gastosMercaderia)} de compra de mercadería)` : ""}
+      </p>
+      <p class="inf-caja-nota">
+        <i class="ti ti-info-circle"></i>
+        La <strong>rentabilidad</strong> mide cuánto ganaste con lo que vendiste; la <strong>caja</strong>, cuánta plata quedó.
+        ${r.gastosMercaderia > 0
+          ? `La diferencia de ${formatPrecio(Math.abs(r.rentabilidad - r.caja))} es, sobre todo, mercadería que compraste y todavía no vendiste: no es pérdida, es stock en el local.`
+          : `Este período no tuvo compras de mercadería.`}
+      </p>
+    </div>`;
+}
+
+// aviso para los meses con ventas anteriores a la columna precio_costo
+function avisoVentasSinCosto(r) {
+  if (!r.ventasSinCosto) return "";
+  const pct = r.ventasDePrenda ? Math.round((r.ventasSinCosto / r.ventasDePrenda) * 100) : 0;
+  return `
+    <p class="inf-aviso-costo">
+      <i class="ti ti-alert-triangle"></i>
+      <span><strong>${r.ventasSinCosto} de ${r.ventasDePrenda} ventas (${pct}%)</strong> no tienen el costo guardado: son anteriores a que se registrara.
+      Para esas se usa el costo actual del stock y, si la prenda ya no está, se asume cero.
+      La rentabilidad y el margen de este período están <strong>sobreestimados</strong>.</span>
+    </p>`;
+}
+
+// gastos y cobros del período mostrado (o de todo el tiempo si no hay mes elegido).
+// OJO: gastos.fecha es una fecha SIN hora (ya local), así que se corta el string;
+// pasarla por mesLocalDe() la correría un día.
+function gastosDelPeriodo() {
+  return _mesInf ? _gastosInf.filter((g) => (g.fecha || "").slice(0, 7) === _mesInf) : _gastosInf.slice();
+}
+function cobrosDelPeriodo() {
+  return _mesInf ? _cobrosInf.filter((c) => mesLocalDe(c.fecha || "") === _mesInf) : _cobrosInf.slice();
+}
+
 /* ---------- Bloque 1: resumen (ingresos, ganancias) ---------- */
 function bloqueResumen(ventas) {
-  const bruto = ventas.reduce((a, v) => a + v.precioFinal, 0);
-  const costo = ventas.reduce((a, v) => a + costoDeVenta(v), 0);
-  const neta = bruto - costo;
+  const r = resumenEconomico(ventas, cobrosDelPeriodo(), gastosDelPeriodo());
   const unidades = ventas.reduce((a, v) => a + (esVentaDePrenda(v) ? v.cantidad : 0), 0);
-  const margen = bruto > 0 ? Math.round((neta / bruto) * 100) : 0;
-
-  // cobros de cuenta corriente y señas del período (plata que entró aparte de las ventas)
-  let cobros = _cobrosInf.slice();
-  if (_mesInf) cobros = cobros.filter((c) => mesLocalDe(c.fecha || "") === _mesInf);
-  const totalCobros = cobros.reduce((a, c) => a + c.monto, 0);
 
   return `
     <div class="inf-section">
       <h3 class="inf-h3"><i class="ti ti-cash"></i> Resumen ${_mesInf ? "de " + nombreMes(_mesInf) : "de todo el tiempo"}</h3>
       <div class="inf-cards">
-        <div class="inf-card"><span class="inf-card-label">Ingresos brutos</span><span class="inf-card-val">${formatPrecio(bruto)}</span></div>
-        <div class="inf-card"><span class="inf-card-label">Ganancia neta (est.)</span><span class="inf-card-val" style="color:var(--gold-bright)">${formatPrecio(neta)}</span></div>
-        <div class="inf-card"><span class="inf-card-label">Margen</span><span class="inf-card-val">${margen}%</span></div>
-        <div class="inf-card"><span class="inf-card-label">Prendas vendidas</span><span class="inf-card-val">${unidades}</span></div>
-        ${totalCobros > 0 ? `<div class="inf-card"><span class="inf-card-label">Cobros cta cte / señas</span><span class="inf-card-val" style="color:var(--teal-bright)">${formatPrecio(totalCobros)}</span></div>` : ""}
+        <div class="inf-card"><span class="inf-card-label">Ingresos totales</span><span class="inf-card-val">${formatPrecio(r.ingresos)}</span></div>
+        <div class="inf-card"><span class="inf-card-label">Costo de lo vendido</span><span class="inf-card-val neg">${formatPrecio(r.costoVendido)}</span></div>
+        <div class="inf-card"><span class="inf-card-label">Gastos operativos</span><span class="inf-card-val neg">${formatPrecio(r.gastosOperativos)}</span></div>
+        <div class="inf-card inf-card-destacada"><span class="inf-card-label">Rentabilidad</span><span class="inf-card-val" style="color:var(--gold-bright)">${formatPrecio(r.rentabilidad)}</span></div>
+        <div class="inf-card"><span class="inf-card-label">Margen</span><span class="inf-card-val">${r.margen}%</span></div>
       </div>
-      ${totalCobros > 0 ? `<p class="inf-reco-sub" style="margin-top:10px">Los cobros de cuenta corriente y señas se muestran aparte: son plata que entró, pero no son ventas de prenda del período.</p>` : ""}
+      ${bloqueCaja(r)}
+      <div class="inf-cards" style="margin-top:12px">
+        <div class="inf-card"><span class="inf-card-label">Prendas vendidas</span><span class="inf-card-val">${unidades}</span></div>
+        ${r.ingresosCobros > 0 ? `<div class="inf-card"><span class="inf-card-label">De cta cte / señas</span><span class="inf-card-val" style="color:var(--teal-bright)">${formatPrecio(r.ingresosCobros)}</span></div>` : ""}
+      </div>
+      ${avisoVentasSinCosto(r)}
     </div>`;
 }
 
@@ -180,32 +208,36 @@ function bloqueValorStock() {
 
 /* ---------- Bloque 2: ventas y ganancias por mes ---------- */
 function bloqueMensual() {
-  // siempre usa todas las ventas (ignora el filtro de mes, muestra el año)
-  const porMes = {};
-  _ventasInf.forEach((v) => {
-    const ym = mesLocalDe(v.fechaHora || "");
-    if (!ym) return;
-    if (!porMes[ym]) porMes[ym] = { bruto: 0, neta: 0, unidades: 0 };
-    porMes[ym].bruto += v.precioFinal;
-    porMes[ym].neta += v.precioFinal - costoDeVenta(v);
-    porMes[ym].unidades += esVentaDePrenda(v) ? v.cantidad : 0;
-  });
-  const meses = Object.keys(porMes).sort();
+  // siempre usa todos los meses (ignora el filtro, muestra la evolución)
+  // Cada mes se calcula con resumenEconomico, igual que el resumen de arriba,
+  // así la barra de rentabilidad ya tiene descontados los gastos operativos.
+  const meses = [...new Set(_ventasInf.map((v) => mesLocalDe(v.fechaHora || "")).filter(Boolean))].sort();
   if (meses.length < 2) return ""; // con un solo mes no tiene sentido el gráfico
 
-  const maxBruto = Math.max(...meses.map((m) => porMes[m].bruto));
+  const porMes = {};
+  meses.forEach((m) => {
+    porMes[m] = resumenEconomico(
+      _ventasInf.filter((v) => mesLocalDe(v.fechaHora || "") === m),
+      _cobrosInf.filter((c) => mesLocalDe(c.fecha || "") === m),
+      _gastosInf.filter((g) => (g.fecha || "").slice(0, 7) === m)
+    );
+  });
+
+  // la escala se toma del ingreso más alto; la rentabilidad puede ser negativa
+  // (un mes con mucha compra de mercadería), así que se dibuja desde cero.
+  const maxIngreso = Math.max(...meses.map((m) => porMes[m].ingresos));
   const barras = meses.map((m) => {
     const d = porMes[m];
-    const hBruto = maxBruto > 0 ? (d.bruto / maxBruto) * 100 : 0;
-    const hNeta = maxBruto > 0 ? (d.neta / maxBruto) * 100 : 0;
+    const hBruto = maxIngreso > 0 ? (d.ingresos / maxIngreso) * 100 : 0;
+    const hNeta = maxIngreso > 0 ? (Math.max(0, d.rentabilidad) / maxIngreso) * 100 : 0;
     return `
       <div class="inf-barmes">
-        <div class="inf-barmes-bars" title="${nombreMes(m)}: ${formatPrecio(d.bruto)} brutos, ${formatPrecio(d.neta)} netos">
+        <div class="inf-barmes-bars" title="${nombreMes(m)}: ${formatPrecio(d.ingresos)} de ingresos · ${formatPrecio(d.rentabilidad)} de rentabilidad · caja ${formatPrecio(d.caja)}">
           <div class="inf-bar-bruto" style="height:${hBruto}%"></div>
           <div class="inf-bar-neta" style="height:${hNeta}%"></div>
         </div>
         <span class="inf-barmes-label">${m.substring(5)}/${m.substring(2, 4)}</span>
-        <span class="inf-barmes-val">${formatPrecioCorto(d.bruto)}</span>
+        <span class="inf-barmes-val">${formatPrecioCorto(d.ingresos)}</span>
       </div>`;
   }).join("");
 

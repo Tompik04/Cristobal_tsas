@@ -137,6 +137,11 @@ const MEDIOS_PAGO = ["Efectivo", "Transferencia", "Débito", "Crédito"];
 // Categorías de gastos del local
 const CATEGORIAS_GASTO = ["Alquiler", "Luz", "Internet", "Monotributo", "Alarma", "Seguro", "Sueldos", "Mercadería", "Mantenimiento", "Envíos", "Materiales", "Otros"];
 
+// La compra de mercadería es un gasto especial: no es un costo operativo del mes,
+// es stock que después se vende. Se trata aparte para no contarla dos veces
+// (una acá y otra como "costo de lo vendido"). Ver resumenEconomico() en api.js.
+const GASTO_MERCADERIA = "Mercadería";
+
 // Checklist de control mensual: obligatorios (no deberían faltar) y opcionales
 const GASTOS_OBLIGATORIOS = ["Alquiler", "Luz", "Internet", "Monotributo", "Alarma", "Seguro"];
 const GASTOS_OPCIONALES = ["Sueldos", "Mercadería", "Mantenimiento", "Envíos", "Materiales", "Otros"];
