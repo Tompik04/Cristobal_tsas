@@ -103,14 +103,18 @@ button { font-family: inherit; }
   padding: 1rem 2.5%; border-bottom: 1px solid var(--oak-20);
   gap: 1rem; position: sticky; top: 0; background: var(--evergreen); z-index: 20;
 }
-.h-left { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+/* Header en 3 columnas: los dos laterales pesan igual (flex:1) para que la nav
+   quede centrada respecto de LA PÁGINA y no del espacio que sobra. Con
+   flex-shrink:0 a los lados, el centro se corría segun cuantos iconos hubiera
+   de cada lado (y los de la derecha aparecen solo en modo privado). */
+.h-left { display: flex; align-items: center; gap: 4px; flex: 1 1 0; min-width: 0; }
 .h-home {
   background: none; border: none; color: var(--pale-oak); cursor: pointer;
   display: flex; padding: 8px; border-radius: 10px; transition: background 0.15s; flex-shrink: 0;
 }
 .h-home:hover { background: var(--oak-10); }
 .h-home i { font-size: 26px; }
-.h-nav { display: flex; gap: clamp(12px, 3vw, 40px); flex: 1; justify-content: center; flex-wrap: wrap; }
+.h-nav { display: flex; gap: clamp(12px, 3vw, 40px); flex: 0 1 auto; justify-content: center; flex-wrap: wrap; }
 .h-nav a {
   color: var(--pale-oak); text-decoration: none; font-size: clamp(12px, 1.6vw, 16px);
   font-weight: 500; letter-spacing: 0.14em; cursor: pointer; padding: 4px 2px;
@@ -792,7 +796,9 @@ button { font-family: inherit; }
 @media (max-width: 640px) { .resumen-cards { grid-template-columns: 1fr; } .gasto-row { grid-template-columns: 1fr; } }
 
 /* ============ CAJA ============ */
-.h-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.h-right { display: flex; align-items: center; gap: 8px; flex: 1 1 0; min-width: 0; justify-content: flex-end; }
+/* el logo va despegado de los iconos: pegado se leia como un boton mas */
+.h-right .h-logo { margin-left: 16px; }
 .caja-total { display: flex; justify-content: space-between; align-items: center; margin: 0 2.5% 1.25rem; padding: 16px 20px; background: var(--oak-10); border: 1px solid var(--oak-55); border-radius: var(--r); }
 .caja-total span { font-size: 13px; letter-spacing: 0.08em; color: var(--oak-60); text-transform: uppercase; }
 .caja-total strong { font-size: 26px; color: var(--gold); }
