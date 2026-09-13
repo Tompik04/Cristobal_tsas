@@ -338,7 +338,8 @@ function abrirNuevaCuenta() {
     const apellido = document.getElementById("ccApe").value.trim();
     const telefono = document.getElementById("ccTel").value.trim();
     if (!nombre) return toast("Falta el nombre");
-    await API.crearCuenta({ id: "CC-" + Date.now(), nombre, apellido, telefono });
+    const rNew = await API.crearCuenta({ id: "CC-" + Date.now(), nombre, apellido, telefono });
+    if (!rNew || !rNew.ok) return toast("No se pudo crear la cuenta. Revisá la conexión.");
     toast("Cuenta creada");
     cerrarModal();
     cargarCuentas();
@@ -488,7 +489,8 @@ function abrirDetalleCuenta(cuentaId) {
         mensaje2: "Se repone al stock y baja la deuda. ¿Confirmás?",
         textoBoton: "Quitar",
         onOk: async () => {
-          await API.quitarItemCuenta(i.id, i);
+          const rQ = await API.quitarItemCuenta(i.id, i);
+          if (!rQ || !rQ.ok) return toast("No se pudo quitar la prenda. Revisá la conexión.");
           toast("Prenda quitada");
           await recargarYReabrir(cuentaId);
         },
@@ -505,7 +507,8 @@ function abrirDetalleCuenta(cuentaId) {
         mensaje2: "La deuda vuelve a subir por ese monto. ¿Confirmás?",
         textoBoton: "Eliminar",
         onOk: async () => {
-          await API.eliminarPagoCuenta(p.id);
+          const rP = await API.eliminarPagoCuenta(p.id);
+          if (!rP || !rP.ok) return toast("No se pudo eliminar el pago. Revisá la conexión.");
           toast("Pago eliminado");
           await recargarYReabrir(cuentaId);
         },
@@ -525,7 +528,8 @@ function abrirDetalleCuenta(cuentaId) {
           const fila = State.stock.find((s) => s.codigo === i.codigo && s.talle === i.talle && s.color === i.color);
           if (fila) { fila.cantidad += i.cantidad; await API.ajustarStock(fila.id, i.cantidad); }
         }
-        await API.eliminarCuenta(cuentaId);
+        const rDel = await API.eliminarCuenta(cuentaId);
+        if (!rDel || !rDel.ok) return toast("No se pudo eliminar la cuenta. Revisá la conexión.");
         toast("Cuenta eliminada");
         cerrarModal();
         cargarCuentas();
@@ -935,7 +939,8 @@ function abrirDetalleSena(senaId) {
     document.getElementById("scVolver").onclick = () => abrirDetalleSena(s.id);
 
     const cancelar = async (borrarPagos) => {
-      await API.cancelarSena(s.id, items, borrarPagos);
+      const rCan = await API.cancelarSena(s.id, items, borrarPagos);
+      if (!rCan || !rCan.ok) return toast("No se pudo cancelar la seña. Revisá la conexión.");
       items.forEach((i) => {
         const st = State.stock.find((x) => x.codigo === i.codigo && x.talle === i.talle && x.color === i.color);
         if (st) st.cantidad += i.cantidad;
@@ -1021,7 +1026,8 @@ function abrirPagoSena(s, saldo) {
     const completa = (monto >= saldo);
     let avisoCambio = "";
     if (completa) {
-      await API.actualizarEstadoSena(s.id, "completada");
+      const rEst = await API.actualizarEstadoSena(s.id, "completada");
+      if (!rEst || !rEst.ok) return toast("No se pudo marcar la seña como completada. Revisá la conexión.");
       // crear una venta por cada prenda para que se pueda cambiar (el plazo arranca hoy)
       const itemsSena = _senaItems.filter((i) => i.senaId === s.id);
       const resVta = await API.registrarVentasDeSena(s, itemsSena, fecha);

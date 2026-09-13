@@ -1351,7 +1351,10 @@ function abrirPopupVenta(lineas, opts) {
           fecha: fechaVenta ? new Date(fechaVenta).toISOString() : new Date().toISOString(),
         });
         if (!rf || !rf.ok) fallos.push("la factura");
-        // si el banco es nuevo, guardarlo para próximas facturas (retroalimentación)
+        // si el banco es nuevo, guardarlo para próximas facturas (retroalimentación).
+        // Único caso donde NO se chequea el resultado a propósito: solo alimenta el
+        // autocompletado. Si falla, la factura ya quedó bien y el banco se vuelve a
+        // tipear la próxima vez; no vale la pena molestar con un cartel.
         if (datosFac.banco && !bancosDisponibles.includes(datosFac.banco)) {
           await API.agregarBanco(datosFac.banco);
         }

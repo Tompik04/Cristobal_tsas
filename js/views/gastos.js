@@ -269,7 +269,8 @@ function bindGasto(list, g) {
       mensaje2: "El gasto se borra del registro. ¿Confirmás?",
       textoBoton: "Eliminar",
       onOk: async () => {
-        await API.eliminarGasto(g.id);
+        const rEG = await API.eliminarGasto(g.id);
+        if (!rEG || !rEG.ok) return toast("No se pudo eliminar el gasto. Revisá la conexión.");
         toast("Gasto eliminado");
         cargarGastos();
       },

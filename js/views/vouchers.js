@@ -177,7 +177,12 @@ function bindVoucher(list, v) {
   if (chk) {
     chk.onchange = async () => {
       v.avisado = chk.checked;
-      await API.actualizarVoucher(v.id, { avisado: chk.checked });
+      const rAv = await API.actualizarVoucher(v.id, { avisado: chk.checked });
+      if (!rAv || !rAv.ok) {
+        // volver atrás en pantalla: si no se guardó, el tilde no puede quedar puesto
+        v.avisado = !chk.checked; chk.checked = v.avisado;
+        toast("No se pudo guardar el aviso. Revisá la conexión.");
+      }
       pintarAlarmas();
       actualizarCampanitaVouchers();
       pintarVouchers(filtrosActuales());
@@ -204,8 +209,9 @@ function bindVoucher(list, v) {
     document.getElementById("vencSave").onclick = async () => {
       const nueva = document.getElementById("newVenc").value;
       if (!nueva) return toast("Falta la fecha");
+      const rVen = await API.actualizarVoucher(v.id, { vencimiento: nueva });
+      if (!rVen || !rVen.ok) return toast("No se pudo guardar el vencimiento. Revisá la conexión.");
       v.vencimiento = nueva;
-      await API.actualizarVoucher(v.id, { vencimiento: nueva });
       cerrarModal();
       toast("Vencimiento actualizado");
       cargarVouchers();
@@ -221,8 +227,9 @@ function bindVoucher(list, v) {
       mensaje2: "El voucher quedará como usado y no se podrá aplicar. ¿Confirmás?",
       textoBoton: "Deshabilitar",
       onOk: async () => {
+        const rDis = await API.actualizarVoucher(v.id, { usado: true });
+        if (!rDis || !rDis.ok) return toast("No se pudo deshabilitar el voucher. Revisá la conexión.");
         v.usado = true;
-        await API.actualizarVoucher(v.id, { usado: true });
         toast("Voucher deshabilitado");
         cargarVouchers();
         actualizarCampanitaVouchers();
@@ -238,8 +245,9 @@ function bindVoucher(list, v) {
       mensaje2: "Es una acción excepcional: el voucher volverá a estar disponible para usar. ¿Confirmás?",
       textoBoton: "Rehabilitar",
       onOk: async () => {
+        const rHab = await API.actualizarVoucher(v.id, { usado: false });
+        if (!rHab || !rHab.ok) return toast("No se pudo rehabilitar el voucher. Revisá la conexión.");
         v.usado = false;
-        await API.actualizarVoucher(v.id, { usado: false });
         toast("Voucher rehabilitado");
         cargarVouchers();
         actualizarCampanitaVouchers();
@@ -570,14 +578,29 @@ async function abrirVoucherDesdeVenta(v, opts) {
       return toast("No se pudo generar el voucher. Revisá la conexión e intentá de nuevo.");
     }
 
+    // El voucher ya está creado. Si algo de acá falla, se avisa con detalle en vez
+    // de decir "listo": son cosas que hay que corregir a mano y el usuario tiene
+    // que enterarse en el momento, no descubrirlo cuando no cuadre el stock.
+    const fallas = [];
+
     // la prenda vuelve al stock (es una devolución)
-    await API.ajustarStockPorVariante(v.codigo, v.talle, v.color, v.cantidad);
-    const s = State.stock.find((x) => x.codigo === v.codigo && x.talle === v.talle && x.color === v.color);
-    if (s) s.cantidad += v.cantidad;
+    const rStock = await API.ajustarStockPorVariante(v.codigo, v.talle, v.color, v.cantidad);
+    if (!rStock || !rStock.ok) fallas.push("no se repuso la prenda al stock");
+    else {
+      const s = State.stock.find((x) => x.codigo === v.codigo && x.talle === v.talle && x.color === v.color);
+      if (s) s.cantidad += v.cantidad;
+    }
 
     // marcar la venta: ya generó voucher (no se puede volver a generar ni restaurar)
-    await API.marcarVoucherGenerado(v.id, idVoucher);
-    v.voucherGenerado = idVoucher;
+    const rMarca = await API.marcarVoucherGenerado(v.id, idVoucher);
+    if (!rMarca || !rMarca.ok) fallas.push("la venta quedó sin marcar (se podría generar otro voucher por la misma prenda)");
+    else v.voucherGenerado = idVoucher;
+
+    if (fallas.length) {
+      cerrarModal();
+      if (typeof opts.onListo === "function") opts.onListo();
+      return toast(`Voucher creado, pero ${fallas.join(" y ")}. Revisalo.`);
+    }
 
     cerrarModal();
     toast(sumado

@@ -106,7 +106,8 @@ function bindFactRow(list, x) {
 
   row.querySelector('[data-act="toggle"]').onclick = async () => {
     const nuevo = !x.facturada;
-    await API.marcarFacturada(x.id, nuevo);
+    const rMF = await API.marcarFacturada(x.id, nuevo);
+    if (!rMF || !rMF.ok) return toast("No se pudo guardar el cambio. Revisá la conexión.");
     x.facturada = nuevo;
     toast(nuevo ? `Factura ${x.numero} marcada como facturada` : `Factura ${x.numero} vuelve a pendiente`);
     renderFacturas(document.getElementById("view"));
@@ -121,7 +122,8 @@ function bindFactRow(list, x) {
       mensaje2: "Se borra de forma permanente. ¿Confirmás?",
       textoBoton: "Eliminar",
       onOk: async () => {
-        await API.eliminarFactura(x.id);
+        const rEF = await API.eliminarFactura(x.id);
+        if (!rEF || !rEF.ok) return toast("No se pudo eliminar la factura. Revisá la conexión.");
         toast("Factura eliminada");
         renderFacturas(document.getElementById("view"));
       },

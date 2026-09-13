@@ -64,12 +64,24 @@ function bindBillete(list, b) {
 
   async function guardar(nueva) {
     nueva = Math.max(0, nueva);
+    const anterior = b.cantidad; // por si hay que volver atrás
     b.cantidad = nueva;
     input.value = nueva;
     // actualizar subtotal y total en vivo
-    row.querySelector(".billete-sub").textContent = formatPrecio(b.denominacion * nueva);
-    document.querySelector(".caja-total strong").textContent = formatPrecio(totalCaja());
-    await API.setCajaCantidad(b.denominacion, nueva);
+    const pintar = () => {
+      row.querySelector(".billete-sub").textContent = formatPrecio(b.denominacion * b.cantidad);
+      document.querySelector(".caja-total strong").textContent = formatPrecio(totalCaja());
+    };
+    pintar();
+    const res = await API.setCajaCantidad(b.denominacion, nueva);
+    if (!res || !res.ok) {
+      // no se guardó: revertir en pantalla, si no el conteo que ves no es el que
+      // quedó guardado y la caja te queda mal sin que te enteres
+      b.cantidad = anterior;
+      input.value = anterior;
+      pintar();
+      toast("No se pudo guardar el conteo. Revisá la conexión.");
+    }
   }
 
   row.querySelector('[data-act="minus"]').onclick = () => guardar((Number(input.value) || 0) - 1);
