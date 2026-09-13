@@ -1208,7 +1208,15 @@ function abrirPopupVenta(lineas, opts) {
   }
   [selM1, selM2].forEach((el) => el.addEventListener("change", chequearFacturaDividido));
 
+  // Traba contra el doble registro. El `disabled` del botón no alcanzó: el
+  // 12/09 se registró DOS VECES la misma venta (MBE0613, $56.250) con 162 ms de
+  // diferencia, y salieron dos facturas con el mismo número. Un flag propio corta
+  // el segundo disparo venga de donde venga (doble click, doble toque en el
+  // celular, Enter + click), sin depender del estado visual del botón.
+  let registrando = false;
+
   btnConf.onclick = async () => {
+    if (registrando) return;
     // ---- SEÑA: en vez de una venta, se registra una reserva con pago parcial ----
     if (senaActiva) {
       const nombre = document.getElementById("senaNom").value.trim();
@@ -1222,6 +1230,7 @@ function abrirPopupVenta(lineas, opts) {
       if (entrega >= totalPrendas) return toast("Entrega el total: cobrá como venta normal, no como seña");
       if (!metodo1 && !modoDividido) return toast("Elegí el método de pago de la seña");
 
+      registrando = true;
       btnConf.disabled = true;
       btnConf.textContent = "Registrando...";
 
@@ -1237,6 +1246,7 @@ function abrirPopupVenta(lineas, opts) {
       );
 
       if (!res.ok) {
+        registrando = false; // falló: se puede reintentar
         btnConf.disabled = false;
         btnConf.textContent = "Registrar seña";
         return toast("No se pudo registrar la seña");
@@ -1271,6 +1281,7 @@ function abrirPopupVenta(lineas, opts) {
       if (!datosFac.dni) return toast("Falta el DNI");
     }
 
+    registrando = true;
     btnConf.disabled = true;
     btnConf.textContent = "Procesando...";
 
@@ -1383,6 +1394,7 @@ function abrirPopupVenta(lineas, opts) {
       renderVentasCategorias(document.getElementById("view"));
     } else {
       toast("Error al registrar la venta");
+      registrando = false; // falló: se puede reintentar
       btnConf.disabled = false;
       btnConf.textContent = "Confirmar";
     }
