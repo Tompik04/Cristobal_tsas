@@ -260,7 +260,9 @@ const API = {
       };
       for (const it of items) {
         const cat = resolverCat(it);
-        const key = [it.codigo, it.talle, it.color, cat, Number(it.precio), Number(it.costo)].join("|");
+        // la clave NO incluye precios: una prenda = una fila, sin importar a qué
+        // precio entró el lote (ver el bloque de agrupación de abajo)
+        const key = [it.codigo, it.talle, it.color, cat].join("|");
         if (mapa.has(key)) {
           mapa.get(key).cantidad += Number(it.cantidad) || 0;
         } else {
@@ -271,18 +273,25 @@ const API = {
       const ingresos = []; // log de lo que entró (por atrás, para el conteo mensual)
       for (const it of itemsUnicos) {
         const cat = it.categoria;
-        // una fila existente coincide si: mismo código, talle, color, categoría Y mismos precios.
-        // Si el precio difiere, es un lote nuevo → fila separada.
+        // UNA FILA POR VARIANTE: código + talle + color + categoría.
+        // Antes el match incluía los precios, así que un lote a distinto costo
+        // creaba una fila aparte. Después, editar el precio del modelo igualaba
+        // las dos filas y quedaban duplicados exactos: la pantalla los sumaba al
+        // leer pero vender o borrar tocaba una sola, y el disponible se iba.
+        // El costo histórico no se pierde: ventas.precio_costo guarda el costo
+        // con el que se vendió cada prenda.
         const ex = actual.find((r) =>
           r.codigo === it.codigo &&
           String(r.talle) === String(it.talle) &&
           r.color === it.color &&
-          r.categoria === cat &&
-          Number(r.precio_venta) === Number(it.precio) &&
-          Number(r.precio_costo) === Number(it.costo));
+          r.categoria === cat);
         if (ex) {
-          await SB.update("stock", "id=eq." + ex.id,
-            { cantidad: (Number(ex.cantidad) || 0) + Number(it.cantidad) });
+          // se suma la cantidad y los precios quedan en los del último lote
+          await SB.update("stock", "id=eq." + ex.id, {
+            cantidad: (Number(ex.cantidad) || 0) + Number(it.cantidad),
+            precio_venta: Number(it.precio),
+            precio_costo: Number(it.costo),
+          });
         } else {
           await SB.insert("stock", [{
             codigo: it.codigo, categoria: cat, marca: it.marca,

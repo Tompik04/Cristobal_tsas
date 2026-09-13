@@ -479,11 +479,18 @@ async function iniciarApp() {
 function consolidarStock(stock) {
   const mapa = {};
   stock.forEach((s) => {
-    // agrupar por variante Y precios: así solo se juntan duplicados REALES (misma
-    // variante y mismo precio/costo), no lotes distintos del mismo talle/color.
-    const k = s.codigo + "|" + s.talle + "|" + s.color + "|" + s.precio + "|" + s.costo;
+    // MISMA clave que usa agregarStock en api.js: una prenda = una fila, sin los
+    // precios. Agrupando con el precio, dos lotes del mismo talle/color se veían
+    // como dos productos distintos en la lista, y si después se igualaba el precio
+    // quedaban dos entradas idénticas.
+    const k = s.codigo + "|" + s.talle + "|" + s.color + "|" + s.categoria;
     if (mapa[k]) {
       mapa[k].cantidad += s.cantidad;
+      // ante filas repetidas gana el precio de la que tenga stock: es el lote vivo
+      if (s.cantidad > 0 && mapa[k].cantidad === s.cantidad) {
+        mapa[k].precio = s.precio;
+        mapa[k].costo = s.costo;
+      }
     } else {
       mapa[k] = Object.assign({}, s);
     }
