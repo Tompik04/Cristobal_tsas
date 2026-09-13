@@ -16,12 +16,39 @@ const SB = {
     "Content-Type": "application/json",
   }),
 
-  // GET con filtros (querystring tipo PostgREST)
+  // Tope de filas que devuelve PostgREST por respuesta (max-rows del servidor).
+  // Es del servidor, no del código: no se puede subir desde acá.
+  PAGINA: 1000,
+
+  // GET con filtros (querystring tipo PostgREST).
+  //
+  // OJO: PostgREST corta TODA respuesta en PAGINA filas, en silencio y sin error.
+  // Con stock en 1023 filas, getStock() pedía "order=codigo" y recibía solo las
+  // primeras 1000: todo lo que empezaba con W quedaba afuera y la app no lo veía
+  // (y agregarStock, que también leía la tabla entera, no encontraba esas filas
+  // y creaba una nueva cada vez que se cargaba la misma prenda).
+  // Por eso se pagina con el header Range hasta que un lote viene incompleto.
   async select(tabla, query) {
     const q = query ? "?" + query : "";
-    const res = await fetch(this.url() + "/" + tabla + q, { headers: this.headers() });
-    if (!res.ok) throw new Error("select " + tabla + ": " + res.status);
-    return res.json();
+    const filas = [];
+    let desde = 0;
+    // tope de seguridad para no quedar en un loop infinito si el server repite lotes
+    for (let vuelta = 0; vuelta < 100; vuelta++) {
+      const res = await fetch(this.url() + "/" + tabla + q, {
+        headers: Object.assign(this.headers(), {
+          "Range-Unit": "items",
+          "Range": desde + "-" + (desde + this.PAGINA - 1),
+        }),
+      });
+      // 206 = Partial Content, la respuesta normal cuando se pide un Range
+      if (!res.ok && res.status !== 206) throw new Error("select " + tabla + ": " + res.status);
+      const lote = await res.json();
+      if (!Array.isArray(lote)) return lote; // respuestas que no son lista (ej. count)
+      filas.push(...lote);
+      if (lote.length < this.PAGINA) break; // último lote: ya vino todo
+      desde += this.PAGINA;
+    }
+    return filas;
   },
   // INSERT
   async insert(tabla, filas) {
@@ -214,8 +241,10 @@ const API = {
   async agregarStock(items) {
     if (CONFIG.MODO_PRUEBA) return this._mock("agregarStock", { items });
     try {
-      // traer stock actual para sumar cantidades a lo existente
-      const actual = await SB.select("stock", "select=*");
+      // traer stock actual para sumar cantidades a lo existente.
+      // El order=id no es cosmético: sin un orden estable, paginar con Range
+      // puede repetir o saltear filas entre lote y lote.
+      const actual = await SB.select("stock", "select=*&order=id");
       // unificar items repetidos del MISMO lote (misma variante y precios) para no
       // crear filas duplicadas: si la variante viene 2 veces, se suma la cantidad.
       const mapa = new Map();
@@ -582,7 +611,7 @@ const API = {
     try {
       const [senas, items, pagos] = await Promise.all([
         SB.select("senas", "select=*&order=fecha.desc"),
-        SB.select("sena_items", "select=*"),
+        SB.select("sena_items", "select=*&order=id"),
         SB.select("sena_pagos", "select=*&order=fecha"),
       ]);
       return {
@@ -609,7 +638,7 @@ const API = {
   async getSenasHabilitadas() {
     if (CONFIG.MODO_PRUEBA) return { ok: true, ids: [] };
     try {
-      const rows = await SB.select("ventas", "select=sena_id&es_sena=eq.true");
+      const rows = await SB.select("ventas", "select=sena_id&es_sena=eq.true&order=id");
       return { ok: true, ids: [...new Set(rows.map((r) => r.sena_id).filter(Boolean))] };
     } catch (e) { return { ok: false, ids: [] }; }
   },
@@ -774,7 +803,7 @@ const API = {
   async siguienteNumeroFactura() {
     if (CONFIG.MODO_PRUEBA) return { ok: true, numero: "0001" };
     try {
-      const rows = await SB.select("facturas", "select=numero");
+      const rows = await SB.select("facturas", "select=numero&order=numero");
       let max = 0;
       rows.forEach((r) => {
         const n = parseInt(String(r.numero).replace(/\D/g, ""), 10);
