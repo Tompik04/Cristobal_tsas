@@ -859,11 +859,23 @@ function bindSrowAgrupada(cont, p, f, idx) {
     return v ? State.stock.find((s) => s.id === v.id) : null;
   };
 
+  // la cantidad que manda es la que devuelve la base, no la que calculamos acá:
+  // si se toca +/- rápido, varias llamadas se pisan y solo la base sabe el total real
+  const sincronizar = (r, res, alFallar) => {
+    if (!res || !res.ok) {
+      alFallar();
+      qtyEl.textContent = r.cantidad;
+      return toast("No se pudo actualizar el stock. Revisá la conexión.");
+    }
+    r.cantidad = res.cantidad;
+    qtyEl.textContent = r.cantidad;
+  };
+
   row.querySelector('[data-act="plus"]').onclick = async () => {
     const r = refVar(); if (!r) return;
-    r.cantidad++; qtyEl.textContent = r.cantidad;
+    r.cantidad++; qtyEl.textContent = r.cantidad; // respuesta inmediata en pantalla
     const res = await API.ajustarStock(r.id, +1);
-    if (!res || !res.ok) { r.cantidad--; qtyEl.textContent = r.cantidad; toast("No se pudo actualizar el stock. Revisá la conexión."); }
+    sincronizar(r, res, () => r.cantidad--);
   };
   row.querySelector('[data-act="minus"]').onclick = async () => {
     const r = refVar(); if (!r || r.cantidad <= 0) return;
@@ -880,7 +892,7 @@ function bindSrowAgrupada(cont, p, f, idx) {
     }
     r.cantidad--; qtyEl.textContent = r.cantidad;
     const res = await API.ajustarStock(r.id, -1);
-    if (!res || !res.ok) { r.cantidad++; qtyEl.textContent = r.cantidad; toast("No se pudo actualizar el stock. Revisá la conexión."); }
+    sincronizar(r, res, () => r.cantidad++);
   };
   row.querySelector('[data-act="del"]').onclick = () => {
     const r = refVar(); if (!r) return;

@@ -79,6 +79,19 @@ const SB = {
     if (!res.ok) throw new Error("delete " + tabla + ": " + res.status);
     return true;
   },
+  // Llama una función de Postgres (endpoint /rpc/). Sirve para operaciones que
+  // tienen que resolverse en la base y no en el navegador, como sumar stock sin
+  // leerlo antes.
+  async rpc(fn, args) {
+    const res = await fetch(this.url() + "/rpc/" + fn, {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify(args || {}),
+    });
+    if (!res.ok) throw new Error("rpc " + fn + ": " + res.status + " " + (await res.text()));
+    return res.json();
+  },
+
   // UPSERT (insertar o actualizar si existe la clave única)
   async upsert(tabla, filas, onConflict) {
     const oc = onConflict ? "?on_conflict=" + onConflict : "";
@@ -309,15 +322,16 @@ const API = {
   },
 
   // ajusta la cantidad de una fila específica por su id
+  // Ajusta la cantidad de una fila. La suma la hace la BASE, no el navegador.
+  // Antes se leía la cantidad, se sumaba acá y se escribía: tocando +/- rápido,
+  // varias llamadas leían el mismo número viejo y la última pisaba a las otras,
+  // así que se perdían clicks. Devuelve la cantidad que quedó realmente.
   async ajustarStock(id, delta) {
     if (CONFIG.MODO_PRUEBA) return this._mock("ajustarStock", {});
     try {
-      const rows = await SB.select("stock", "select=*&id=eq." + enc(id));
-      if (!rows.length) return { ok: false, error: "No encontrado" };
-      const r = rows[0];
-      const nueva = Math.max(0, (Number(r.cantidad) || 0) + delta);
-      await SB.update("stock", "id=eq." + enc(id), { cantidad: nueva });
-      return { ok: true };
+      const filas = await SB.rpc("ajustar_stock", { p_id: Number(id), p_delta: Number(delta) });
+      if (!filas || !filas.length) return { ok: false, error: "No encontrado" };
+      return { ok: true, cantidad: Number(filas[0].cantidad) || 0 };
     } catch (e) { return { ok: false, error: String(e) }; }
   },
 

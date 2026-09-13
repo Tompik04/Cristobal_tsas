@@ -96,6 +96,8 @@ Todos los montos son `numeric` (pesos completos, no centavos). `fecha_hora`/`fec
 **Tabla `config`** (claves reales en la base): `PIN`, `CODIGO_PRIVADO`, `RecargoTarjeta`, `DiasCambio`, `DiasVencimientoVoucher`, `DiasAlarmaVoucher`, `DiasHistorialCambios`, `DiasHistorialVentas`.
 Ojo: **el código solo lee `PIN`, `CODIGO_PRIVADO` y `RECARGO_TARJETA`** (en mayúsculas con guión bajo), y esa última clave **no existe** con ese nombre — ver "Cosas que se rompen seguido". Las claves `Dias*` no las lee nadie: la app usa las constantes hardcodeadas de `js/config.js`.
 
+**Funciones:** `public.ajustar_stock(p_id bigint, p_delta integer)` suma o resta `stock.cantidad` de forma atómica y devuelve la cantidad que quedó (nunca baja de 0). Se llama desde `API.ajustarStock` vía `SB.rpc`. **No sumar stock leyendo y escribiendo desde el navegador**: así se perdían clicks cuando se tocaba +/− rápido.
+
 **Storage:** un solo bucket, `prendas`, **público**. Las imágenes se suben como `{codigo}_{categoria}.png` (minúsculas, sin acentos ni espacios) con `x-upsert: true`. Nombre viejo `{codigo}.png` sigue funcionando por compatibilidad.
 
 **RLS:** está **habilitado en las 15 tablas**, pero todas las políticas son `FOR ALL` con `USING (true)` y `WITH CHECK (true)` para el rol `anon` o `public`. O sea: RLS prendido pero **completamente abierto**, no filtra nada. Como la app es 100% front-end y la key publishable está hardcodeada en `js/config.js` (que se publica en GitHub Pages), cualquiera que abra el sitio puede leer, modificar y borrar toda la base desde la consola del navegador — incluido el `PIN` y el `CODIGO_PRIVADO` de la tabla `config`. El login por PIN es una barrera de UI, no de seguridad.
