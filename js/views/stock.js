@@ -709,9 +709,16 @@ function pintarStockExistente(productos, f) {
   let lista = productos.slice();
 
   if (f.q) lista = lista.filter((p) => coincideTexto({ marca: p.marca, codigo: p.codigo }, f.q, ["marca", "codigo"]));
-  // filtros de talle/color: dejan solo los productos que tengan esa variante
-  if (f.talle) lista = lista.filter((p) => p.variantes.some((v) => v.talle === f.talle));
-  if (f.color) lista = lista.filter((p) => p.variantes.some((v) => v.color === f.color));
+  // filtros de talle/color: dejan solo los productos que tengan esa variante.
+  // Con los dos puestos, la MISMA variante tiene que cumplir ambos: antes se
+  // pedían por separado, así que una prenda con 42/Azul y 38/Negro pasaba el
+  // filtro "42 + Negro" sin tener ningún 42 negro.
+  if (f.talle && f.color) {
+    lista = lista.filter((p) => p.variantes.some((v) => v.talle === f.talle && v.color === f.color));
+  } else {
+    if (f.talle) lista = lista.filter((p) => p.variantes.some((v) => v.talle === f.talle));
+    if (f.color) lista = lista.filter((p) => p.variantes.some((v) => v.color === f.color));
+  }
   if (f.minCant) {
     const min = Number(f.minCant);
     lista = lista.filter((p) => p.variantes.reduce((a, v) => a + v.cantidad, 0) >= min);
@@ -738,10 +745,27 @@ function pintarStockExistente(productos, f) {
   actualizarBarraSeleccion();
 }
 
+// variantes de un producto que pasan el filtro de talle/color.
+// Es la lista que alimenta los dos desplegables de la fila: si filtrás por
+// talle M, el desplegable solo tiene M; si filtrás por color Negro, solo los
+// talles que vienen en negro. Sin filtro, devuelve todas.
+function variantesFiltradas(p, f) {
+  const ft = f && f.talle, fc = f && f.color;
+  if (!ft && !fc) return p.variantes;
+  const r = p.variantes.filter((v) => (!ft || v.talle === ft) && (!fc || v.color === fc));
+  // si el filtro no deja ninguna, se muestran todas antes que un desplegable vacío
+  return r.length ? r : p.variantes;
+}
+
 // fila de stock agrupada por código+precio (lote)
 function srowAgrupadaHTML(p, f, idx) {
-  const talles = [...new Set(p.variantes.map((v) => v.talle))];
-  const tallesOpt = talles.map((t) => `<option value="${t}">${t}</option>`).join("");
+  // Si hay filtro, los desplegables SOLO ofrecen lo filtrado. Antes se armaban
+  // con todas las variantes: la fila aparecía bien (tenía ese talle) pero el
+  // desplegable arrancaba en otro y se veía una prenda que no era la buscada.
+  const tallesOpt = variantesFiltradas(p, f)
+    .map((v) => v.talle)
+    .filter((t, i, a) => a.indexOf(t) === i)
+    .map((t) => `<option value="${escAttr(t)}">${t}</option>`).join("");
   return `
     <div class="prow srow-agrup" data-idx="${idx}">
       <div class="pcell">
@@ -787,8 +811,11 @@ function bindSrowAgrupada(cont, p, f, idx) {
   const selColor = row.querySelector('[data-f="color"]');
   const qtyEl = row.querySelector('[data-f="qty"]');
 
+  // misma lista filtrada que usa el HTML, así los dos desplegables coinciden
+  const disponibles = variantesFiltradas(p, f);
+
   function coloresDeTalle(talle) {
-    return p.variantes.filter((v) => v.talle === talle);
+    return disponibles.filter((v) => v.talle === talle);
   }
   function varianteActual() {
     return p.variantes.find((v) => v.talle === selTalle.value && v.color === selColor.value);

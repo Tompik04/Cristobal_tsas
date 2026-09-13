@@ -71,8 +71,15 @@ function pintarProductosVentas(root, productos, f) {
   lista = lista.filter((p) => p.variantes.some((v) => v.cantidad > 0));
 
   if (f.q) lista = lista.filter((p) => coincideTexto({ marca: p.marca, codigo: p.codigo }, f.q, ["marca", "codigo"]));
-  if (f.talle) lista = lista.filter((p) => p.variantes.some((v) => v.talle === f.talle));
-  if (f.color) lista = lista.filter((p) => p.variantes.some((v) => v.color === f.color));
+  // En Ventas el filtro exige stock: filtrar por talle 40 y que aparezca una prenda
+  // con 0 en ese talle no sirve para nada (el desplegable queda deshabilitado y no
+  // se puede vender). Se pide que la variante filtrada tenga unidades.
+  if (f.talle) lista = lista.filter((p) => p.variantes.some((v) => v.talle === f.talle && v.cantidad > 0));
+  if (f.color) lista = lista.filter((p) => p.variantes.some((v) => v.color === f.color && v.cantidad > 0));
+  // con los dos filtros juntos, la MISMA variante tiene que cumplir ambos
+  if (f.talle && f.color) {
+    lista = lista.filter((p) => p.variantes.some((v) => v.talle === f.talle && v.color === f.color && v.cantidad > 0));
+  }
   if (f.minCant) {
     const min = Number(f.minCant);
     lista = lista.filter((p) => p.variantes.reduce((a, v) => a + v.cantidad, 0) >= min);
@@ -96,15 +103,26 @@ function pintarProductosVentas(root, productos, f) {
     cont.innerHTML = `<div class="soon"><i class="ti ti-search-off"></i><p>Sin resultados.</p></div>`;
     return;
   }
-  cont.innerHTML = lista.map(filaProductoHTML).join("");
-  lista.forEach((p) => bindFila(root, p));
+  cont.innerHTML = lista.map((p) => filaProductoHTML(p, f)).join("");
+  lista.forEach((p) => bindFila(root, p, f));
 }
 
-function filaProductoHTML(p) {
-  const talles = [...new Set(p.variantes.map((v) => v.talle))];
+// variantes que pasan el filtro de talle/color. Si hay filtro, los desplegables
+// SOLO ofrecen eso: antes se armaban con todas y la fila arrancaba mostrando un
+// talle o color distinto al que estabas buscando.
+function variantesFiltradasVenta(p, f) {
+  const ft = f && f.talle, fc = f && f.color;
+  if (!ft && !fc) return p.variantes;
+  const r = p.variantes.filter((v) => (!ft || v.talle === ft) && (!fc || v.color === fc));
+  return r.length ? r : p.variantes;
+}
+
+function filaProductoHTML(p, f) {
+  const disponibles = variantesFiltradasVenta(p, f);
+  const talles = [...new Set(disponibles.map((v) => v.talle))];
   const tallesOpt = talles
     .map((t) => {
-      const stockT = p.variantes.filter((v) => v.talle === t).reduce((a, v) => a + v.cantidad, 0);
+      const stockT = disponibles.filter((v) => v.talle === t).reduce((a, v) => a + v.cantidad, 0);
       return stockT > 0
         ? `<option value="${t}">${t}</option>`
         : `<option value="${t}" disabled>${t} (0)</option>`;
@@ -155,7 +173,7 @@ function filaProductoHTML(p) {
     </div>`;
 }
 
-function bindFila(root, p) {
+function bindFila(root, p, f) {
   const row = root.querySelector(`.prow[data-cod="${p.codigo}"]`);
   const selTalle = row.querySelector('[data-f="talle"]');
   const selColor = row.querySelector('[data-f="color"]');
@@ -166,8 +184,11 @@ function bindFila(root, p) {
   const imgEl = row.querySelector(".pimg.zoomable");
   if (imgEl) imgEl.onclick = () => verImagenAmpliada(p.codigo, p.marca, p.categoria);
 
+  // misma lista filtrada que arma el HTML, así los dos desplegables coinciden
+  const disponibles = variantesFiltradasVenta(p, f);
+
   function coloresDeTalle(talle) {
-    return p.variantes.filter((v) => v.talle === talle && v.cantidad > 0);
+    return disponibles.filter((v) => v.talle === talle && v.cantidad > 0);
   }
   function stockActual() {
     const v = p.variantes.find(
