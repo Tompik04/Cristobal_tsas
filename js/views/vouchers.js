@@ -94,6 +94,44 @@ function valorVoucher(v) {
   return v.tipo === "descuento" ? `${v.descuento}% off` : formatPrecio(v.monto);
 }
 
+// Texto del origen, en castellano y con la prenda completa.
+// El campo `origen` guarda solo el código ("Cambio de BBR0108") o, peor, el id
+// de otro voucher ("Saldo de VCH-1785516819946"), que no le dice nada a nadie.
+// Acá se le agrega marca/talle/color buscando el código en el stock, y los
+// "Saldo de" se resuelven al voucher del que salieron.
+function origenLegible(v) {
+  const o = String(v.origen || "").trim();
+  if (!o) return "Sin origen registrado";
+
+  // "Saldo de VCH-123" → el sobrante de un voucher anterior
+  const mSaldo = o.match(/^Saldo de (VCH-\S+)$/i);
+  if (mSaldo) {
+    const padre = _vouchers.find((x) => x.id === mSaldo[1]);
+    return padre
+      ? `Sobrante del voucher de ${escAttr(padre.nombre || "—")} (${origenLegible(padre)})`
+      : "Sobrante de un voucher anterior";
+  }
+
+  // "Cambio de COD1, COD2" o "Devolución de COD" → describir cada prenda
+  const m = o.match(/^(Cambio|Devolución|Devolucion) de (.+)$/i);
+  if (m) {
+    const detalle = m[2].split(",").map((c) => descripcionPrenda(c.trim())).join(" + ");
+    return `${m[1] === "Cambio" ? "Cambio" : "Devolución"} de ${detalle}`;
+  }
+  if (o === "Compra") return "Comprado por el cliente";
+  if (o === "Alta manual") return "Cargado a mano";
+  return escAttr(o);
+}
+
+// "BBR0108" → "BBR0108 · 1997 - BARON BLONDE (L/Negro)" si se encuentra en stock
+function descripcionPrenda(codigo) {
+  if (!codigo) return "—";
+  const filas = (State.stock || []).filter((s) => s.codigo === codigo);
+  if (!filas.length) return escAttr(codigo);
+  const marca = filas[0].marca;
+  return `${escAttr(codigo)}${marca ? " · " + escAttr(marca) : ""}`;
+}
+
 function voucherHTML(v) {
   const est = estadoAlarmaVoucher(v);
   const dias = diasParaVencer(v.vencimiento);
@@ -116,7 +154,8 @@ function voucherHTML(v) {
     <div class="crow voucher-row ${claseFila}" data-id="${v.id}">
       <div class="c-meta">
         <span class="c-vars"><strong>${v.nombre || "—"}</strong> · ${v.telefono || "—"}</span>
-        <span class="c-fecha">${v.id} · ${v.origen || ""}${v.comprado ? ` · pagado con ${metodoColoreado(v.metodoPago)}` : ""}</span>
+        <span class="c-fecha">${origenLegible(v)}${v.comprado ? ` · pagado con ${metodoColoreado(v.metodoPago)}` : ""}</span>
+        <span class="v-id">${v.id} · emitido ${fmtFecha(v.fecha)}</span>
         <span class="v-tipo-origen ${v.comprado ? "comprado" : "saldo"}">${v.comprado ? "Comprado (ingresó plata)" : "Saldo a favor"}</span>
         ${badge}
       </div>

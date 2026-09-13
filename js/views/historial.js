@@ -78,9 +78,17 @@ async function cargarHistorial() {
   // la venta original puede ser de antes de la ventana de fechas.
   _ventaPorId = {};
   _cambioPorOrigen = {};
+  res.ventas.forEach((v) => { _ventaPorId[v.id] = v; });
   res.ventas.forEach((v) => {
-    _ventaPorId[v.id] = v;
-    if (v.esCambio && v.cambioDe) _cambioPorOrigen[v.cambioDe] = v; // original → prenda que se llevó
+    if (!v.esCambio || !v.cambioDe) return;
+    // cambioDe puede traer VARIOS ids separados por coma (cambio de varias prendas
+    // en una). Antes se usaba el string entero como clave, así que no matcheaba
+    // con ningún id y el detalle salía vacío.
+    // Y un mismo cambio puede generar VARIAS ventas nuevas (el cliente se llevó
+    // más de una prenda), así que cada origen guarda una LISTA, no una sola.
+    idsDeCambioDe(v.cambioDe).forEach((oid) => {
+      (_cambioPorOrigen[oid] = _cambioPorOrigen[oid] || []).push(v);
+    });
   });
 
   _ventasHist = res.ventas.filter((v) => !v.esSena).concat(pagosCC).concat(pagosSE).concat(ingresosVO)
@@ -302,33 +310,46 @@ function bindHistRow(list, v) {
 
 // Detalle del cambio en la fila del historial: muestra las DOS puntas del cambio
 // (la prenda que volvió al stock y la que se llevó el cliente).
-function detalleCambioHTML(v) {
-  const desc = (x) => x ? `${escAttr(x.marca || x.codigo)} <span class="cd-var">${x.talle}/${x.color}</span>` : "—";
+// "V-1,V-2" → ["V-1","V-2"]. Un cambio de varias prendas guarda todos los ids
+// de las ventas devueltas en un solo campo de texto, separados por coma.
+function idsDeCambioDe(cambioDe) {
+  return String(cambioDe || "").split(",").map((s) => s.trim()).filter(Boolean);
+}
 
-  // Esta venta ES la del cambio (la prenda que se llevó el cliente)
+function detalleCambioHTML(v) {
+  const desc = (x) => x ? `${escAttr(x.marca || x.codigo)} <span class="cd-var">${x.talle}/${x.color}</span>` : null;
+  // une varias prendas en una sola línea, o avisa si no se pudo resolver ninguna
+  const listar = (arr) => {
+    const t = (arr || []).map(desc).filter(Boolean);
+    return t.length ? t.join(" + ") : `<span class="cd-falta">no se pudo recuperar el detalle</span>`;
+  };
+
+  // Esta venta ES la del cambio (una de las prendas que se llevó el cliente)
   if (v.esCambio) {
-    const orig = v.cambioDe ? _ventaPorId[v.cambioDe] : null;
+    const origs = idsDeCambioDe(v.cambioDe).map((id) => _ventaPorId[id]).filter(Boolean);
+    // las otras prendas que salieron en el MISMO cambio (misma venta original)
+    const hermanas = (_cambioPorOrigen[idsDeCambioDe(v.cambioDe)[0]] || []).filter((x) => x.id !== v.id);
     const dif = v.precioFinal || 0;
     return `
       <div class="cd-box">
         <span class="cd-tag"><i class="ti ti-arrows-exchange"></i> Cambio</span>
         <span class="cd-linea">
-          <span class="cd-in"><i class="ti ti-arrow-back-up"></i> Volvió al stock: ${desc(orig)}</span>
-          <span class="cd-out"><i class="ti ti-arrow-right"></i> Se llevó: ${desc(v)}</span>
+          <span class="cd-in"><i class="ti ti-arrow-back-up"></i> Volvió al stock: ${listar(origs)}</span>
+          <span class="cd-out"><i class="ti ti-arrow-right"></i> Se llevó: ${desc(v)}${hermanas.length ? ` <span class="cd-var">+ ${hermanas.length} más en el mismo cambio</span>` : ""}</span>
         </span>
         <span class="cd-dif">${dif > 0 ? "Pagó de diferencia " + formatPrecio(dif) : "Sin diferencia a pagar"}</span>
       </div>`;
   }
 
-  // Esta venta FUE cambiada (la prenda volvió al stock y el cliente se llevó otra)
+  // Esta venta FUE cambiada (la prenda volvió al stock y el cliente se llevó otra u otras)
   if (v.cambiada) {
-    const nueva = _cambioPorOrigen[v.id];
+    const nuevas = _cambioPorOrigen[v.id] || [];
     return `
       <div class="cd-box cd-box-orig">
         <span class="cd-tag"><i class="ti ti-arrows-exchange"></i> Cambiada</span>
         <span class="cd-linea">
           <span class="cd-in"><i class="ti ti-arrow-back-up"></i> Esta prenda volvió al stock</span>
-          <span class="cd-out"><i class="ti ti-arrow-right"></i> Se llevó: ${desc(nueva)}</span>
+          <span class="cd-out"><i class="ti ti-arrow-right"></i> Se llevó: ${listar(nuevas)}</span>
         </span>
         <span class="cd-dif">Lo pagado sigue contando en este día</span>
       </div>`;
