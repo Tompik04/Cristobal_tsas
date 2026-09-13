@@ -402,6 +402,22 @@ const API = {
     } catch (e) { return { ok: false, error: String(e) }; }
   },
 
+  // Descuenta stock SOLO si alcanza, bloqueando la fila en la base.
+  // Es lo que impide que dos dispositivos vendan la misma última prenda: la
+  // segunda llamada espera a la primera y ve la cantidad ya descontada.
+  // Devuelve { ok, exito, disponible }: `ok` es si la llamada funcionó,
+  // `exito` es si había stock suficiente.
+  async descontarStock(codigo, talle, color, cantidad) {
+    if (CONFIG.MODO_PRUEBA) return { ok: true, exito: true, disponible: 99 };
+    try {
+      const filas = await SB.rpc("descontar_stock", {
+        p_codigo: codigo, p_talle: String(talle), p_color: color, p_cantidad: Number(cantidad),
+      });
+      const r = (filas && filas[0]) || { exito: false, disponible: 0 };
+      return { ok: true, exito: !!r.exito, disponible: Number(r.disponible) || 0 };
+    } catch (e) { return { ok: false, error: String(e) }; }
+  },
+
   // elimina una fila específica por su id
   async eliminarStock(id) {
     if (CONFIG.MODO_PRUEBA) return this._mock("eliminarStock", {});
@@ -499,17 +515,41 @@ const API = {
           cambio_de: det.cambioDe || null,
         };
       });
-      await SB.insert("ventas", filas);
-      // descontar stock. La venta YA está guardada; si el descuento falla o no alcanza,
-      // no revertimos (ya se cobró) pero juntamos los avisos para que la vista los muestre.
-      const stockAvisos = [];
+      // PRIMERO se reserva el stock, DESPUÉS se graba la venta.
+      // Antes era al revés: la venta se guardaba y recién ahí se descontaba, así
+      // que si otro dispositivo se había llevado la última prenda la venta
+      // quedaba registrada igual y solo salía un aviso. Ahora, si no alcanza, no
+      // se graba nada y se devuelve lo ya reservado de las otras líneas.
+      const reservadas = [];
       for (const l of lineas) {
-        const rs = await this.ajustarStockPorVariante(l.codigo, l.talle, l.color, -l.cantidad);
+        const r = await this.descontarStock(l.codigo, l.talle, l.color, l.cantidad);
+        if (r.ok && r.exito) { reservadas.push(l); continue; }
+        // no alcanzó (o falló): devolver lo reservado hasta acá y abortar
+        for (const d of reservadas) {
+          await this.ajustarStockPorVariante(d.codigo, d.talle, d.color, d.cantidad);
+        }
         const etiqueta = `${l.codigo} ${l.talle}/${l.color}`;
-        if (!rs || !rs.ok) stockAvisos.push(`${etiqueta} (no se pudo descontar)`);
-        else if (rs.faltante) stockAvisos.push(`${etiqueta} (faltaban ${rs.faltante} en stock)`);
+        return {
+          ok: false,
+          sinStock: true,
+          error: r.ok
+            ? `No hay stock de ${etiqueta}: quedan ${r.disponible}. Puede que se haya vendido desde otro dispositivo.`
+            : `No se pudo reservar ${etiqueta}. Revisá la conexión.`,
+        };
       }
-      return { ok: true, idVenta: id, stockAvisos };
+
+      try {
+        await SB.insert("ventas", filas);
+      } catch (e) {
+        // la venta no se pudo grabar: devolver TODO el stock reservado, si no
+        // quedan prendas descontadas sin ninguna venta que las respalde
+        for (const d of reservadas) {
+          await this.ajustarStockPorVariante(d.codigo, d.talle, d.color, d.cantidad);
+        }
+        return { ok: false, error: String(e) };
+      }
+
+      return { ok: true, idVenta: id, stockAvisos: [] };
     } catch (e) { return { ok: false, error: String(e) }; }
   },
 

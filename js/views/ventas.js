@@ -1449,7 +1449,17 @@ function abrirPopupVenta(lineas, opts) {
       }
       renderVentasCategorias(document.getElementById("view"));
     } else {
-      toast("Error al registrar la venta");
+      // sinStock = otro dispositivo se llevó la prenda mientras se cobraba.
+      // No se registró NADA, así que hay que refrescar el stock y volver a empezar.
+      if (res.sinStock) {
+        toast(res.error);
+        cerrarModal();
+        const rs = await API.getStock();
+        if (rs.ok) State.stock = consolidarStock(rs.stock);
+        renderVentasCategorias(document.getElementById("view"));
+        return;
+      }
+      toast(res.error || "Error al registrar la venta");
       registrando = false; // falló: se puede reintentar
       btnConf.disabled = false;
       btnConf.textContent = "Confirmar";
