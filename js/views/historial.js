@@ -96,6 +96,8 @@ async function cargarHistorial() {
     .sort((a, b) => new Date(b.fechaHora) - new Date(a.fechaHora));
 
   const fcont = document.getElementById("histFiltros");
+  // si se cambió de sección mientras cargaba, el contenedor ya no está
+  if (!fcont) return;
   fcont.innerHTML = "";
   const tallesDisp = [...new Set(_ventasHist.map((v) => v.talle))];
   // límites del filtro de fecha: en modo normal solo hoy y ayer

@@ -23,6 +23,8 @@ async function renderFacturas(root) {
   _facturas = res.facturas;
 
   const fcont = document.getElementById("facFiltros");
+  // si se cambió de sección mientras cargaba, el contenedor ya no está
+  if (!fcont) return;
   const barra = crearBarraFiltros({
     placeholder: "Buscar por nombre, DNI o número...",
     campos: [

@@ -520,9 +520,47 @@ function dobleConfirmacion(opts) {
       </div>`;
     document.getElementById("dcOv2").onclick = cerrarModal;
     document.getElementById("dcNo2").onclick = cerrarModal;
-    document.getElementById("dcYes2").onclick = () => { cerrarModal(); opts.onOk(); };
+    // traba contra el doble disparo: acá pasan casi todas las operaciones
+    // destructivas (borrar, cancelar, restaurar), y un segundo click las
+    // ejecutaba dos veces. Ver unaVez() más abajo.
+    let confirmado = false;
+    document.getElementById("dcYes2").onclick = () => {
+      if (confirmado) return;
+      confirmado = true;
+      cerrarModal();
+      opts.onOk();
+    };
   }
   paso1();
+}
+
+/* ===== TRABA CONTRA EL DOBLE DISPARO =====
+   El `disabled` del botón no alcanza: el 12/09 se registró dos veces la misma
+   venta con 162 ms de diferencia, con el botón deshabilitado de por medio.
+   unaVez() envuelve el handler con un flag propio, que corta la segunda llamada
+   venga de donde venga (doble click, doble toque en el celular, Enter + click).
+
+   Si al terminar el botón ya no está en pantalla (la operación cerró el modal),
+   no se reactiva. Si sigue estando, se libera para poder reintentar. */
+function unaVez(btn, fn, textoMientras) {
+  if (!btn) return;
+  let corriendo = false;
+  const textoOriginal = btn.textContent;
+  btn.onclick = async (e) => {
+    if (corriendo) return;
+    corriendo = true;
+    btn.disabled = true;
+    if (textoMientras) btn.textContent = textoMientras;
+    try {
+      await fn(e);
+    } finally {
+      if (document.body.contains(btn)) {
+        corriendo = false;
+        btn.disabled = false;
+        btn.textContent = textoOriginal;
+      }
+    }
+  };
 }
 
 // ---- Arranque ----

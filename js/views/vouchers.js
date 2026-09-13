@@ -27,6 +27,8 @@ async function cargarVouchers() {
 
   // barra de filtros
   const fcont = document.getElementById("vFiltros");
+  // si se cambió de sección mientras cargaba, el contenedor ya no está
+  if (!fcont) return;
   fcont.innerHTML = "";
   const barra = crearBarraFiltros({
     placeholder: "Buscar por nombre o teléfono...",
@@ -206,7 +208,7 @@ function bindVoucher(list, v) {
       </div>`;
     document.getElementById("ov").onclick = cerrarModal;
     document.getElementById("vencCancel").onclick = cerrarModal;
-    document.getElementById("vencSave").onclick = async () => {
+    unaVez(document.getElementById("vencSave"), async () => {
       const nueva = document.getElementById("newVenc").value;
       if (!nueva) return toast("Falta la fecha");
       const rVen = await API.actualizarVoucher(v.id, { vencimiento: nueva });
@@ -216,7 +218,7 @@ function bindVoucher(list, v) {
       toast("Vencimiento actualizado");
       cargarVouchers();
       actualizarCampanitaVouchers();
-    };
+    });
   };
 
   const dis = row.querySelector('[data-act="disable"]');
@@ -348,7 +350,7 @@ function abrirNuevoVoucher() {
   };
   chkBonif.onchange = refrescarBonif;
 
-  document.getElementById("vSave").onclick = async () => {
+  unaVez(document.getElementById("vSave"), async () => {
     const nombre = document.getElementById("vNom").value.trim();
     const telefono = document.getElementById("vTel").value.trim();
     const vencimiento = document.getElementById("vVence").value;
@@ -388,7 +390,7 @@ function abrirNuevoVoucher() {
     cerrarModal();
     toast("Voucher creado");
     cargarVouchers();
-  };
+  });
 }
 
 /* ============================================================
@@ -534,7 +536,7 @@ async function abrirVoucherDesdeVenta(v, opts) {
   document.getElementById("gvOv").onclick = cerrarModal;
   document.getElementById("gvCancel").onclick = cerrarModal;
 
-  document.getElementById("gvSave").onclick = async () => {
+  unaVez(document.getElementById("gvSave"), async () => {
     const nombre = inpNom.value.trim();
     const telefono = inpTel.value.trim();
     const vencimiento = inpVence.value;
@@ -608,7 +610,7 @@ async function abrirVoucherDesdeVenta(v, opts) {
       : `Voucher de ${formatPrecio(monto)} generado · Prenda repuesta`);
     if (typeof opts.onListo === "function") opts.onListo();
     actualizarCampanitaVouchers();
-  };
+  });
 }
 
 // ---- Compartir como imagen ----

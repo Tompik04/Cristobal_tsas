@@ -55,6 +55,8 @@ async function cargarGastos() {
 
   // filtros
   const fcont = document.getElementById("gFiltros");
+  // si se cambió de sección mientras cargaba, el contenedor ya no está
+  if (!fcont) return;
   fcont.innerHTML = "";
   const barra = crearBarraFiltros({
     placeholder: "Buscar por concepto...",
@@ -324,7 +326,7 @@ function abrirNuevoGasto(gasto) {
     const m = document.getElementById("gMonto");
     if (m) m.focus();
   }
-  document.getElementById("gSave").onclick = async () => {
+  unaVez(document.getElementById("gSave"), async () => {
     const concepto = document.getElementById("gConcepto").value.trim();
     const monto = Number(document.getElementById("gMonto").value) || 0;
     const categoria = document.getElementById("gCat").value;
@@ -362,5 +364,5 @@ function abrirNuevoGasto(gasto) {
       ? (mesDestino !== mesVista ? `Gasto movido a ${mesLegible(mesDestino)}` : "Gasto actualizado")
       : `Gasto registrado en ${mesLegible(mesVista)}`);
     cargarGastos();
-  };
+  });
 }

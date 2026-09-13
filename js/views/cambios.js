@@ -32,6 +32,8 @@ async function cargarCambios() {
 
   // barra de filtros
   const fcont = document.getElementById("cambiosFiltros");
+  // si se cambió de sección mientras cargaba, el contenedor ya no está
+  if (!fcont) return;
   fcont.innerHTML = "";
   const tallesDisp = [...new Set(_ventasCambios.map((v) => v.talle))];
   const coloresDisp = [...new Set(_ventasCambios.map((v) => v.color))];
@@ -267,12 +269,12 @@ function abrirEditarLimiteCambio(v) {
   const btnReset = document.getElementById("elReset");
   if (btnReset) btnReset.onclick = () => guardar(pordef, btnReset, `Vuelto al límite de siempre (${fmtFecha(pordef)})`);
 
-  document.getElementById("elSave").onclick = () => {
+  unaVez(document.getElementById("elSave"), () => {
     const nueva = document.getElementById("elFecha").value;
     if (!nueva) return toast("Elegí una fecha");
     if (v.inicioCambio && nueva < v.inicioCambio) return toast("La fecha no puede ser anterior a la venta");
     guardar(nueva, document.getElementById("elSave"), `Se puede cambiar hasta el ${fmtFecha(nueva)}`);
-  };
+  });
 }
 
 // ---- Popup de intercambio ----
@@ -383,7 +385,7 @@ function abrirIntercambio(ventas) {
 
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("swapCancel").onclick = cerrarModal;
-  document.getElementById("swapNext").onclick = () => {
+  unaVez(document.getElementById("swapNext"), () => {
     // guardar la fecha elegida (el popup siguiente reemplaza el HTML)
     const fv = document.getElementById("swapFecha").value;
     _fechaCambio = fv ? new Date(fv).toISOString() : new Date().toISOString();
@@ -394,7 +396,7 @@ function abrirIntercambio(ventas) {
     } else {
       confirmarIntercambio(lista, { diferencia, voucher: 0, metodoPago: null, datosVoucher: null });
     }
-  };
+  });
 }
 
 // pedir nombre + teléfono para el voucher del saldo a favor

@@ -56,6 +56,8 @@ async function cargarCuentas() {
 
   // barra de búsqueda
   const fcont = document.getElementById("ccFiltros");
+  // si se cambió de sección mientras cargaba, el contenedor ya no está
+  if (!fcont) return;
   fcont.innerHTML = "";
   const barra = crearBarraFiltros({
     placeholder: "Buscar por nombre, apellido o teléfono...",
@@ -333,7 +335,7 @@ function abrirNuevaCuenta() {
     </div>`;
   document.getElementById("ov").onclick = cerrarModal;
   document.getElementById("ccCancel").onclick = cerrarModal;
-  document.getElementById("ccSave").onclick = async () => {
+  unaVez(document.getElementById("ccSave"), async () => {
     const nombre = document.getElementById("ccNom").value.trim();
     const apellido = document.getElementById("ccApe").value.trim();
     const telefono = document.getElementById("ccTel").value.trim();
@@ -343,7 +345,7 @@ function abrirNuevaCuenta() {
     toast("Cuenta creada");
     cerrarModal();
     cargarCuentas();
-  };
+  });
 }
 
 // ---- Detalle de cuenta ----
@@ -586,7 +588,7 @@ function abrirEditarVencimiento(cuentaId, item, pendientes) {
     await recargarYReabrir(cuentaId);
   };
 
-  document.getElementById("evSave").onclick = async () => {
+  unaVez(document.getElementById("evSave"), async () => {
     const nueva = document.getElementById("evFecha").value;
     if (!nueva) return toast("Elegí una fecha");
     const chkTodas = document.getElementById("evTodas");
@@ -610,7 +612,7 @@ function abrirEditarVencimiento(cuentaId, item, pendientes) {
       ? `Vencimiento corregido en ${objetivo.length} prendas`
       : `Vence el ${fmtFecha(nueva)}`);
     await recargarYReabrir(cuentaId);
-  };
+  });
 }
 
 async function recargarYReabrir(cuentaId) {
@@ -761,6 +763,8 @@ async function cargarSenas() {
   _senasHabilitadas = new Set(rh && rh.ok ? rh.ids : []);
 
   const fcont = document.getElementById("senaFiltros");
+  // si se cambió de sección mientras cargaba, el contenedor ya no está
+  if (!fcont) return;
   fcont.innerHTML = "";
   const barra = crearBarraFiltros({
     placeholder: "Buscar por nombre o teléfono...",
@@ -1004,7 +1008,7 @@ function abrirPagoSena(s, saldo) {
   document.getElementById("spOv").onclick = cerrarModal;
   document.getElementById("spCancel").onclick = () => abrirDetalleSena(s.id);
 
-  document.getElementById("spSave").onclick = async () => {
+  unaVez(document.getElementById("spSave"), async () => {
     const monto = Number(inp.value) || 0;
     const metodo = document.getElementById("spMetodo").value;
     if (monto <= 0) return toast("Monto inválido");
@@ -1037,5 +1041,5 @@ function abrirPagoSena(s, saldo) {
     cerrarModal();
     toast(completa ? `Seña completada · El cliente se lleva la prenda${avisoCambio}` : `Pago registrado · ${formatPrecio(monto)}`);
     cargarSenas();
-  };
+  });
 }
