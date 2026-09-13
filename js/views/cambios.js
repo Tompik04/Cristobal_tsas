@@ -79,7 +79,7 @@ function actualizarBarraCambios() {
       <span><i class="ti ti-checkbox"></i> ${ids.length} seleccionada${ids.length === 1 ? "" : "s"}</span>
       <div class="cab-btns">
         <button class="btn-ghost" id="cambSelLimpiar">Limpiar</button>
-        <button class="btn-primary" id="cambSelIr">Cambiar seleccionadas</button>
+        <button class="btn-primary" id="cambSelIr">Elegir prendas nuevas</button>
       </div>
     </div>`;
   document.getElementById("cambSelLimpiar").onclick = () => {
@@ -89,7 +89,7 @@ function actualizarBarraCambios() {
   };
   document.getElementById("cambSelIr").onclick = () => {
     const ventas = _ventasCambios.filter((v) => _cambiosSel.has(v.id));
-    if (ventas.length) abrirIntercambio(ventas);
+    if (ventas.length) empezarCambio(ventas);
   };
 }
 
@@ -160,6 +160,14 @@ function crowHTML(v) {
     </div>`;
 }
 
+// Arranca el cambio por el lado correcto: primero lo que DEVUELVE el cliente.
+// Si el carrito ya tiene prendas (venías del flujo viejo), se va derecho a
+// confirmar en vez de hacerte elegir de nuevo.
+function empezarCambio(ventas) {
+  if (State.carrito.length) return abrirIntercambio(ventas);
+  iniciarCambio(ventas);
+}
+
 function bindCrow(list, v) {
   const row = list.querySelector(`.crow[data-id="${v.id}"]`);
   const swap = row.querySelector('[data-act="swap"]');
@@ -171,10 +179,10 @@ function bindCrow(list, v) {
         mensaje1: `La venta de ${v.codigo} está fuera del período de cambio (vencido).`,
         mensaje2: "Vas a hacer un cambio de forma excepcional sobre una venta vencida. ¿Confirmás?",
         textoBoton: "Hacer cambio igual",
-        onOk: () => abrirIntercambio([v]),
+        onOk: () => empezarCambio([v]),
       });
     } else {
-      abrirIntercambio([v]);
+      empezarCambio([v]);
     }
   };
   // cambiar la prenda por un voucher en vez de por otra prenda.
@@ -272,7 +280,9 @@ function abrirIntercambio(ventas) {
   const lista = Array.isArray(ventas) ? ventas : [ventas];
   if (!lista.length) return;
   if (!State.carrito.length) {
-    return toast("Primero agregá las prendas nuevas al carrito (en Ventas)");
+    // no debería pasar (el flujo arranca en Cambios y la barra pide las prendas),
+    // pero si el carrito quedó vacío se vuelve a elegir en vez de dejar un cartel
+    return iniciarCambio(lista);
   }
 
   const totalNuevas = State.carrito.reduce((a, l) => a + precioLinea(l), 0);
@@ -746,6 +756,7 @@ async function confirmarIntercambio(ventas, info) {
     // desde Carritos.lista/localStorage al cambiar de pestana o recargar)
     State.carrito = [];
     State.descuentoCarrito = 0;
+    State.cambioEnCurso = null; // el cambio terminó: se baja la barra
     Carritos.sync();
     actualizarBadge();
     renderCartFab();

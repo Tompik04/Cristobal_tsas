@@ -9,6 +9,9 @@ const State = {
   vistaActual: "home",
   dentroCategoria: false, // true cuando estás dentro de una categoría (Ventas/Stock)
   privadoHasta: 0,    // timestamp hasta el cual el modo privado está activo
+  // Cambio en curso: se arranca desde Cambios eligiendo lo que DEVUELVE el cliente
+  // y después se eligen las prendas nuevas en Ventas. { ids:[], fecha } o null.
+  cambioEnCurso: null,
 };
 
 /* ===== MÚLTIPLES CARRITOS (para atender varios clientes a la vez) =====
@@ -173,6 +176,7 @@ const Router = {
     viewEl.innerHTML = "";
     if (fn) fn(viewEl, params);
     renderCartFab();
+    renderBarraCambio(); // el cambio en curso acompaña en todas las secciones
     window.scrollTo(0, 0);
   },
 
@@ -212,6 +216,69 @@ function renderCartFab() {
 // actualiza el badge / visibilidad del carrito global
 function actualizarBadge() {
   renderCartFab();
+  renderBarraCambio();
+}
+
+/* ===== BARRA DEL CAMBIO EN CURSO =====
+   El cambio arranca en Cambios (elegís lo que devuelve el cliente) y sigue en
+   Ventas (elegís lo que se lleva). Antes era al revés: había que adivinar la
+   prenda nueva y cargarla al carrito ANTES de saber qué devolvía.
+   Esta barra mantiene el contexto mientras recorrés las categorías: qué se
+   devuelve, cuánto se acredita y cuánto falta o sobra en vivo. */
+function renderBarraCambio() {
+  const root = document.getElementById("cambioRoot");
+  if (!root) return;
+  const c = State.cambioEnCurso;
+  if (!c || !c.ventas || !c.ventas.length) { root.innerHTML = ""; return; }
+
+  // lo que se le acredita: el valor de cada prenda devuelta
+  const credito = c.ventas.reduce((a, v) => a + (v.precioProducto != null ? v.precioProducto : (v.precioBase || 0)), 0);
+  // lo que se lleva: el carrito activo
+  const nuevas = State.carrito.reduce((a, l) => a + precioLinea(l), 0);
+  const dif = nuevas - credito;
+  const unidades = State.carrito.reduce((a, l) => a + l.cantidad, 0);
+
+  const detalle = c.ventas.map((v) => `${escAttr(v.marca || v.codigo)} ${v.talle}/${v.color}`).join(" + ");
+  let estado, clase;
+  if (!unidades) { estado = "Elegí las prendas que se lleva"; clase = "espera"; }
+  else if (Math.abs(dif) < 0.5) { estado = "Justo, sin diferencia"; clase = "ok"; }
+  else if (dif > 0) { estado = `Falta pagar ${formatPrecio(dif)}`; clase = "paga"; }
+  else { estado = `A favor ${formatPrecio(-dif)}`; clase = "favor"; }
+
+  root.innerHTML = `
+    <div class="cambio-bar">
+      <div class="cambio-bar-info">
+        <span class="cambio-bar-tag"><i class="ti ti-arrows-exchange"></i> Cambiando</span>
+        <span class="cambio-bar-prendas">${detalle}</span>
+        <span class="cambio-bar-credito">Se le acredita ${formatPrecio(credito)}</span>
+      </div>
+      <div class="cambio-bar-der">
+        <span class="cambio-bar-estado ${clase}">${estado}</span>
+        <button class="btn-ghost" id="cambioCancelar">Cancelar</button>
+        <button class="btn-primary" id="cambioConfirmar" ${unidades ? "" : "disabled"}>Confirmar cambio</button>
+      </div>
+    </div>`;
+
+  document.getElementById("cambioCancelar").onclick = () => {
+    dobleConfirmacion({
+      titulo: "Cancelar el cambio",
+      mensaje1: `Vas a cancelar el cambio de ${detalle}.`,
+      mensaje2: "Las prendas que hayas agregado quedan en el carrito. ¿Confirmás?",
+      textoBoton: "Cancelar el cambio",
+      onOk: () => { State.cambioEnCurso = null; renderBarraCambio(); toast("Cambio cancelado"); },
+    });
+  };
+  document.getElementById("cambioConfirmar").onclick = () => {
+    if (!State.carrito.length) return toast("Agregá las prendas que se lleva el cliente");
+    abrirIntercambio(State.cambioEnCurso.ventas);
+  };
+}
+
+// arranca un cambio desde la vista Cambios y manda a elegir las prendas nuevas
+function iniciarCambio(ventas) {
+  State.cambioEnCurso = { ventas: Array.isArray(ventas) ? ventas : [ventas] };
+  Router.ir("ventas");
+  toast("Elegí las prendas que se lleva el cliente");
 }
 
 // pinta el logo de fondo con un tinte según la sección
