@@ -149,15 +149,20 @@ Respetá siempre estos tokens. No inventes colores ni tipografías.
 
 ## Cosas que se rompen seguido
 
-Síntomas reportados (sin diagnosticar todavía):
+Síntomas reportados, todavía SIN diagnosticar:
 
-- Al filtrar por color o talle en prendas para poder ver la cantidad, aparecen algunos litados con otro talle o color y no el que se quiere filtrar
-- Variacion de disponibles en stock, entre subida de stock y ventas de las prendas a veces deberia aparecer 1 prenda y salen 2, o no deberia haber y sale 1 disponible. (Podria deberse a error al stockear, pero vale la pena revisar)
+- Al filtrar por color o talle en prendas para poder ver la cantidad, aparecen algunos listados con otro talle o color y no el que se quiere filtrar
 - Muestra en historial de cambios o ventas, cambios realizados sin mostrar bien los detalles de prendas salientes y prendas entrantes
 - Muestra en historial de vouchers y demas realizados sin descripcion ni detalle
-- Espaciado de items en las diferentes tarjetas, no tienen una buena disposicion y no se ve bien, no se aprovecha todo el espacio
 
-### Confirmado en la base (2026-08-18)
+### YA ARREGLADO (no volver a diagnosticar esto)
+
+- **Corte de 1000 filas de PostgREST** (13/09, `ab24986`). Cortaba TODA respuesta en 1000 sin avisar. Con `stock` en 1023 filas, lo que ordenaba después de `VIL1202` era invisible para la app, y `agregarStock` creaba una fila nueva cada vez porque no encontraba la variante. `SB.select` ahora pagina con el header `Range`. **Si algo "no se guarda" o un número no cuadra, chequear primero si esa tabla pasó las 1000 filas** — `ventas` viene en 549 y va camino.
+- **Duplicados en `stock`** (13/09, `ebea693` + limpieza en la base). `agregarStock` matcheaba por precio, así que un lote a otro costo abría fila aparte y después igualar precios dejaba duplicados exactos. Ahora es **una fila por `codigo+talle+color+categoria`**, con índice único `stock_variante_unica` que lo impide de raíz. `consolidarStock` agrupa con la misma clave.
+- **`RECARGO_TARJETA` no se leía de la base** (18/08, `f266773`). La clave en `config` se llama `RecargoTarjeta` y el código pedía `RECARGO_TARJETA`. Ya corregido, y ahora avisa con un toast si falla la lectura.
+- **Espaciado de las tarjetas** (18/08, `fa13e7c` + `d871c59`). Las filas que reusan `.crow` tenían su grilla pisada. Ojo: **`.crow` define 5 columnas**; si agregás un botón o dato a una fila, metelo en un contenedor existente (`.c-acts`, `.v-actions`, `.c-meta`) o dale grilla propia DESPUÉS de `.crow` en el CSS.
+
+### Diagnóstico viejo (contexto de por qué se rompía)
 
 **1. Filas duplicadas en `stock` — explica la variación de disponibles.**
 `stock` no tiene ningún índice único sobre la variante: la única restricción es la PK `id`. Nada impide dos filas idénticas. Hoy hay **9 variantes con 2 filas cada una**, iguales en *todos* los campos (código, talle, color, categoría, marca, precio_venta, precio_costo) — no son lotes distintos. Ejemplos:
