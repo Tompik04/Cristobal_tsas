@@ -3,6 +3,8 @@
 SPA de gestión para Cristóbal, tienda de ropa masculina.
 Respondeme siempre en español rioplatense, informal y directo.
 
+**Respuestas cortas.** Decime: qué era el problema, qué se hizo, si quedó resuelto y qué falta (si falta algo). Nada más. Sin tablas de verificación, sin repetir lo que ya dijiste en el commit, sin explicar de más. Si algo necesita una explicación larga, preguntame antes de escribirla.
+
 ---
 
 ## Stack
