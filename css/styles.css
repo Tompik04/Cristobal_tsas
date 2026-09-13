@@ -1141,11 +1141,12 @@ button { font-family: inherit; }
 .cambio-bar-prendas { color: var(--pale-oak); font-weight: 600; font-size: 14px; }
 .cambio-bar-credito { font-size: 12px; color: var(--oak-55); }
 .cambio-bar-der { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.cambio-bar-estado { font-size: 14px; font-weight: 600; white-space: nowrap; }
+.cambio-bar-estado { font-size: 15px; font-weight: 700; white-space: nowrap; text-align: center; }
 .cambio-bar-estado.espera { color: var(--oak-55); font-weight: 400; }
-.cambio-bar-estado.ok     { color: var(--sage); }
-.cambio-bar-estado.paga   { color: var(--gold-bright); }
-.cambio-bar-estado.favor  { color: var(--teal-bright); }
+.cambio-bar-estado.ok     { color: var(--gold-bright); }
+/* falta pagar = ámbar de alerta; a favor = verde. Mismo criterio que el popup. */
+.cambio-bar-estado.paga   { color: var(--amber); }
+.cambio-bar-estado.favor  { color: var(--gold-bright); }
 /* el carrito flotante sube para no quedar tapado por la barra */
 #cambioRoot:not(:empty) ~ #cartRoot .cart-fab, .cambio-bar ~ .cart-fab { bottom: 104px; }
 @media (max-width: 860px) {
@@ -1277,8 +1278,13 @@ button { font-family: inherit; }
 .swap-list { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
 .swap-empty { color: var(--oak-55); font-size: 12px; text-align: center; padding: 1rem; }
 .swap-diff { border-top: 1px solid var(--oak-20); padding-top: 1rem; display: flex; flex-direction: column; gap: 8px; }
-.swap-diff .modal-total span:last-child.pay { color: var(--terracotta); }
-.swap-diff .modal-total span:last-child.credit { color: var(--sage); }
+/* la diferencia va centrada y en negrita: es el dato que mira el empleado para
+   saber si tiene que cobrar algo antes de cerrar el cambio */
+.swap-diff .modal-total { justify-content: center; gap: 12px; font-weight: 700; }
+/* falta pagar = ámbar de alerta (hay que cobrar ahora) */
+.swap-diff .modal-total span:last-child.pay { color: var(--amber); font-weight: 700; }
+/* a favor = verde (no hay nada que cobrar) */
+.swap-diff .modal-total span:last-child.credit { color: var(--gold-bright); font-weight: 700; }
 .swap-note { font-size: 12px; color: var(--oak-60); text-align: center; }
 
 @media (max-width: 640px) {
