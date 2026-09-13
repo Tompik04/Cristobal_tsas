@@ -252,8 +252,8 @@ function renderBarraCambio() {
         <span class="cambio-bar-prendas">${detalle}</span>
         <span class="cambio-bar-credito">Se le acredita ${formatPrecio(credito)}</span>
       </div>
+      <span class="cambio-bar-estado ${clase}">${estado}</span>
       <div class="cambio-bar-der">
-        <span class="cambio-bar-estado ${clase}">${estado}</span>
         <button class="btn-ghost" id="cambioCancelar">Cancelar</button>
         <button class="btn-primary" id="cambioConfirmar" ${unidades ? "" : "disabled"}>Confirmar cambio</button>
       </div>
@@ -272,6 +272,18 @@ function renderBarraCambio() {
     if (!State.carrito.length) return toast("Agregá las prendas que se lleva el cliente");
     abrirIntercambio(State.cambioEnCurso.ventas);
   };
+}
+
+// Respaldo del ocultamiento de la barra. El CSS lo hace con :has(), pero si un
+// navegador no lo soporta la barra volvería a tapar los botones del popup de
+// intercambio, que es justo lo que rompía el cambio. Esto marca el body con una
+// clase cada vez que entra o sale un modal.
+function vigilarModales() {
+  const root = document.getElementById("modalRoot");
+  if (!root) return;
+  const marcar = () => document.body.classList.toggle("con-modal", !!root.querySelector(".modal"));
+  new MutationObserver(marcar).observe(root, { childList: true, subtree: true });
+  marcar();
 }
 
 // arranca un cambio desde la vista Cambios y manda a elegir las prendas nuevas
@@ -526,6 +538,7 @@ document.addEventListener("click", (e) => {
 
 async function iniciarApp() {
   document.getElementById("app").classList.remove("hidden");
+  vigilarModales();
   // leer el recargo de tarjeta configurado en Supabase (si existe).
   // Si falla, avisar: antes quedaba en silencio usando el valor por defecto y
   // cambiar el recargo en Supabase no tenía ningún efecto visible.

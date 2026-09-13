@@ -246,16 +246,69 @@ function bindFila(root, p, f) {
   row.querySelector('[data-act="check"]').onclick = () => {
     const l = lineaActual();
     if (l.cantidad < 1) return toast("Sin stock disponible");
+    // mismo control que el carrito: lo que está reservado en un carrito abierto
+    // no se puede vender por afuera, o uno de los dos clientes queda sin prenda
+    const disp = stockActual();
+    const ya = unidadesEnCarritos(l.codigo, l.talle, l.color);
+    if (ya.total + l.cantidad > disp) {
+      const libres = Math.max(0, disp - ya.total);
+      return toast(libres
+        ? `Solo quedan ${libres} libres: el resto está en el carrito`
+        : `Las ${disp} disponibles ya están en ${ya.enOtros ? ya.nombresOtros.join(", ") : "el carrito"}`);
+    }
     abrirPopupVenta([l]);
   };
   row.querySelector('[data-act="cart"]').onclick = () => {
     const l = lineaActual();
     if (l.cantidad < 1) return toast("Sin stock disponible");
-    State.carrito.push(l);
+
+    // No pasarse del stock real. Antes se hacía push directo sin mirar lo que YA
+    // había en el carrito: clickeando varias veces se podían cargar 12 unidades
+    // de una prenda con 2 disponibles, y recién saltaba al vender.
+    const disp = stockActual();
+    const ya = unidadesEnCarritos(l.codigo, l.talle, l.color);
+    if (ya.total + l.cantidad > disp) {
+      const libres = Math.max(0, disp - ya.total);
+      if (!libres) {
+        return toast(ya.enOtros
+          ? `Sin stock libre: las ${disp} están en ${ya.nombresOtros.join(", ")}`
+          : `Ya tenés las ${disp} disponibles en el carrito`);
+      }
+      return toast(`Solo quedan ${libres} de ${disp} (el resto ya está en el carrito)`);
+    }
+
+    // si la variante ya está en el carrito, se suma a esa línea en vez de
+    // apilar líneas sueltas de la misma prenda
+    const existente = State.carrito.find((x) =>
+      x.codigo === l.codigo && String(x.talle) === String(l.talle) && x.color === l.color &&
+      x.precio === l.precio && (x.oferta || 0) === (l.oferta || 0));
+    if (existente) existente.cantidad += l.cantidad;
+    else State.carrito.push(l);
+
     Carritos.sync();
     actualizarBadge();
     toast(`${l.codigo} agregado al carrito`);
   };
+}
+
+// Unidades de una variante que ya están comprometidas en los carritos.
+// Cuenta TODOS los carritos, no solo el activo: el stock recién se descuenta al
+// confirmar la venta, así que dos carritos abiertos podrían llevarse la misma
+// última prenda y uno de los dos quedaría sin nada que entregar.
+// Devuelve { total, enOtros, nombresOtros }.
+function unidadesEnCarritos(codigo, talle, color) {
+  const coincide = (l) => l.codigo === codigo && String(l.talle) === String(talle) && l.color === color;
+  let total = 0, enOtros = 0;
+  const nombresOtros = [];
+  (typeof Carritos !== "undefined" ? Carritos.lista : []).forEach((c) => {
+    // el carrito activo se lee de State.carrito, que es el que está vivo en memoria
+    const items = (c.id === Carritos.activoId) ? State.carrito : (c.items || []);
+    const n = items.filter(coincide).reduce((a, l) => a + (l.cantidad || 0), 0);
+    if (!n) return;
+    total += n;
+    if (c.id !== Carritos.activoId) { enOtros += n; nombresOtros.push(c.nombre || "otro carrito"); }
+  });
+  return { total, enOtros, nombresOtros };
 }
 
 // ---- Carrito ---- (el FAB y el badge ahora son globales en app.js)
