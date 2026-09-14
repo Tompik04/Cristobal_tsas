@@ -203,6 +203,25 @@ const TALLES_POR_CATEGORIA = {
   "Pantalón Gabardina": TALLES_NUMERO,
   "Pantalón de Lino": TALLES_NUMERO,
 };
+// Ordena una lista de talles como se usan en el local: primero las letras en
+// orden de talle (S, M, L, XL...) y despues los numeros de menor a mayor. Los
+// desplegables se armaban con el orden en que venian de la base, asi que salia
+// 50, 42, 44.
+function ordenarTalles(lista) {
+  // OJO con parseFloat: "3XL" daria 3. Solo cuenta como numero si es todo digitos.
+  const esNumero = (t) => /^\d+([.,]\d+)?$/.test(String(t).trim());
+  const rango = (t) => {
+    if (esNumero(t)) return [1, parseFloat(String(t).replace(",", ".")), ""];
+    const i = TALLES.indexOf(String(t));
+    if (i !== -1) return [0, i, ""];       // letra conocida: S, M, L, XL...
+    return [2, 0, String(t)];              // cualquier otra cosa, al final
+  };
+  return [...lista].sort((a, b) => {
+    const ra = rango(a), rb = rango(b);
+    return ra[0] - rb[0] || ra[1] - rb[1] || ra[2].localeCompare(rb[2]);
+  });
+}
+
 function tallesDeCategoria(cat) {
   return TALLES_POR_CATEGORIA[cat] || TALLES_LETRA;
 }

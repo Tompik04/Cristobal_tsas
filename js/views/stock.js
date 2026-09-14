@@ -650,7 +650,7 @@ function renderExistente(categoria) {
     .sort((a, b) => a.codigo.localeCompare(b.codigo) || a.precio - b.precio);
 
   // talles/colores disponibles para los filtros
-  const tallesDisp = [...new Set(items.map((s) => s.talle))];
+  const tallesDisp = ordenarTalles(new Set(items.map((s) => s.talle)));
   const coloresDisp = [...new Set(items.map((s) => s.color))];
 
   const barra = crearBarraFiltros({
@@ -762,9 +762,7 @@ function srowAgrupadaHTML(p, f, idx) {
   // Si hay filtro, los desplegables SOLO ofrecen lo filtrado. Antes se armaban
   // con todas las variantes: la fila aparecía bien (tenía ese talle) pero el
   // desplegable arrancaba en otro y se veía una prenda que no era la buscada.
-  const tallesOpt = variantesFiltradas(p, f)
-    .map((v) => v.talle)
-    .filter((t, i, a) => a.indexOf(t) === i)
+  const tallesOpt = ordenarTalles(new Set(variantesFiltradas(p, f).map((v) => v.talle)))
     .map((t) => `<option value="${escAttr(t)}">${t}</option>`).join("");
   return `
     <div class="prow srow-agrup" data-idx="${idx}">

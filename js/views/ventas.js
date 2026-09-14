@@ -45,7 +45,7 @@ function renderListaProductos(root, categoria) {
   `;
 
   // talles/colores disponibles en esta categoría para los selects de filtro
-  const tallesDisp = [...new Set(items.map((s) => s.talle))];
+  const tallesDisp = ordenarTalles(new Set(items.map((s) => s.talle)));
   const coloresDisp = [...new Set(items.map((s) => s.color))];
 
   const barra = crearBarraFiltros({
@@ -119,7 +119,7 @@ function variantesFiltradasVenta(p, f) {
 
 function filaProductoHTML(p, f) {
   const disponibles = variantesFiltradasVenta(p, f);
-  const talles = [...new Set(disponibles.map((v) => v.talle))];
+  const talles = ordenarTalles(new Set(disponibles.map((v) => v.talle)));
   const tallesOpt = talles
     .map((t) => {
       const stockT = disponibles.filter((v) => v.talle === t).reduce((a, v) => a + v.cantidad, 0);

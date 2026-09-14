@@ -35,7 +35,7 @@ async function cargarCambios() {
   // si se cambió de sección mientras cargaba, el contenedor ya no está
   if (!fcont) return;
   fcont.innerHTML = "";
-  const tallesDisp = [...new Set(_ventasCambios.map((v) => v.talle))];
+  const tallesDisp = ordenarTalles(new Set(_ventasCambios.map((v) => v.talle)));
   const coloresDisp = [...new Set(_ventasCambios.map((v) => v.color))];
   const barra = crearBarraFiltros({
     placeholder: "Buscar por marca o código...",

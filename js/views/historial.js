@@ -99,7 +99,7 @@ async function cargarHistorial() {
   // si se cambió de sección mientras cargaba, el contenedor ya no está
   if (!fcont) return;
   fcont.innerHTML = "";
-  const tallesDisp = [...new Set(_ventasHist.map((v) => v.talle))];
+  const tallesDisp = ordenarTalles(new Set(_ventasHist.map((v) => v.talle)));
   // límites del filtro de fecha: en modo normal solo hoy y ayer
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
   const ayerD = new Date(); ayerD.setDate(ayerD.getDate() - 1);
