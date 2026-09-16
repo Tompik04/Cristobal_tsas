@@ -180,7 +180,7 @@ const COLORES = ["Negro", "Blanco", "Gris", "Beige", "Azul", "Marrón", "Celeste
 
 // Talles según categoría (provisorio, se ajusta más adelante)
 const TALLES_LETRA = ["S", "M", "L", "XL", "XXL", "3XL", "50", "52", "54"];
-const TALLES_NUMERO = ["36", "38", "40", "42", "44", "46", "48", "50"];
+const TALLES_NUMERO = ["36", "38", "40", "42", "44", "46", "48", "50", "52"];
 const TALLES_POR_CATEGORIA = {
   "Remeras M/Corta": TALLES_LETRA,
   "Buzos y Camperas": TALLES_LETRA,
