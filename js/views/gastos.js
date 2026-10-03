@@ -133,6 +133,15 @@ function pintarResumen() {
   const neta = r.caja;
   const signo = neta >= 0 ? "pos" : "neg";
 
+  // Caja ACUMULADA hasta el fin del mes mostrado: la del mes sola no dice cuanta
+  // plata hay en mano, porque arrastra lo que sobro (o falto) de los meses previos.
+  // Mismo criterio de corte que prendasEnLocalDe(): todo lo que paso hasta 'mes'.
+  const acumulada = resumenEconomico(
+    _ventasParaResumen.filter((v) => !v.restaurada && mesLocalDe(v.fechaHora || "") <= mes),
+    _cobrosExtra.filter((c) => mesLocalDe(c.fechaHora || "") <= mes),
+    _gastos.filter((g) => (g.fecha || "").slice(0, 7) <= mes)
+  ).caja;
+
   // --- prendas: entraron y se vendieron en el mes, y total en el local ---
   const prendasEntraron = _ingresosStock
     .filter((i) => mesLocalDe(i.fecha || "") === mes)
@@ -171,6 +180,7 @@ function pintarResumen() {
     <div class="resumen-cards ${privado ? "" : "resumen-1"}">
       ${cardsHTML}
     </div>
+    ${privado ? `<p class="resumen-acumulado${acumulada >= 0 ? "" : " neg"}">Deberías tener en mano, acumulado hasta ${mesLegible(mes)}: <strong>${formatPrecio(acumulada)}</strong></p>` : ""}
     <div class="resumen-cards resumen-prendas">
       <div class="rcard"><span class="rc-label">Entraron (mes)</span><span class="rc-val">${prendasEntraron}</span></div>
       <div class="rcard"><span class="rc-label">Vendidas (mes)</span><span class="rc-val">${prendasVendidas}</span></div>

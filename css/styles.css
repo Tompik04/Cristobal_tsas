@@ -688,6 +688,9 @@ button { font-family: inherit; }
 .rc-label { font-size: 12px; letter-spacing: 0.08em; color: var(--oak-55); text-transform: uppercase; }
 .rc-val { font-size: 22px; font-weight: 600; }
 /* fila de conteo de prendas (entraron/vendidas/en el local): secundaria, más chica */
+.resumen-acumulado { margin: -0.9rem 0 0; padding: 0 2.5% 1.3rem; text-align: right; font-size: 13px; color: var(--oak-55); }
+.resumen-acumulado strong { font-size: 16px; font-weight: 600; color: var(--gold-bright); margin-left: 4px; }
+.resumen-acumulado.neg strong { color: var(--danger); }
 .resumen-prendas { padding-top: 0; }
 .resumen-prendas .rc-val { font-size: 18px; color: var(--gold-bright); }
 .rc-val.pos { color: var(--sage); }
